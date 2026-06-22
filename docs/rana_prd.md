@@ -54,6 +54,79 @@ Fitur berikut **tidak masuk fase awal**:
 
 ---
 
+## 3.5. Arsitektur & Filosofi Preset (Preset Philosophy & Architecture)
+
+### 1. Preset Bukan Sekadar Filter (Preset ≠ LUT, Preset = Recipe)
+Preset pada Rana tidak boleh dianggap hanya sebagai file LUT warna (Look-Up Table). Preset dirancang sebagai sebuah **Recipe** (Resep) yang merupakan kombinasi dari parameter visual dan perilaku grafis yang kompleks.
+
+Setiap preset didefinisikan sebagai kombinasi dari:
+- **Color Parameters** (Pengaturan warna dasar seperti temperature, tint, contrast, dll.)
+- **Tone Curve** (Kurva nada warna)
+- **Grain Settings** (Intensitas dan ukuran grain film)
+- **Vignette Settings** (Intensitas vignette sudut gambar)
+- **LUT** (Look-Up Table warna 2D/3D opsional)
+- **Overlay** (Aset PNG leak/dust/frame opsional)
+- **Effects** (Efek tambahan seperti halation/bloom opsional)
+- **Randomization Behaviors** (Perilaku acak masa depan per foto)
+
+```
+Preset
+├── Color Parameters
+├── Grain
+├── Vignette
+├── LUT (optional)
+├── Overlay (optional)
+└── Effects (optional)
+```
+
+### 2. Preset Layers (Arsitektur Berlapis)
+Untuk mempermudah ekspansi tanpa harus mengubah arsitektur inti engine di masa mendatang, preset dibagi menjadi tiga lapisan:
+
+- **Layer 1 — Parameter Layer**: Pengaturan parameter warna dasar (temperature, tint, saturation, contrast, fade, grain, vignette). Didukung mulai dari Phase 3.
+- **Layer 2 — Asset Layer**: Berkas pendukung seperti file LUT, light leak overlays, dust overlays, dan frames. Diperkenalkan pada Phase 4–5.
+- **Layer 3 — Behavior Layer**: Perilaku acak (random grain seed, random light leak selection, random dust variation, dan preset-specific randomness). Diperkenalkan pada Phase 7+.
+
+Arsitektur berlapis ini memisahkan logika dasar (Engine) dengan data (Preset Recipes & Assets) sehingga penambahan preset baru di kemudian hari tidak memerlukan refaktorisasi kode program.
+
+### 3. Skema Preset (Preset Schema)
+Skema JSON preset masa depan yang extensible dirancang sebagai berikut:
+
+```json
+{
+  "id": "rana_warm",
+  "name": "Rana Warm",
+  "category": "Classic",
+  "color": {
+    "temperature": 0.2,
+    "contrast": 0.1,
+    "saturation": 0.15
+  },
+  "grain": {
+    "intensity": 0.1
+  },
+  "vignette": {
+    "intensity": 0.05
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null
+}
+```
+Skema ini dapat dikembangkan di fase-fase berikutnya dengan menambahkan objek baru (misal: `"lut": "assets/luts/classic1.png"`, `"behavior": { "random_leak": true }`) tanpa merusak parser engine yang sudah ada.
+
+### 4. Strategi Preset Jangka Panjang (Long-Term Preset Strategy)
+Rana dirancang untuk mendukung preset analog legendaris seperti:
+- Kodak Gold
+- Kodak Portra
+- Fuji 400H
+- Cinestill 800T
+- Gaya Disposable Camera
+- Gaya Y2K Camera
+
+Dukungan preset ini akan dicapai secara dinamis melalui kombinasi **Preset Engine**, **LUTs**, **Overlay Assets**, dan **Randomization Systems** tanpa mengubah kode arsitektur inti. Roadmap pengembangan Rana sengaja memisahkan antara **Engine Development** (pembuatan mesin rendering dan parser) dan **Preset Content Creation** (pembuatan resep preset dan aset grafis).
+
+---
+
 ## 4. Product Scope per Phase
 
 # Phase 0 — Foundation / Setup
@@ -168,39 +241,37 @@ Masih cukup bisa dikerjakan AI biasa, tapi integrasi camera lifecycle dan device
 # Phase 2 — Live Preview Effect Pipeline
 
 ## Objective
-Membuat efek visual realtime pada preview kamera.
+Memvalidasi keandalan dan stabilitas shader pipeline (membuktikan bahwa alur Camera → Shader → Realtime Preview berjalan andal tanpa lag).
 
 ## Deliverables
-- Realtime filter preview.
-- Shader pipeline dasar.
-- Preset switching di preview.
-- Overlay ringan seperti vignette atau frame.
+- Realtime preview dengan shader parameter-based.
+- Hanya 3 preset parameter-based dasar: **Rana Warm**, **Rana Cool**, dan **Rana Mono**.
+- Mekanisme switching preset tanpa restart kamera.
+- (Tidak ada dukungan LUT, tidak ada emulasi film kompleks, tidak ada preset Kodak/Fuji di fase ini).
 
 ## Recommended Stack
 - OpenGL ES / shader pipeline di native Android.
 - Flutter tetap sebagai controller UI.
 
-## Effects for This Phase
-- Warm tone.
-- Cool tone.
-- Black & white.
-- Slight vignette.
-- Grain ringan.
+## Presets for This Phase
+- **Rana Warm**: Shader-parameter berdasarkan penyesuaian temperature (peningkatan merah/kuning).
+- **Rana Cool**: Shader-parameter berdasarkan penyesuaian tint/temperature (peningkatan biru).
+- **Rana Mono**: Shader-parameter berdasarkan desaturasi penuh (luminance formula).
 
 ## Tasks
 1. Render frame kamera ke GPU texture.
-2. Apply fragment shader untuk warna dasar.
+2. Implementasi fragment shader parameter-based untuk 3 preset standar.
 3. Tambahkan preset switching tanpa restart camera.
-4. Sinkronkan preview dengan state Flutter.
+4. Sinkronkan parameter preview dengan state Flutter.
 5. Buat fallback jika device lemah.
 6. Pastikan FPS tetap stabil.
 7. Buat mekanisme enable/disable efek.
 8. Optimalkan agar preview tidak delay.
 
 ## Acceptance Criteria
-- Filter terlihat realtime.
-- Pergantian preset cepat.
-- FPS masih nyaman dipakai.
+- Preview terfilter realtime.
+- Pergantian antara 3 preset (Rana Warm, Rana Cool, Rana Mono) cepat dan tanpa lag.
+- FPS stabil di kisaran 24-30 FPS.
 - Hasil preview tidak patah-patah.
 
 ## Difficulty
@@ -210,93 +281,83 @@ Membuat efek visual realtime pada preview kamera.
 **High**
 
 ## Why
-Bagian ini mulai masuk ranah shader, texture pipeline, dan performa GPU. Ini titik awal yang layak ditangani model kuat.
+Membuktikan keandalan dasar rendering pipeline EGL context dan GLSL shader thread.
 
 ---
 
-# Phase 3 — Film Preset System
+# Phase 3 — Preset Engine V1
 
 ## Objective
-Membangun sistem preset film yang mudah ditambah dan diatur.
+Membangun arsitektur preset engine yang scalable agar dapat mendukung preset gaya Dazz Cam di masa mendatang tanpa memerlukan refaktorisasi kode program. Fokus pada mesin parser/config generator, bukan kuantitas preset.
 
 ## Deliverables
-- Daftar preset film.
-- Metadata preset.
-- Thumbnail preset.
-- Preset lock/unlock structure.
-- Preset category system.
-
-## Example Preset Categories
-- Classic film.
-- Disposable camera.
-- Warm retro.
-- Cold retro.
-- Night film.
-- B&W.
+- Preset schema & parser (JSON-based configuration).
+- Dynamic preset loading & registration dari folder assets.
+- Preset metadata & categories.
+- Preset thumbnail generation system.
+- (Belum ada dukungan LUT di fase ini).
 
 ## Tasks
-1. Buat model data preset.
-2. Buat asset naming convention.
-3. Buat UI selector preset.
-4. Buat mapping preset → shader params.
-5. Siapkan thumbnail generator.
-6. Buat preset preview carousel.
-7. Siapkan sistem add preset baru tanpa ubah arsitektur inti.
+1. Buat model data preset extensible berbasis JSON.
+2. Implementasi parser JSON di Flutter dan native bridge untuk dynamic preset registration (mendukung Layer 1 - Parameter Layer).
+3. Rancang UI selector preset dinamis berdasarkan resep JSON yang dimuat secara runtime.
+4. Rancang preset categories (misal: Classic, Disposable, Retro).
+5. Siapkan dynamic thumbnail generator.
+6. Buat preset preview carousel dinamis.
 
 ## Acceptance Criteria
-- User bisa pilih preset dengan cepat.
-- Struktur preset rapi dan scalable.
-- Menambah preset baru tidak merusak sistem.
+- Preset baru dapat ditambahkan hanya dengan menambahkan JSON recipe + aset tanpa memodifikasi kode engine.
+- Loading preset stabil dan cepat.
+- JSON ter-parse dengan benar tanpa merusak sistem.
 
 ## Difficulty
-**Medium**
+**Hard**
 
 ## Frontier Model Priority
-**Low to Medium**
+**High**
 
 ## Why
-Ini lebih banyak product organization dan asset management daripada algoritma berat.
+Fase ini menentukan fondasi arsitektur database/konfigurasi preset yang scalable untuk semua preset masa depan.
 
 ---
 
-# Phase 4 — Capture Processing & High-Resolution Export
+# Phase 4 — Capture Processing & High-Resolution Export (with LUT Support)
 
 ## Objective
-Saat foto diambil, hasil akhir harus diproses dengan kualitas tinggi dan konsisten dengan preview.
+Saat foto diambil, hasil akhir harus diproses dengan kualitas tinggi dan konsisten dengan preview, serta memperkenalkan integrasi LUT warna untuk pertama kalinya.
 
 ## Deliverables
 - Processing screen / progress state.
-- Apply shader or equivalent processing to captured image.
+- Apply shader to captured image.
 - High-resolution output.
-- Save final image.
-- Retake / share / save flow.
+- **First-time 2D/3D LUT Support** in the rendering pipeline (Layer 2).
+- Save final image & Gallery save flow.
 
-## Important Requirement
-Preview dan hasil capture harus sedekat mungkin agar user tidak merasa tertipu.
+## Rationale for LUT in Phase 4
+> [!NOTE]
+> Dukungan LUT sengaja dipindahkan ke Phase 4 agar rendering pipeline (EGL & custom shader) benar-benar terbukti stabil dan andal terlebih dahulu pada Phase 2 & 3 sebelum kompleksitas color mapping LUT ditambahkan.
 
 ## Effects to Include
-- Color grade.
+- Color grade (LUT-based).
+- Basic Parameter adjustments (Layer 1).
 - Grain.
-- Light leak overlay.
-- Dust/scratch overlay.
 - Date stamp.
 - Vignette.
-- Optional chromatic aberration ringan.
 
 ## Tasks
 1. Ambil frame resolusi tinggi.
-2. Jalankan processing pipeline.
-3. Pastikan memory tidak jebol.
-4. Implement progress/loading state.
-5. Simpan output ke gallery.
-6. Tampilkan preview hasil.
-7. Tambahkan retry jika processing gagal.
+2. Implementasi EGL texture rendering untuk binding LUT (.png) ke fragment shader.
+3. Jalankan high-resolution processing pipeline dengan LUT + parameter.
+4. Pastikan memory tidak leak atau OOM saat memproses gambar besar.
+5. Implement progress/loading state.
+6. Simpan output ke gallery via MediaStore.
+7. Tampilkan preview hasil.
 8. Handle low-memory condition.
 
 ## Acceptance Criteria
-- Foto tinggi resolusi berhasil tersimpan.
-- Hasil final masih sesuai karakter filter.
-- Tidak OOM saat capture besar.
+- Foto tinggi resolusi berhasil diproses menggunakan shader + LUT dan tersimpan.
+- Hasil final konsisten secara visual dengan preview.
+- Tidak ada OOM saat capture besar.
 
 ## Difficulty
 **Very Hard**
@@ -305,7 +366,7 @@ Preview dan hasil capture harus sedekat mungkin agar user tidak merasa tertipu.
 **Very High**
 
 ## Why
-Ini bagian yang rawan paling banyak bug: memory, quality, consistency, and speed. Sangat cocok untuk frontier model.
+Mengintegrasikan pengolahan resolusi tinggi dan binding LUT tekstur yang efisien di GPU.
 
 ---
 
@@ -516,18 +577,19 @@ Video + realtime filter + encode adalah kombinasi paling berat.
 ## 5. Recommended Prioritization for AI Agents
 
 ### Frontline frontier model should handle:
-1. **Phase 4 — High-Resolution Export & Capture Processing**
-2. **Phase 7 — Advanced Effects**
-3. **Phase 10 — Video Recording**
-4. **Phase 8 — Performance & Device Tuning**
-5. **Phase 2 — Live Preview Effect Pipeline**
+1. **Phase 2 — Live Preview Effect Pipeline**
+2. **Phase 3 — Preset Engine Architecture**
+3. **Phase 4 — High-Resolution Export & LUT Support**
+4. **Phase 7 — Advanced Analog Effects**
+5. **Phase 10 — Video Recording**
 
 ### Medium model or general agent can handle:
 1. Phase 0 — Foundation
 2. Phase 1 — Basic Camera Capture
-3. Phase 3 — Film Preset System
+3. Phase 5 — Core Analog Effects
 4. Phase 6 — Gallery & Sharing
-5. Phase 9 — Monetization structure
+5. Phase 8 — Performance & Device Tuning
+6. Phase 9 — Monetization structure
 
 ---
 
