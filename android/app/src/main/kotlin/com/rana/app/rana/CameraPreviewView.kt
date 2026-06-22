@@ -2,6 +2,7 @@ package com.rana.app.rana
 
 import android.content.ContentValues
 import android.content.Context
+import android.os.Build
 import android.provider.MediaStore
 import android.view.OrientationEventListener
 import android.view.Surface
@@ -40,6 +41,7 @@ class CameraPreviewView(
 
     private var currentLensFacing = CameraSelector.LENS_FACING_BACK
     private var currentFlashMode = ImageCapture.FLASH_MODE_OFF
+    private var currentRotation: Int = Surface.ROTATION_0
 
     private val orientationEventListener = object : OrientationEventListener(context) {
         override fun onOrientationChanged(orientation: Int) {
@@ -50,6 +52,7 @@ class CameraPreviewView(
                 in 225 until 315 -> Surface.ROTATION_90
                 else -> Surface.ROTATION_0
             }
+            currentRotation = rotation
             imageCapture?.targetRotation = rotation
             previewUseCase?.targetRotation = rotation
         }
@@ -114,6 +117,16 @@ class CameraPreviewView(
                     imageCapture
                 )
 
+                val displayRotation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    activity.display?.rotation ?: Surface.ROTATION_0
+                } else {
+                    @Suppress("DEPRECATION")
+                    activity.windowManager.defaultDisplay.rotation
+                }
+                currentRotation = displayRotation
+                imageCapture?.targetRotation = displayRotation
+                previewUseCase?.targetRotation = displayRotation
+
                 if (orientationEventListener.canDetectOrientation()) {
                     orientationEventListener.enable()
                 }
@@ -140,6 +153,8 @@ class CameraPreviewView(
             callback(false, null, "Camera not initialized")
             return
         }
+
+        capture.targetRotation = currentRotation
 
         val name = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
             .format(System.currentTimeMillis())
