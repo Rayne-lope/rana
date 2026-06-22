@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rana/core/providers/permission_provider.dart';
 import 'package:rana/core/utils/app_logger.dart';
@@ -206,11 +207,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Viewfinder Mock Background
-                if (state.activeLens == CameraLens.back)
-                  _buildMockBackground('Rear Camera Viewfinder')
-                else
-                  _buildMockBackground('Front Camera Viewfinder'),
+                // Live Camera Viewfinder Preview
+                const _AndroidCameraPreview(),
 
                 // 3x3 Composition Grid Lines
                 const _ViewfinderGrid(),
@@ -281,30 +279,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       ),
     );
 
-  Widget _buildMockBackground(String label) => Center(
-        child: Opacity(
-          opacity: 0.15,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.blur_on_rounded,
-                color: Colors.white,
-                size: 64,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+
 
   Widget _buildBottomPanel(CameraState state, CameraController controller) {
     final presets = [
@@ -498,5 +473,17 @@ class _FlashScreenEffectState extends State<_FlashScreenEffect>
               ? Colors.white
               : Colors.red.withValues(alpha: 0.4),
         ),
+      );
+}
+
+class _AndroidCameraPreview extends StatelessWidget {
+  const _AndroidCameraPreview();
+
+  @override
+  Widget build(BuildContext context) => const AndroidView(
+        viewType: 'com.rana.app/camera_preview',
+        layoutDirection: TextDirection.ltr,
+        creationParams: <String, dynamic>{},
+        creationParamsCodec: StandardMessageCodec(),
       );
 }

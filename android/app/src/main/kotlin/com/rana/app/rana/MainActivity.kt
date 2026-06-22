@@ -19,6 +19,12 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
+        // Register the camera preview platform view
+        flutterEngine.platformViewsController.registry.registerViewFactory(
+            "com.rana.app/camera_preview",
+            CameraPreviewFactory(this, flutterEngine.dartExecutor.binaryMessenger)
+        )
+
         // Setup MethodChannel for camera control actions
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {

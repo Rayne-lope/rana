@@ -51,16 +51,18 @@ void main() {
           .setMockMethodCallHandler(cameraChannel, null);
     });
 
-    testWidgets('RanaApp renders without crashing', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const ProviderScope(child: RanaApp()),
-      );
-      expect(find.byType(MaterialApp), findsOneWidget);
+    testWidgets(
+      'RanaApp renders without crashing',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          const ProviderScope(child: RanaApp()),
+        );
+        expect(find.byType(MaterialApp), findsOneWidget);
 
-      // Drain the pending splash timer so the test framework is happy.
-      await tester.pump(const Duration(milliseconds: 1300));
-      await tester.pumpAndSettle();
-    });
+        // Drain the pending splash timer so the test framework is happy.
+        await tester.pump(const Duration(milliseconds: 1300));
+        await tester.pumpAndSettle();
+      },
+    );
   });
 }
-
