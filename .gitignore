@@ -1,5 +1,45 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+*.iml
+*.ipr
+*.iws
+.idea/
+*.class
+*.lock
 
-# Beads / Dolt files (added by bd init)
-.dolt/
-*.db
-.beads-credential-key
+# Android
+android/.gradle/
+android/local.properties
+android/captures/
+**/GeneratedPluginRegistrant.java
+**/GeneratedPluginRegistrant.kt
+android/key.properties
+**/*.keystore
+**/*.jks
+
+# iOS / macOS (not targeted yet, but pre-emptive)
+ios/Flutter/Flutter.framework/
+ios/Flutter/Flutter.podspec
+ios/Flutter/.last_build_id
+ios/Pods/
+ios/.symlinks/
+macos/Flutter/ephemeral/
+macos/Pods/
+
+# Coverage
+coverage/
+
+# IntelliJ / Android Studio
+*.iml
+.idea/workspace.xml
+.idea/libraries/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
