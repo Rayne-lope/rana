@@ -102,6 +102,24 @@ class CameraPlatformService {
     }
   }
 
+  /// Releases native camera resources when backgrounded.
+  Future<Map<String, dynamic>> releaseCamera() async {
+    try {
+      final result = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>(
+        'releaseCamera',
+      );
+      return Map<String, dynamic>.from(result ?? {});
+    } on PlatformException catch (e, stack) {
+      AppLogger.e(
+        'CameraPlatformService',
+        'Failed to release camera resources',
+        e,
+        stack,
+      );
+      rethrow;
+    }
+  }
+
   /// Stream of status updates emitted from the native camera engine
   /// (e.g. FPS metrics).
   Stream<Map<String, dynamic>> get statusStream =>

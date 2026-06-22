@@ -1,11 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rana/features/splash/view/splash_screen.dart';
 import 'package:rana/main.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('Navigation', () {
+    const permissionChannel =
+        MethodChannel('flutter.baseflow.com/permissions/methods');
+    const cameraChannel = MethodChannel('com.rana.app/camera_control');
+
+    setUp(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        permissionChannel,
+        (MethodCall methodCall) async {
+          if (methodCall.method == 'checkPermissionStatus') {
+            return 1; // Granted
+          }
+          if (methodCall.method == 'requestPermissions') {
+            final args = methodCall.arguments as List<dynamic>;
+            final results = <int, int>{};
+            for (final p in args) {
+              results[p as int] = 1;
+            }
+            return results;
+          }
+          return null;
+        },
+      );
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        cameraChannel,
+        (MethodCall methodCall) async {
+          if (methodCall.method == 'initializeCamera') {
+            return {'status': 'initialized', 'lens': 'back'};
+          }
+          return null;
+        },
+      );
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(permissionChannel, null);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(cameraChannel, null);
+    });
+
     testWidgets(
       'app starts on SplashScreen',
       (WidgetTester tester) async {

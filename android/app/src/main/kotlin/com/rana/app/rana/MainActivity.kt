@@ -42,6 +42,9 @@ class MainActivity : FlutterActivity() {
                     val nextLens = if (lens == "back") "front" else "back"
                     result.success(mapOf("status" to "lens_toggled", "lens" to nextLens))
                 }
+                "releaseCamera" -> {
+                    result.success(mapOf("status" to "released"))
+                }
                 else -> {
                     result.notImplemented()
                 }

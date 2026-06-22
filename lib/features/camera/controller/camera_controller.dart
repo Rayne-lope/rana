@@ -138,6 +138,22 @@ class CameraController extends _$CameraController {
     }
   }
 
+  /// Releases native camera resources and resets initialization state.
+  Future<void> releaseCamera() async {
+    if (!state.isCameraInitialized) return;
+    try {
+      unawaited(_statusSubscription?.cancel());
+      _statusSubscription = null;
+      await _platformService.releaseCamera();
+      state = state.copyWith(
+        isCameraInitialized: false,
+        currentFps: 0,
+      );
+    } on Object catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
   FlashMode _getNextFlashMode(FlashMode current) {
     switch (current) {
       case FlashMode.off:

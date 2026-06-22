@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rana/core/providers/permission_provider.dart';
+import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/camera/controller/camera_controller.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
+import 'package:rana/features/camera/view/permission_screen.dart';
 
 /// Interactive Camera Screen — Phase 0.4 & 0.5 Implementation.
 ///
@@ -15,20 +18,66 @@ class CameraScreen extends ConsumerStatefulWidget {
   ConsumerState<CameraScreen> createState() => _CameraScreenState();
 }
 
-class _CameraScreenState extends ConsumerState<CameraScreen> {
+class _CameraScreenState extends ConsumerState<CameraScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    // Initialize native platform channels connection on screen mount
-    Future.microtask(() {
-      ref.read(cameraControllerProvider.notifier).initialize();
+    WidgetsBinding.instance.addObserver(this);
+
+    // Verify permissions first, then initialize platform connection if granted
+    Future.microtask(() async {
+      await ref.read(permissionControllerProvider.notifier).checkPermissions();
+      if (ref.read(permissionControllerProvider).isAllGranted) {
+        await ref.read(cameraControllerProvider.notifier).initialize();
+      }
     });
   }
 
   @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    AppLogger.i('CameraScreen', 'App lifecycle changed to: $state');
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      ref.read(cameraControllerProvider.notifier).releaseCamera();
+    } else if (state == AppLifecycleState.resumed) {
+      ref
+          .read(permissionControllerProvider.notifier)
+          .checkPermissions()
+          .then((_) {
+        if (ref.read(permissionControllerProvider).isAllGranted) {
+          ref.read(cameraControllerProvider.notifier).initialize();
+        }
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final permissionState = ref.watch(permissionControllerProvider);
     final cameraState = ref.watch(cameraControllerProvider);
     final controller = ref.read(cameraControllerProvider.notifier);
+
+    if (permissionState.isChecking) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF0F0F11),
+        body: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF39C12)),
+          ),
+        ),
+      );
+    }
+
+    if (!permissionState.isAllGranted) {
+      return const PermissionScreen();
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F11), // Premium deep dark slate
