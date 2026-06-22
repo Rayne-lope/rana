@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "Rana",
+  "project_id": "2a68e3b5-b476-41c0-95c3-d599e76b6bc6"
+}
