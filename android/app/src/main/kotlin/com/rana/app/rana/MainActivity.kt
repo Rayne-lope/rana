@@ -6,6 +6,7 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.EventChannel
 import android.os.Handler
 import android.os.Looper
+import androidx.camera.core.CameraSelector
 
 class MainActivity : FlutterActivity() {
     private val METHOD_CHANNEL = "com.rana.app/camera_control"
@@ -15,6 +16,7 @@ class MainActivity : FlutterActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private var fpsRunnable: Runnable? = null
     private var isStreamingFps = false
+    var activePreviewView: CameraPreviewView? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -36,17 +38,49 @@ class MainActivity : FlutterActivity() {
                     result.success(mapOf("status" to "preset_selected", "presetId" to presetId))
                 }
                 "executeCapture" -> {
-                    // Simulate processing delay on native side if needed, or simply return path
-                    result.success(mapOf("status" to "captured", "filePath" to "/mock/path/photo.jpg"))
+                    val preview = activePreviewView
+                    if (preview != null) {
+                        preview.takePicture { success, filePathOrUri, errorMsg ->
+                            if (success) {
+                                result.success(mapOf("status" to "captured", "filePath" to filePathOrUri))
+                            } else {
+                                result.error("CAPTURE_FAILED", errorMsg ?: "Unknown error", null)
+                            }
+                        }
+                    } else {
+                        result.error("CAMERA_NOT_READY", "Camera preview not initialized", null)
+                    }
                 }
                 "setFlashMode" -> {
-                    val flashMode = call.argument<String>("flashMode")
-                    result.success(mapOf("status" to "flash_set", "flashMode" to flashMode))
+                    val preview = activePreviewView
+                    if (preview != null) {
+                        val flashModeStr = call.argument<String>("flashMode") ?: "off"
+                        val nativeFlashMode = when (flashModeStr) {
+                            "on" -> androidx.camera.core.ImageCapture.FLASH_MODE_ON
+                            "auto" -> androidx.camera.core.ImageCapture.FLASH_MODE_AUTO
+                            else -> androidx.camera.core.ImageCapture.FLASH_MODE_OFF
+                        }
+                        preview.setFlashMode(nativeFlashMode)
+                        result.success(mapOf("status" to "flash_set", "flashMode" to flashModeStr))
+                    } else {
+                        result.error("CAMERA_NOT_READY", "Camera preview not initialized", null)
+                    }
                 }
                 "toggleLens" -> {
-                    val lens = call.argument<String>("lens")
-                    val nextLens = if (lens == "back") "front" else "back"
-                    result.success(mapOf("status" to "lens_toggled", "lens" to nextLens))
+                    val preview = activePreviewView
+                    if (preview != null) {
+                        val currentLens = call.argument<String>("lens") ?: "back"
+                        val targetLensFacing = if (currentLens == "back") {
+                            CameraSelector.LENS_FACING_FRONT
+                        } else {
+                            CameraSelector.LENS_FACING_BACK
+                        }
+                        preview.setLensFacing(targetLensFacing)
+                        val nextLensStr = if (targetLensFacing == CameraSelector.LENS_FACING_BACK) "back" else "front"
+                        result.success(mapOf("status" to "lens_toggled", "lens" to nextLensStr))
+                    } else {
+                        result.error("CAMERA_NOT_READY", "Camera preview not initialized", null)
+                    }
                 }
                 "releaseCamera" -> {
                     result.success(mapOf("status" to "released"))

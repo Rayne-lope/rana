@@ -12,6 +12,8 @@ class CameraPreviewFactory(
 ) : PlatformViewFactory(StandardMessageCodec.INSTANCE) {
     override fun create(context: Context, viewId: Int, args: Any?): PlatformView {
         val creationParams = args as Map<String, Any>?
-        return CameraPreviewView(context, activity, viewId, creationParams)
+        val view = CameraPreviewView(context, activity, viewId, creationParams)
+        activity.activePreviewView = view
+        return view
     }
 }

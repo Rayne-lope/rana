@@ -1,15 +1,21 @@
 package com.rana.app.rana
 
+import android.content.ContentValues
 import android.content.Context
+import android.provider.MediaStore
 import android.view.View
 import android.view.ViewGroup
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import io.flutter.plugin.platform.PlatformView
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class CameraPreviewView(
     private val context: Context,
@@ -27,6 +33,10 @@ class CameraPreviewView(
         )
     }
     private var cameraProvider: ProcessCameraProvider? = null
+    private var imageCapture: ImageCapture? = null
+
+    private var currentLensFacing = CameraSelector.LENS_FACING_BACK
+    private var currentFlashMode = ImageCapture.FLASH_MODE_OFF
 
     init {
         startCamera()
@@ -39,6 +49,9 @@ class CameraPreviewView(
     override fun dispose() {
         activity.runOnUiThread {
             try {
+                if (activity.activePreviewView == this) {
+                    activity.activePreviewView = null
+                }
                 cameraProvider?.unbindAll()
             } catch (e: Exception) {
                 // Ignore
@@ -68,16 +81,79 @@ class CameraPreviewView(
                     it.setSurfaceProvider(previewView.surfaceProvider)
                 }
 
-                val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                imageCapture = ImageCapture.Builder()
+                    .setFlashMode(currentFlashMode)
+                    .build()
+
+                val cameraSelector = CameraSelector.Builder()
+                    .requireLensFacing(currentLensFacing)
+                    .build()
 
                 provider.bindToLifecycle(
                     activity as LifecycleOwner,
                     cameraSelector,
-                    preview
+                    preview,
+                    imageCapture
                 )
             } catch (e: Exception) {
                 // Ignore
             }
         }
+    }
+
+    fun setLensFacing(lensFacing: Int) {
+        if (currentLensFacing == lensFacing) return
+        currentLensFacing = lensFacing
+        bindPreview()
+    }
+
+    fun setFlashMode(flashMode: Int) {
+        currentFlashMode = flashMode
+        imageCapture?.flashMode = flashMode
+    }
+
+    fun takePicture(callback: (success: Boolean, filePathOrUri: String?, errorMsg: String?) -> Unit) {
+        val capture = imageCapture
+        if (capture == null) {
+            callback(false, null, "Camera not initialized")
+            return
+        }
+
+        val name = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
+            .format(System.currentTimeMillis())
+        
+        val contentValues = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, "Rana_$name.jpg")
+            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+            if (android.os.Build.VERSION.SDK_INT > android.os.Build.VERSION_CODES.P) {
+                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Rana")
+            }
+        }
+
+        val metadata = ImageCapture.Metadata().apply {
+            isReversedHorizontal = (currentLensFacing == CameraSelector.LENS_FACING_FRONT)
+        }
+
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(
+            context.contentResolver,
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            contentValues
+        ).setMetadata(metadata)
+         .build()
+
+        capture.takePicture(
+            outputOptions,
+            ContextCompat.getMainExecutor(context),
+            object : ImageCapture.OnImageSavedCallback {
+                override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                    val savedUri = outputFileResults.savedUri
+                    callback(true, savedUri?.toString() ?: "", null)
+                }
+
+                override fun onError(exception: ImageCaptureException) {
+                    callback(false, null, exception.message)
+                }
+            }
+        )
     }
 }
