@@ -3,6 +3,8 @@ package com.rana.app.rana
 import android.content.ContentValues
 import android.content.Context
 import android.provider.MediaStore
+import android.view.OrientationEventListener
+import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
 import androidx.camera.core.CameraSelector
@@ -34,9 +36,24 @@ class CameraPreviewView(
     }
     private var cameraProvider: ProcessCameraProvider? = null
     private var imageCapture: ImageCapture? = null
+    private var previewUseCase: Preview? = null
 
     private var currentLensFacing = CameraSelector.LENS_FACING_BACK
     private var currentFlashMode = ImageCapture.FLASH_MODE_OFF
+
+    private val orientationEventListener = object : OrientationEventListener(context) {
+        override fun onOrientationChanged(orientation: Int) {
+            if (orientation == ORIENTATION_UNKNOWN) return
+            val rotation = when (orientation) {
+                in 45 until 135 -> Surface.ROTATION_270
+                in 135 until 225 -> Surface.ROTATION_180
+                in 225 until 315 -> Surface.ROTATION_90
+                else -> Surface.ROTATION_0
+            }
+            imageCapture?.targetRotation = rotation
+            previewUseCase?.targetRotation = rotation
+        }
+    }
 
     init {
         startCamera()
@@ -52,7 +69,7 @@ class CameraPreviewView(
                 if (activity.activePreviewView == this) {
                     activity.activePreviewView = null
                 }
-                cameraProvider?.unbindAll()
+                unbindCamera()
             } catch (e: Exception) {
                 // Ignore
             }
@@ -71,7 +88,7 @@ class CameraPreviewView(
         }, ContextCompat.getMainExecutor(context))
     }
 
-    private fun bindPreview() {
+    fun bindPreview() {
         val provider = cameraProvider ?: return
         activity.runOnUiThread {
             try {
@@ -80,6 +97,7 @@ class CameraPreviewView(
                 val preview = Preview.Builder().build().also {
                     it.setSurfaceProvider(previewView.surfaceProvider)
                 }
+                previewUseCase = preview
 
                 imageCapture = ImageCapture.Builder()
                     .setFlashMode(currentFlashMode)
@@ -95,6 +113,10 @@ class CameraPreviewView(
                     preview,
                     imageCapture
                 )
+
+                if (orientationEventListener.canDetectOrientation()) {
+                    orientationEventListener.enable()
+                }
             } catch (e: Exception) {
                 // Ignore
             }
@@ -155,5 +177,20 @@ class CameraPreviewView(
                 }
             }
         )
+    }
+
+    fun unbindCamera() {
+        activity.runOnUiThread {
+            try {
+                orientationEventListener.disable()
+                cameraProvider?.unbindAll()
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+    }
+
+    fun getCurrentLensFacing(): Int {
+        return currentLensFacing
     }
 }

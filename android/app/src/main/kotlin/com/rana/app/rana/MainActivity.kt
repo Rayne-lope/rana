@@ -31,7 +31,12 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "initializeCamera" -> {
-                    result.success(mapOf("status" to "initialized", "lens" to "back"))
+                    val preview = activePreviewView
+                    if (preview != null) {
+                        preview.bindPreview()
+                    }
+                    val lensStr = if (preview?.getCurrentLensFacing() == CameraSelector.LENS_FACING_FRONT) "front" else "back"
+                    result.success(mapOf("status" to "initialized", "lens" to lensStr))
                 }
                 "selectPreset" -> {
                     val presetId = call.argument<String>("presetId")
@@ -83,6 +88,10 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "releaseCamera" -> {
+                    val preview = activePreviewView
+                    if (preview != null) {
+                        preview.unbindCamera()
+                    }
                     result.success(mapOf("status" to "released"))
                 }
                 else -> {

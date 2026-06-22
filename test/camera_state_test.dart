@@ -78,6 +78,28 @@ void main() {
       expect(log.first.method, equals('initializeCamera'));
     });
 
+    test(
+        'releaseCamera resets camera initialization and invokes channel',
+        () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await controller.initialize();
+      expect(
+        container.read(cameraControllerProvider).isCameraInitialized,
+        isTrue,
+      );
+      log.clear();
+
+      await controller.releaseCamera();
+      final state = container.read(cameraControllerProvider);
+      expect(state.isCameraInitialized, isFalse);
+      expect(state.currentFps, equals(0));
+      expect(log.length, equals(1));
+      expect(log.first.method, equals('releaseCamera'));
+    });
+
     test('toggleFlashMode updates flash mode and invokes channel', () async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
