@@ -1,18 +1,29 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rana/core/utils/app_logger.dart';
+import 'package:rana/core/widgets/main_shell.dart';
 import 'package:rana/features/camera/view/camera_screen.dart';
 import 'package:rana/features/gallery/view/gallery_screen.dart';
 import 'package:rana/features/settings/view/settings_screen.dart';
+import 'package:rana/features/splash/view/splash_screen.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'app_router.g.dart';
 
-/// Centrally-defined route names — always reference these constants,
-/// never hard-code path strings.
+/// Centrally-defined route paths.
+///
+/// Always use these constants when navigating — never hard-code path strings.
 abstract final class AppRoutes {
+  /// Splash — shown briefly on cold launch, then redirects to [camera].
+  static const splash = '/';
+
+  /// Camera (home) — main capture screen.
   static const camera = '/camera';
+
+  /// Gallery — shows photos taken with Rana.
   static const gallery = '/gallery';
+
+  /// Settings — app preferences.
   static const settings = '/settings';
 }
 
@@ -20,23 +31,50 @@ abstract final class AppRoutes {
 GoRouter appRouter(Ref ref) {
   AppLogger.i('AppRouter', 'Initialising router');
   return GoRouter(
-    initialLocation: AppRoutes.camera,
+    initialLocation: AppRoutes.splash,
     debugLogDiagnostics: true,
     routes: [
+      // ── Splash ─────────────────────────────────────────────────────────────
       GoRoute(
-        path: AppRoutes.camera,
-        name: 'camera',
-        builder: (context, state) => const CameraScreen(),
+        path: AppRoutes.splash,
+        name: 'splash',
+        builder: (context, state) => const SplashScreen(),
       ),
-      GoRoute(
-        path: AppRoutes.gallery,
-        name: 'gallery',
-        builder: (context, state) => const GalleryScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.settings,
-        name: 'settings',
-        builder: (context, state) => const SettingsScreen(),
+
+      // ── Main shell (Camera / Gallery / Settings) ────────────────────────
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) => MainShell(
+          navigationShell: navigationShell,
+        ),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.camera,
+                name: 'camera',
+                builder: (context, state) => const CameraScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.gallery,
+                name: 'gallery',
+                builder: (context, state) => const GalleryScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.settings,
+                name: 'settings',
+                builder: (context, state) => const SettingsScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
     ],
   );
