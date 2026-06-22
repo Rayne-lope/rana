@@ -9,5 +9,9 @@ void main() {
       const ProviderScope(child: RanaApp()),
     );
     expect(find.byType(MaterialApp), findsOneWidget);
+
+    // Drain the pending splash timer so the test framework is happy.
+    await tester.pump(const Duration(milliseconds: 1300));
+    await tester.pumpAndSettle();
   });
 }
