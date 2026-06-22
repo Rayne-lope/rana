@@ -1,0 +1,12 @@
+{
+  "_comment": "Placeholder preset — replace with real LUT/shader config in Phase 3",
+  "id": "placeholder",
+  "name": "Placeholder",
+  "version": 1,
+  "parameters": {
+    "lutPath": null,
+    "grain": 0.0,
+    "vignette": 0.0,
+    "warmth": 0.0
+  }
+}
