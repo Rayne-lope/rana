@@ -25,4 +25,13 @@ abstract final class AssetConstants {
 
   /// Placeholder preset JSON — schema template for Phase 3 real presets.
   static const String placeholderPreset = 'assets/presets/placeholder.json';
+
+  /// Placeholder overlay PNG.
+  static const String placeholderOverlay = 'assets/overlays/placeholder.png';
+
+  /// Placeholder stamp font TTF.
+  static const String placeholderStamp = 'assets/stamps/placeholder.ttf';
+
+  /// Placeholder icon PNG.
+  static const String placeholderIcon = 'assets/icons/placeholder.png';
 }

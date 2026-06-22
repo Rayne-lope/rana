@@ -37,5 +37,23 @@ void main() {
       expect(map['id'], equals('placeholder'));
       expect(map['version'], equals(1));
     });
+
+    test('placeholderOverlay path points to a non-empty asset', () async {
+      final bytes =
+          await rootBundle.load(AssetConstants.placeholderOverlay);
+      expect(bytes.lengthInBytes, greaterThan(0));
+    });
+
+    test('placeholderStamp path points to a non-empty asset', () async {
+      final bytes =
+          await rootBundle.load(AssetConstants.placeholderStamp);
+      expect(bytes.lengthInBytes, greaterThan(0));
+    });
+
+    test('placeholderIcon path points to a non-empty asset', () async {
+      final bytes =
+          await rootBundle.load(AssetConstants.placeholderIcon);
+      expect(bytes.lengthInBytes, greaterThan(0));
+    });
   });
 }
