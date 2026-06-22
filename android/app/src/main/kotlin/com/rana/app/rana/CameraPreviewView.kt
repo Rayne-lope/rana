@@ -2,6 +2,7 @@ package com.rana.app.rana
 
 import android.content.Context
 import android.view.View
+import android.view.ViewGroup
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -19,6 +20,11 @@ class CameraPreviewView(
 
     private val previewView = PreviewView(context).apply {
         scaleType = PreviewView.ScaleType.FILL_CENTER
+        implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+        layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
     }
     private var cameraProvider: ProcessCameraProvider? = null
 
