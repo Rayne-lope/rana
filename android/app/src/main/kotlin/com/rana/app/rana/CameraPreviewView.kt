@@ -2,10 +2,12 @@ package com.rana.app.rana
 
 import android.content.ContentValues
 import android.content.Context
+import android.graphics.SurfaceTexture
 import android.os.Build
 import android.provider.MediaStore
 import android.view.OrientationEventListener
 import android.view.Surface
+import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
 import androidx.camera.core.CameraSelector
@@ -27,9 +29,7 @@ class CameraPreviewView(
     private val creationParams: Map<String, Any>?
 ) : PlatformView {
 
-    private val previewView = PreviewView(context).apply {
-        scaleType = PreviewView.ScaleType.FILL_CENTER
-        implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+    private val textureView = TextureView(context).apply {
         layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
@@ -38,6 +38,7 @@ class CameraPreviewView(
     private var cameraProvider: ProcessCameraProvider? = null
     private var imageCapture: ImageCapture? = null
     private var previewUseCase: Preview? = null
+    private var glRenderer: CameraGlRenderer? = null
 
     private var currentLensFacing = CameraSelector.LENS_FACING_BACK
     private var currentFlashMode = ImageCapture.FLASH_MODE_OFF
@@ -59,11 +60,35 @@ class CameraPreviewView(
     }
 
     init {
+        textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
+                activity.runOnUiThread {
+                    glRenderer = CameraGlRenderer(surfaceTexture, width, height) { _ ->
+                        bindPreview()
+                    }
+                }
+            }
+
+            override fun onSurfaceTextureSizeChanged(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
+                // Ignore for MVP
+            }
+
+            override fun onSurfaceTextureDestroyed(surfaceTexture: SurfaceTexture): Boolean {
+                unbindCamera()
+                glRenderer?.release()
+                glRenderer = null
+                return true
+            }
+
+            override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) {
+                // No-op
+            }
+        }
         startCamera()
     }
 
     override fun getView(): View {
-        return previewView
+        return textureView
     }
 
     override fun dispose() {
@@ -73,6 +98,8 @@ class CameraPreviewView(
                     activity.activePreviewView = null
                 }
                 unbindCamera()
+                glRenderer?.release()
+                glRenderer = null
             } catch (e: Exception) {
                 // Ignore
             }
@@ -93,12 +120,25 @@ class CameraPreviewView(
 
     fun bindPreview() {
         val provider = cameraProvider ?: return
+        val renderer = glRenderer ?: return
         activity.runOnUiThread {
             try {
                 provider.unbindAll()
 
                 val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider(previewView.surfaceProvider)
+                    it.setSurfaceProvider { request ->
+                        val resolution = request.resolution
+                        val cameraSurfaceTexture = renderer.cameraSurfaceTexture
+                        if (cameraSurfaceTexture != null) {
+                            cameraSurfaceTexture.setDefaultBufferSize(resolution.width, resolution.height)
+                            val surface = Surface(cameraSurfaceTexture)
+                            request.provideSurface(surface, ContextCompat.getMainExecutor(context)) {
+                                surface.release()
+                            }
+                        } else {
+                            request.willNotProvideSurface()
+                        }
+                    }
                 }
                 previewUseCase = preview
 
