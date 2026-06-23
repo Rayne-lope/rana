@@ -29,6 +29,7 @@ object OfflineGlProcessor {
         val positionLoc: Int,
         val textureCoordLoc: Int,
         val texMatrixLoc: Int,
+        val lensDistortionStrengthLoc: Int,
         val temperatureLoc: Int,
         val saturationLoc: Int,
         val contrastLoc: Int,
@@ -54,6 +55,7 @@ object OfflineGlProcessor {
         val positionLoc: Int,
         val textureCoordLoc: Int,
         val texMatrixLoc: Int,
+        val lensDistortionStrengthLoc: Int,
         val temperatureLoc: Int,
         val saturationLoc: Int,
         val contrastLoc: Int,
@@ -132,7 +134,8 @@ object OfflineGlProcessor {
                 "strength=${params.lutStrength} leakIntensity=${params.lightLeakIntensity} " +
                 "leakVariant=${params.lightLeakVariant} dustIntensity=${params.dustIntensity} " +
                 "bloomThreshold=${params.bloomThreshold} bloomIntensity=${params.bloomIntensity} " +
-                "halationIntensity=${params.halationIntensity}"
+                "halationIntensity=${params.halationIntensity} " +
+                "lensDistortionStrength=${params.lensDistortionStrength}"
         )
 
         var eglDisplay = EGL14.EGL_NO_DISPLAY
@@ -444,6 +447,10 @@ object OfflineGlProcessor {
 
         bindQuad(program.positionLoc, program.textureCoordLoc, vertexBuffer, textureBuffer)
         GLES20.glUniformMatrix4fv(program.texMatrixLoc, 1, false, identityMatrix, 0)
+        GLES20.glUniform1f(
+            program.lensDistortionStrengthLoc,
+            params.lensDistortionStrength
+        )
         GLES20.glUniform1f(program.temperatureLoc, params.temperature)
         GLES20.glUniform1f(program.saturationLoc, params.saturation)
         GLES20.glUniform1f(program.contrastLoc, params.contrast)
@@ -513,6 +520,10 @@ object OfflineGlProcessor {
 
         bindQuad(program.positionLoc, program.textureCoordLoc, vertexBuffer, textureBuffer)
         GLES20.glUniformMatrix4fv(program.texMatrixLoc, 1, false, identityMatrix, 0)
+        GLES20.glUniform1f(
+            program.lensDistortionStrengthLoc,
+            params.lensDistortionStrength
+        )
         GLES20.glUniform1f(program.temperatureLoc, params.temperature)
         GLES20.glUniform1f(program.saturationLoc, params.saturation)
         GLES20.glUniform1f(program.contrastLoc, params.contrast)
@@ -749,6 +760,10 @@ object OfflineGlProcessor {
             positionLoc = GLES20.glGetAttribLocation(programId, "aPosition"),
             textureCoordLoc = GLES20.glGetAttribLocation(programId, "aTextureCoord"),
             texMatrixLoc = GLES20.glGetUniformLocation(programId, "uTexMatrix"),
+            lensDistortionStrengthLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uLensDistortionStrength"
+            ),
             temperatureLoc = GLES20.glGetUniformLocation(programId, "uTemperature"),
             saturationLoc = GLES20.glGetUniformLocation(programId, "uSaturation"),
             contrastLoc = GLES20.glGetUniformLocation(programId, "uContrast"),
@@ -784,6 +799,10 @@ object OfflineGlProcessor {
             positionLoc = GLES20.glGetAttribLocation(programId, "aPosition"),
             textureCoordLoc = GLES20.glGetAttribLocation(programId, "aTextureCoord"),
             texMatrixLoc = GLES20.glGetUniformLocation(programId, "uTexMatrix"),
+            lensDistortionStrengthLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uLensDistortionStrength"
+            ),
             temperatureLoc = GLES20.glGetUniformLocation(programId, "uTemperature"),
             saturationLoc = GLES20.glGetUniformLocation(programId, "uSaturation"),
             contrastLoc = GLES20.glGetUniformLocation(programId, "uContrast"),

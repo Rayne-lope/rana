@@ -30,6 +30,9 @@
     },
     "halation": {
       "intensity": 0.08
+    },
+    "lensDistortion": {
+      "strength": 0.06
     }
   }
 }

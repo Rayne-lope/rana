@@ -23,6 +23,9 @@
     },
     "dust": {
       "intensity": 0.20
+    },
+    "lensDistortion": {
+      "strength": 0.08
     }
   }
 }

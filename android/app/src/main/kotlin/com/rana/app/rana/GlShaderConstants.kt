@@ -27,6 +27,15 @@ object GlShaderConstants {
         uniform float uTemperature;
         uniform float uSaturation;
         uniform float uContrast;
+        uniform float uLensDistortionStrength;
+
+        vec2 applyLensDistortion(vec2 uv) {
+            if (uLensDistortionStrength <= 0.0) return uv;
+            vec2 centered = uv - 0.5;
+            float r2 = dot(centered, centered);
+            float distort = 1.0 + uLensDistortionStrength * r2;
+            return clamp(centered * distort + 0.5, 0.0, 1.0);
+        }
 
         vec3 applyLut(vec3 color) {
             vec3 lutInput = clamp(color, 0.0, 1.0);
@@ -146,7 +155,8 @@ object GlShaderConstants {
         $FINAL_EFFECT_HELPERS
 
         void main() {
-            vec4 texColor = texture2D(sTexture, vTextureCoord);
+            vec2 sourceUv = applyLensDistortion(vTextureCoord);
+            vec4 texColor = texture2D(sTexture, sourceUv);
             vec3 color = applyColorGrade(texColor.rgb);
 
             if (uBloomIntensity > 0.0) {
@@ -174,7 +184,8 @@ object GlShaderConstants {
         $LUT_HELPERS
 
         void main() {
-            vec4 texColor = texture2D(sTexture, vTextureCoord);
+            vec2 sourceUv = applyLensDistortion(vTextureCoord);
+            vec4 texColor = texture2D(sTexture, sourceUv);
             vec3 color = applyColorGrade(texColor.rgb);
             gl_FragColor = vec4(clamp(color, 0.0, 1.0), texColor.a);
         }
@@ -296,7 +307,8 @@ object GlShaderConstants {
         $LUT_HELPERS
 
         void main() {
-            vec4 texColor = texture2D(sTexture, vTextureCoord);
+            vec2 sourceUv = applyLensDistortion(vTextureCoord);
+            vec4 texColor = texture2D(sTexture, sourceUv);
             vec3 color = applyColorGrade(texColor.rgb);
             gl_FragColor = vec4(clamp(color, 0.0, 1.0), texColor.a);
         }

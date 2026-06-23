@@ -166,6 +166,9 @@ class MainActivity : FlutterActivity() {
                         ?.toFloat() ?: 0f
                     val halationIntensity = (call.argument<Number>("halationIntensity"))
                         ?.toFloat() ?: 0f
+                    val lensDistortionStrength = (
+                        call.argument<Number>("lensDistortionStrength")
+                    )?.toFloat() ?: 0f
 
                     val bitmap = android.graphics.Bitmap.createBitmap(
                         512, 512, android.graphics.Bitmap.Config.ARGB_8888
@@ -197,7 +200,8 @@ class MainActivity : FlutterActivity() {
                                 dustIntensity = dustIntensity,
                                 bloomThreshold = bloomThreshold,
                                 bloomIntensity = bloomIntensity,
-                                halationIntensity = halationIntensity
+                                halationIntensity = halationIntensity,
+                                lensDistortionStrength = lensDistortionStrength
                             )
                             val out = OfflineGlProcessor.processImage(
                                 context, bitmap, params
@@ -281,7 +285,8 @@ class MainActivity : FlutterActivity() {
             dustIntensity = numberArg("dustIntensity"),
             bloomThreshold = (args?.get("bloomThreshold") as? Number)?.toFloat() ?: 0.8f,
             bloomIntensity = numberArg("bloomIntensity"),
-            halationIntensity = numberArg("halationIntensity")
+            halationIntensity = numberArg("halationIntensity"),
+            lensDistortionStrength = numberArg("lensDistortionStrength")
         )
     }
 

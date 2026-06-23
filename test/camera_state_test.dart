@@ -187,6 +187,7 @@ void main() {
       expect(params['bloomThreshold'], equals(0.8));
       expect(params['bloomIntensity'], equals(0.0));
       expect(params['halationIntensity'], equals(0.0));
+      expect(params['lensDistortionStrength'], equals(0.0));
     });
 
     test('capture flow enters processing and updates file path', () async {
@@ -269,6 +270,7 @@ void main() {
           dust: DustEffect(intensity: 0),
           bloom: PresetBloom(threshold: 0.7, intensity: 0.10),
           halation: PresetHalation(intensity: 0.08),
+          lensDistortion: PresetLensDistortion(strength: 0.06),
         ),
       );
       final container = ProviderContainer(
@@ -302,6 +304,7 @@ void main() {
       expect(args['bloomThreshold'], equals(0.7));
       expect(args['bloomIntensity'], equals(0.10));
       expect(args['halationIntensity'], equals(0.08));
+      expect(args['lensDistortionStrength'], equals(0.06));
     });
 
     test('capture sends neutral params when preset is unavailable', () async {
@@ -335,6 +338,7 @@ void main() {
       expect(args['bloomThreshold'], equals(0.8));
       expect(args['bloomIntensity'], equals(0.0));
       expect(args['halationIntensity'], equals(0.0));
+      expect(args['lensDistortionStrength'], equals(0.0));
     });
 
     test('rapid duplicate capture calls invoke native capture once', () async {

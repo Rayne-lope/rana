@@ -201,6 +201,8 @@ class CameraController extends _$CameraController {
       'bloomThreshold': activePreset?.effects.bloom.threshold ?? 0.8,
       'bloomIntensity': activePreset?.effects.bloom.intensity ?? 0.0,
       'halationIntensity': activePreset?.effects.halation.intensity ?? 0.0,
+      'lensDistortionStrength':
+          activePreset?.effects.lensDistortion.strength ?? 0.0,
     };
   }
 
@@ -248,6 +250,7 @@ class CameraController extends _$CameraController {
       'bloomThreshold': preset.effects.bloom.threshold,
       'bloomIntensity': preset.effects.bloom.intensity,
       'halationIntensity': preset.effects.halation.intensity,
+      'lensDistortionStrength': preset.effects.lensDistortion.strength,
     };
   }
 

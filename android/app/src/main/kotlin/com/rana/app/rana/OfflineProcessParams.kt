@@ -16,5 +16,6 @@ data class OfflineProcessParams(
     val dustIntensity: Float = 0f,
     val bloomThreshold: Float = 0.8f,
     val bloomIntensity: Float = 0f,
-    val halationIntensity: Float = 0f
+    val halationIntensity: Float = 0f,
+    val lensDistortionStrength: Float = 0f
 )

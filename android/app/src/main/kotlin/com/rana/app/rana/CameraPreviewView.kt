@@ -229,6 +229,9 @@ class CameraPreviewView(
         val bloomThreshold = (params["bloomThreshold"] as? Number)?.toFloat() ?: 0.8f
         val bloomIntensity = (params["bloomIntensity"] as? Number)?.toFloat() ?: 0.0f
         val halationIntensity = (params["halationIntensity"] as? Number)?.toFloat() ?: 0.0f
+        val lensDistortionStrength = (
+            params["lensDistortionStrength"] as? Number
+        )?.toFloat() ?: 0.0f
 
         glRenderer?.applyPresetParams(
             temperature = temp,
@@ -243,7 +246,8 @@ class CameraPreviewView(
             dustIntensity = dustIntensity,
             bloomThreshold = bloomThreshold,
             bloomIntensity = bloomIntensity,
-            halationIntensity = halationIntensity
+            halationIntensity = halationIntensity,
+            lensDistortionStrength = lensDistortionStrength
         )
     }
 

@@ -44,3 +44,4 @@
 {"id":"int-b10e2a6c","kind":"field_change","created_at":"2026-06-23T11:40:02.348089Z","actor":"Rayne-lope","issue_id":"Rana-78e","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"done\n"}}
 {"id":"int-59b13644","kind":"field_change","created_at":"2026-06-23T12:01:47.069191Z","actor":"Rayne-lope","issue_id":"Rana-4z0","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"done"}}
 {"id":"int-0305a4dd","kind":"field_change","created_at":"2026-06-23T14:16:43.744471Z","actor":"Rayne-lope","issue_id":"Rana-0u6","extra":{"field":"assignee","new_value":"other","old_value":"Rayne-lope"}}
+{"id":"int-20f7e811","kind":"field_change","created_at":"2026-06-23T15:00:33.70181Z","actor":"Rayne-lope","issue_id":"Rana-zgm","extra":{"field":"assignee","new_value":"other","old_value":""}}

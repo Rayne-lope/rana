@@ -34,6 +34,7 @@ class CameraGlRenderer(
         val positionLoc: Int,
         val textureCoordLoc: Int,
         val texMatrixLoc: Int,
+        val lensDistortionStrengthLoc: Int,
         val temperatureLoc: Int,
         val saturationLoc: Int,
         val contrastLoc: Int,
@@ -59,6 +60,7 @@ class CameraGlRenderer(
         val positionLoc: Int,
         val textureCoordLoc: Int,
         val texMatrixLoc: Int,
+        val lensDistortionStrengthLoc: Int,
         val temperatureLoc: Int,
         val saturationLoc: Int,
         val contrastLoc: Int,
@@ -120,6 +122,7 @@ class CameraGlRenderer(
     private var bloomThreshold = 0.8f
     private var bloomIntensity = 0f
     private var halationIntensity = 0f
+    private var lensDistortionStrength = 0f
     private var dustUVOffsetX = 0f
     private var dustUVOffsetY = 0f
 
@@ -212,7 +215,8 @@ class CameraGlRenderer(
         dustIntensity: Float,
         bloomThreshold: Float,
         bloomIntensity: Float,
-        halationIntensity: Float
+        halationIntensity: Float,
+        lensDistortionStrength: Float
     ) {
         renderHandler.post {
             this.temperature = temperature
@@ -227,6 +231,7 @@ class CameraGlRenderer(
             this.bloomThreshold = bloomThreshold
             this.bloomIntensity = bloomIntensity
             this.halationIntensity = halationIntensity
+            this.lensDistortionStrength = lensDistortionStrength
 
             if (lutPath != activeLutPath) {
                 activeLutPath = lutPath
@@ -248,7 +253,8 @@ class CameraGlRenderer(
                     "grain=$grain vignette=$vignette lut=$lutPath strength=$lutStrength " +
                     "leakIntensity=$lightLeakIntensity leakVariant=$lightLeakVariant " +
                     "dustIntensity=$dustIntensity bloomThreshold=$bloomThreshold " +
-                    "bloomIntensity=$bloomIntensity halationIntensity=$halationIntensity"
+                    "bloomIntensity=$bloomIntensity halationIntensity=$halationIntensity " +
+                    "lensDistortionStrength=$lensDistortionStrength"
             )
         }
     }
@@ -388,6 +394,10 @@ class CameraGlRenderer(
             positionLoc = GLES20.glGetAttribLocation(programId, "aPosition"),
             textureCoordLoc = GLES20.glGetAttribLocation(programId, "aTextureCoord"),
             texMatrixLoc = GLES20.glGetUniformLocation(programId, "uTexMatrix"),
+            lensDistortionStrengthLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uLensDistortionStrength"
+            ),
             temperatureLoc = GLES20.glGetUniformLocation(programId, "uTemperature"),
             saturationLoc = GLES20.glGetUniformLocation(programId, "uSaturation"),
             contrastLoc = GLES20.glGetUniformLocation(programId, "uContrast"),
@@ -428,6 +438,10 @@ class CameraGlRenderer(
                     positionLoc = GLES20.glGetAttribLocation(programId, "aPosition"),
                     textureCoordLoc = GLES20.glGetAttribLocation(programId, "aTextureCoord"),
                     texMatrixLoc = GLES20.glGetUniformLocation(programId, "uTexMatrix"),
+                    lensDistortionStrengthLoc = GLES20.glGetUniformLocation(
+                        programId,
+                        "uLensDistortionStrength"
+                    ),
                     temperatureLoc = GLES20.glGetUniformLocation(programId, "uTemperature"),
                     saturationLoc = GLES20.glGetUniformLocation(programId, "uSaturation"),
                     contrastLoc = GLES20.glGetUniformLocation(programId, "uContrast"),
@@ -566,6 +580,10 @@ class CameraGlRenderer(
         bindQuad(singlePassProgram.positionLoc, singlePassProgram.textureCoordLoc)
 
         GLES20.glUniformMatrix4fv(singlePassProgram.texMatrixLoc, 1, false, texMatrix, 0)
+        GLES20.glUniform1f(
+            singlePassProgram.lensDistortionStrengthLoc,
+            lensDistortionStrength
+        )
         GLES20.glUniform1f(singlePassProgram.temperatureLoc, temperature)
         GLES20.glUniform1f(singlePassProgram.saturationLoc, saturation)
         GLES20.glUniform1f(singlePassProgram.contrastLoc, contrast)
@@ -635,6 +653,10 @@ class CameraGlRenderer(
 
         bindQuad(baseProgram.positionLoc, baseProgram.textureCoordLoc)
         GLES20.glUniformMatrix4fv(baseProgram.texMatrixLoc, 1, false, texMatrix, 0)
+        GLES20.glUniform1f(
+            baseProgram.lensDistortionStrengthLoc,
+            lensDistortionStrength
+        )
         GLES20.glUniform1f(baseProgram.temperatureLoc, temperature)
         GLES20.glUniform1f(baseProgram.saturationLoc, saturation)
         GLES20.glUniform1f(baseProgram.contrastLoc, contrast)

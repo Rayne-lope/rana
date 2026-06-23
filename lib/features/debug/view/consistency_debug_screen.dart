@@ -65,6 +65,7 @@ class _ConsistencyDebugScreenState
       'bloomThreshold',
       'bloomIntensity',
       'halationIntensity',
+      'lensDistortionStrength',
     };
 
     var hasMismatch = false;

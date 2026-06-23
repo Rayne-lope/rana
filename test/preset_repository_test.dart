@@ -103,9 +103,11 @@ void main() {
       expect(presets[0].effects.bloom.threshold, equals(0.8));
       expect(presets[0].effects.bloom.intensity, equals(0.0));
       expect(presets[0].effects.halation.intensity, equals(0.0));
+      expect(presets[0].effects.lensDistortion.strength, equals(0.0));
       expect(presets[1].effects.bloom.threshold, equals(0.8));
       expect(presets[1].effects.bloom.intensity, equals(0.0));
       expect(presets[1].effects.halation.intensity, equals(0.0));
+      expect(presets[1].effects.lensDistortion.strength, equals(0.0));
     });
 
     test('Corrupt JSON: skips invalid files and logs error', () async {
@@ -150,6 +152,7 @@ void main() {
       expect(presets[0].effects.bloom.threshold, equals(0.8));
       expect(presets[0].effects.bloom.intensity, equals(0.0));
       expect(presets[0].effects.halation.intensity, equals(0.0));
+      expect(presets[0].effects.lensDistortion.strength, equals(0.0));
     });
 
     test('Missing File: skips missing files and logs error', () async {
@@ -194,6 +197,7 @@ void main() {
       expect(presets[0].effects.bloom.threshold, equals(0.8));
       expect(presets[0].effects.bloom.intensity, equals(0.0));
       expect(presets[0].effects.halation.intensity, equals(0.0));
+      expect(presets[0].effects.lensDistortion.strength, equals(0.0));
     });
   });
 }

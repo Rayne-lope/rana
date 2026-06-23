@@ -248,6 +248,35 @@ class PresetHalation {
   String toString() => 'PresetHalation(intensity: $intensity)';
 }
 
+/// Preset lens distortion effect parameters.
+@immutable
+class PresetLensDistortion {
+  /// Main constructor.
+  const PresetLensDistortion({required this.strength});
+
+  /// Factory to parse from a JSON map.
+  factory PresetLensDistortion.fromJson(Map<String, dynamic> json) =>
+      PresetLensDistortion(strength: (json['strength'] as num).toDouble());
+
+  /// The barrel distortion strength.
+  final double strength;
+
+  /// Converts this instance to a JSON map.
+  Map<String, dynamic> toJson() => <String, dynamic>{'strength': strength};
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PresetLensDistortion && other.strength == strength;
+  }
+
+  @override
+  int get hashCode => strength.hashCode;
+
+  @override
+  String toString() => 'PresetLensDistortion(strength: $strength)';
+}
+
 /// Group of preset effects.
 @immutable
 class PresetEffects {
@@ -257,6 +286,7 @@ class PresetEffects {
     required this.dust,
     this.bloom = const PresetBloom(threshold: 0.8, intensity: 0),
     this.halation = const PresetHalation(intensity: 0),
+    this.lensDistortion = const PresetLensDistortion(strength: 0),
   });
 
   /// Factory to parse from a JSON map.
@@ -265,6 +295,7 @@ class PresetEffects {
     final dustJson = json['dust'] as Map<String, dynamic>?;
     final bloomJson = json['bloom'] as Map<String, dynamic>?;
     final halationJson = json['halation'] as Map<String, dynamic>?;
+    final lensDistortionJson = json['lensDistortion'] as Map<String, dynamic>?;
     return PresetEffects(
       lightLeak: lightLeakJson != null
           ? LightLeakEffect.fromJson(lightLeakJson)
@@ -278,6 +309,9 @@ class PresetEffects {
       halation: halationJson != null
           ? PresetHalation.fromJson(halationJson)
           : const PresetHalation(intensity: 0),
+      lensDistortion: lensDistortionJson != null
+          ? PresetLensDistortion.fromJson(lensDistortionJson)
+          : const PresetLensDistortion(strength: 0),
     );
   }
 
@@ -293,12 +327,16 @@ class PresetEffects {
   /// Halation effect configurations.
   final PresetHalation halation;
 
+  /// Lens distortion effect configurations.
+  final PresetLensDistortion lensDistortion;
+
   /// Converts this instance to a JSON map.
   Map<String, dynamic> toJson() => <String, dynamic>{
     'lightLeak': lightLeak.toJson(),
     'dust': dust.toJson(),
     'bloom': bloom.toJson(),
     'halation': halation.toJson(),
+    'lensDistortion': lensDistortion.toJson(),
   };
 
   @override
@@ -308,16 +346,19 @@ class PresetEffects {
         other.lightLeak == lightLeak &&
         other.dust == dust &&
         other.bloom == bloom &&
-        other.halation == halation;
+        other.halation == halation &&
+        other.lensDistortion == lensDistortion;
   }
 
   @override
-  int get hashCode => Object.hash(lightLeak, dust, bloom, halation);
+  int get hashCode =>
+      Object.hash(lightLeak, dust, bloom, halation, lensDistortion);
 
   @override
   String toString() =>
       'PresetEffects(lightLeak: $lightLeak, dust: $dust, '
-      'bloom: $bloom, halation: $halation)';
+      'bloom: $bloom, halation: $halation, '
+      'lensDistortion: $lensDistortion)';
 }
 
 /// Dynamic, data-driven preset recipe model.

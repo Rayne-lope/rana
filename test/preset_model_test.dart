@@ -32,6 +32,7 @@ void main() {
       expect(model.effects.bloom.threshold, 0.8);
       expect(model.effects.bloom.intensity, 0.0);
       expect(model.effects.halation.intensity, 0.0);
+      expect(model.effects.lensDistortion.strength, 0.0);
     });
 
     test('successfully parses rana_warm.json', () {
@@ -60,6 +61,7 @@ void main() {
       expect(model.effects.bloom.threshold, 0.7);
       expect(model.effects.bloom.intensity, 0.10);
       expect(model.effects.halation.intensity, 0.08);
+      expect(model.effects.lensDistortion.strength, 0.06);
     });
 
     test('successfully parses rana_cool.json', () {
@@ -88,6 +90,7 @@ void main() {
       expect(model.effects.bloom.threshold, 0.8);
       expect(model.effects.bloom.intensity, 0.0);
       expect(model.effects.halation.intensity, 0.0);
+      expect(model.effects.lensDistortion.strength, 0.04);
     });
 
     test('successfully parses rana_mono.json', () {
@@ -116,6 +119,7 @@ void main() {
       expect(model.effects.bloom.threshold, 0.8);
       expect(model.effects.bloom.intensity, 0.0);
       expect(model.effects.halation.intensity, 0.0);
+      expect(model.effects.lensDistortion.strength, 0.08);
     });
   });
 }
