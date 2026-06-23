@@ -55,9 +55,24 @@ class MainActivity : FlutterActivity() {
                     val preview = activePreviewView
                     if (preview != null) {
                         val params = offlineParamsFromArgs(call.arguments)
-                        preview.takePicture(params) { success, filePathOrUri, errorCode, errorMsg ->
+                        preview.takePicture(params) { success, filePathOrUri, qualityMetadata, errorCode, errorMsg ->
                             if (success) {
-                                result.success(mapOf("status" to "captured", "filePath" to filePathOrUri))
+                                result.success(
+                                    mapOf(
+                                        "status" to "captured",
+                                        "filePath" to filePathOrUri,
+                                        "qualityReduced" to (
+                                            qualityMetadata?.qualityReduced
+                                                ?: false
+                                            ),
+                                        "inSampleSize" to (
+                                            qualityMetadata?.inSampleSize ?: 1
+                                            ),
+                                        "lutSkipped" to (
+                                            qualityMetadata?.lutSkipped ?: false
+                                            )
+                                    )
+                                )
                             } else {
                                 result.error(errorCode ?: "CAPTURE_FAILED", errorMsg ?: "Unknown error", null)
                             }
@@ -161,8 +176,8 @@ class MainActivity : FlutterActivity() {
                                         100, stream
                                     )
                                 }
-                                out.recycle()
-                                bitmap.recycle()
+                                out.safeRecycle()
+                                bitmap.safeRecycle()
                                 handler.post {
                                     result.success(
                                         mapOf(
@@ -172,7 +187,7 @@ class MainActivity : FlutterActivity() {
                                     )
                                 }
                             } else {
-                                bitmap.recycle()
+                                bitmap.safeRecycle()
                                 handler.post {
                                     result.error(
                                         "PROCESS_FAILED",
@@ -181,7 +196,7 @@ class MainActivity : FlutterActivity() {
                                 }
                             }
                         } catch (e: Exception) {
-                            bitmap.recycle()
+                            bitmap.safeRecycle()
                             handler.post {
                                 result.error("ERROR", e.message, null)
                             }
@@ -252,5 +267,9 @@ class MainActivity : FlutterActivity() {
         isStreamingFps = false
         fpsRunnable?.let { handler.removeCallbacks(it) }
         fpsRunnable = null
+    }
+
+    private fun android.graphics.Bitmap.safeRecycle() {
+        if (!isRecycled) recycle()
     }
 }

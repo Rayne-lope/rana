@@ -37,3 +37,5 @@
 {"id":"int-c8fa7f5b","kind":"field_change","created_at":"2026-06-23T10:17:34.97531Z","actor":"Rayne-lope","issue_id":"Rana-xn2","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"done"}}
 {"id":"int-a42082af","kind":"field_change","created_at":"2026-06-23T10:17:37.431316Z","actor":"Rayne-lope","issue_id":"Rana-4a6","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"done"}}
 {"id":"int-645ea066","kind":"field_change","created_at":"2026-06-23T10:28:06.91358Z","actor":"Rayne-lope","issue_id":"Rana-o54","extra":{"field":"assignee","new_value":"other","old_value":""}}
+{"id":"int-e90fe533","kind":"field_change","created_at":"2026-06-23T10:51:21.182775Z","actor":"Rayne-lope","issue_id":"Rana-o54","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"done"}}
+{"id":"int-7c514d6f","kind":"field_change","created_at":"2026-06-23T10:56:01.246742Z","actor":"Rayne-lope","issue_id":"Rana-ez4","extra":{"field":"assignee","new_value":"other","old_value":"Rayne-lope"}}

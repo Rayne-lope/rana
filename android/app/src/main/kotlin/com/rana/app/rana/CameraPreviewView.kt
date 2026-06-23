@@ -237,6 +237,7 @@ class CameraPreviewView(
         callback: (
             success: Boolean,
             filePathOrUri: String?,
+            qualityMetadata: CaptureQualityMetadata?,
             errorCode: String?,
             errorMsg: String?
         ) -> Unit
@@ -245,23 +246,25 @@ class CameraPreviewView(
         fun finish(
             success: Boolean,
             filePathOrUri: String?,
+            qualityMetadata: CaptureQualityMetadata?,
             errorCode: String?,
             errorMsg: String?
         ) {
             if (!finishOnce.compareAndSet(false, true)) return
             ContextCompat.getMainExecutor(context).execute {
-                callback(success, filePathOrUri, errorCode, errorMsg)
+                callback(success, filePathOrUri, qualityMetadata, errorCode, errorMsg)
             }
         }
 
         val capture = imageCapture
         if (capture == null) {
-            finish(false, null, "CAMERA_NOT_READY", "Camera not initialized")
+            finish(false, null, null, "CAMERA_NOT_READY", "Camera not initialized")
             return
         }
         if (!isCapturing.compareAndSet(false, true)) {
             finish(
                 false,
+                null,
                 null,
                 "CAPTURE_IN_PROGRESS",
                 "Capture already in progress"
@@ -279,15 +282,27 @@ class CameraPreviewView(
                     var inputBitmap: Bitmap? = null
                     var processedBitmap: Bitmap? = null
                     var savedUri: Uri? = null
+                    var qualityMetadata: CaptureQualityMetadata? = null
                     var errorCode: String? = null
                     var errorMessage: String? = null
 
                     try {
-                        decodedBitmap = decodeImageProxy(image)
-                        if (decodedBitmap == null) {
+                        val decodedCapture = decodeImageProxy(image)
+                        decodedBitmap = decodedCapture?.bitmap
+                        qualityMetadata = decodedCapture?.qualityMetadata
+                        if (decodedCapture == null || decodedBitmap == null) {
                             errorCode = "DECODE_FAILED"
                             errorMessage = "Unable to decode captured image"
                         } else {
+                            val effectiveParams =
+                                if (qualityMetadata?.lutSkipped == true) {
+                                    params.copy(
+                                        lutAssetPath = null,
+                                        lutStrength = 0f
+                                    )
+                                } else {
+                                    params
+                                }
                             inputBitmap = transformCapturedBitmap(
                                 decodedBitmap,
                                 image.imageInfo.rotationDegrees,
@@ -301,8 +316,9 @@ class CameraPreviewView(
                             processedBitmap = OfflineGlProcessor.processImage(
                                 context,
                                 inputBitmap,
-                                params
+                                effectiveParams
                             )
+                            inputBitmap = null
                             if (processedBitmap == null) {
                                 errorCode = "PROCESS_FAILED"
                                 errorMessage = "OfflineGlProcessor returned null"
@@ -329,10 +345,11 @@ class CameraPreviewView(
                     }
 
                     if (savedUri != null) {
-                        finish(true, savedUri.toString(), null, null)
+                        finish(true, savedUri.toString(), qualityMetadata, null, null)
                     } else {
                         finish(
                             false,
+                            null,
                             null,
                             errorCode ?: "CAPTURE_FAILED",
                             errorMessage ?: "Unknown capture error"
@@ -345,6 +362,7 @@ class CameraPreviewView(
                     finish(
                         false,
                         null,
+                        null,
                         "CAPTURE_FAILED",
                         exception.message ?: "CameraX capture failed"
                     )
@@ -353,12 +371,54 @@ class CameraPreviewView(
         )
     }
 
-    private fun decodeImageProxy(image: ImageProxy): Bitmap? {
+    private fun decodeImageProxy(image: ImageProxy): DecodedCapture? {
         val buffer = image.planes.firstOrNull()?.buffer ?: return null
         buffer.rewind()
         val bytes = ByteArray(buffer.remaining())
         buffer.get(bytes)
-        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+
+        val boundsOptions = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, boundsOptions)
+        val sourceWidth = boundsOptions.outWidth
+        val sourceHeight = boundsOptions.outHeight
+        if (sourceWidth <= 0 || sourceHeight <= 0) return null
+
+        val processingPlan = MemoryUtils.createProcessingPlan(
+            context,
+            sourceWidth,
+            sourceHeight
+        )
+        if (processingPlan.qualityReduced || processingPlan.skipLut) {
+            android.util.Log.w(
+                "CameraPreviewView",
+                "Reduced capture processing: " +
+                    "availableMb=${processingPlan.availableMb}, " +
+                    "inSampleSize=${processingPlan.inSampleSize}, " +
+                    "skipLut=${processingPlan.skipLut}"
+            )
+        }
+
+        val decodeOptions = BitmapFactory.Options().apply {
+            inSampleSize = processingPlan.inSampleSize
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        val bitmap = BitmapFactory.decodeByteArray(
+            bytes,
+            0,
+            bytes.size,
+            decodeOptions
+        ) ?: return null
+
+        return DecodedCapture(
+            bitmap = bitmap,
+            qualityMetadata = CaptureQualityMetadata(
+                qualityReduced = processingPlan.qualityReduced,
+                inSampleSize = processingPlan.inSampleSize,
+                lutSkipped = processingPlan.skipLut
+            )
+        )
     }
 
     private fun transformCapturedBitmap(
@@ -465,4 +525,15 @@ class CameraPreviewView(
     fun getCurrentLensFacing(): Int {
         return currentLensFacing
     }
+
+    data class CaptureQualityMetadata(
+        val qualityReduced: Boolean,
+        val inSampleSize: Int,
+        val lutSkipped: Boolean
+    )
+
+    private data class DecodedCapture(
+        val bitmap: Bitmap,
+        val qualityMetadata: CaptureQualityMetadata
+    )
 }

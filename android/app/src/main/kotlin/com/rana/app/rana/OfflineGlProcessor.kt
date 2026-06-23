@@ -139,6 +139,12 @@ object OfflineGlProcessor {
         }
     """.trimIndent()
 
+    /**
+     * Processes and takes ownership of [inputBitmap].
+     *
+     * The input bitmap is recycled after it is uploaded to GL, or during
+     * cleanup if processing fails before upload.
+     */
     fun processImage(
         context: android.content.Context,
         inputBitmap: Bitmap,
@@ -237,10 +243,16 @@ object OfflineGlProcessor {
                 val scale = maxLimit.toFloat() / maxOf(width, height)
                 val scaledWidth = (width * scale).toInt()
                 val scaledHeight = (height * scale).toInt()
-                workingBitmap = Bitmap.createScaledBitmap(
+                val scaledBitmap = Bitmap.createScaledBitmap(
                     workingBitmap, scaledWidth, scaledHeight, true
                 )
+                if (scaledBitmap != workingBitmap) {
+                    workingBitmap.safeRecycle()
+                }
+                workingBitmap = scaledBitmap
             }
+            val renderWidth = workingBitmap.width
+            val renderHeight = workingBitmap.height
 
             // 6. Setup Program & Shaders
             programId = createProgram(vertexShaderCode, fragmentShaderCode)
@@ -399,40 +411,37 @@ object OfflineGlProcessor {
 
             // Upload via GLUtils to handle format conversion
             GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, workingBitmap, 0)
+            workingBitmap.safeRecycle()
             val sTextureLoc = GLES20.glGetUniformLocation(
                 programId, "sTexture"
             )
             GLES20.glUniform1i(sTextureLoc, 0)
 
             // Clear viewport and Draw
-            GLES20.glViewport(0, 0, workingBitmap.width, workingBitmap.height)
+            GLES20.glViewport(0, 0, renderWidth, renderHeight)
             GLES20.glClearColor(0f, 0f, 0f, 1f)
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
             // 9. Read back pixels
             val readBuf = ByteBuffer.allocateDirect(
-                workingBitmap.width * workingBitmap.height * 4
+                renderWidth * renderHeight * 4
             ).order(ByteOrder.LITTLE_ENDIAN)
 
             GLES20.glReadPixels(
-                0, 0, workingBitmap.width, workingBitmap.height,
+                0, 0, renderWidth, renderHeight,
                 GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, readBuf
             )
             readBuf.rewind()
 
             val outBitmap = Bitmap.createBitmap(
-                workingBitmap.width, workingBitmap.height,
+                renderWidth, renderHeight,
                 Bitmap.Config.ARGB_8888
             )
             outBitmap.copyPixelsFromBuffer(readBuf)
 
             // GLUtils bitmap upload plus these texture coordinates already
             // preserve Android bitmap row order; an extra Y flip inverts exports.
-            if (workingBitmap != inputBitmap) {
-                workingBitmap.recycle()
-            }
-
             return outBitmap
 
         } catch (e: Exception) {
@@ -440,6 +449,7 @@ object OfflineGlProcessor {
             return null
         } finally {
             // Clean up resources cleanly
+            workingBitmap.safeRecycle()
             if (lutTextureId != -1) {
                 GLES20.glDeleteTextures(1, intArrayOf(lutTextureId), 0)
             }
@@ -497,6 +507,10 @@ object OfflineGlProcessor {
             Log.e(TAG, "Failed to load LUT bitmap: $assetPath", e)
             return null
         }
+    }
+
+    private fun Bitmap.safeRecycle() {
+        if (!isRecycled) recycle()
     }
 
     private fun compileShader(type: Int, shaderCode: String): Int {
