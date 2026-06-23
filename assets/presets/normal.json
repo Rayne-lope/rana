@@ -1,0 +1,19 @@
+{
+  "id": "normal",
+  "name": "Normal",
+  "category": "Classic",
+  "color": {
+    "temperature": 0.0,
+    "contrast": 0.0,
+    "saturation": 0.0
+  },
+  "grain": {
+    "intensity": 0.0
+  },
+  "vignette": {
+    "intensity": 0.0
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null
+}

@@ -1,0 +1,19 @@
+{
+  "id": "rana_cool",
+  "name": "Rana Cool",
+  "category": "Classic",
+  "color": {
+    "temperature": -0.3,
+    "contrast": 0.0,
+    "saturation": 0.05
+  },
+  "grain": {
+    "intensity": 0.0
+  },
+  "vignette": {
+    "intensity": 0.0
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null
+}
