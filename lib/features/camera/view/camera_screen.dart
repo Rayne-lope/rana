@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:rana/core/providers/permission_provider.dart';
 import 'package:rana/core/providers/preset_provider.dart';
+import 'package:rana/core/router/app_router.dart';
 import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/camera/controller/camera_controller.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
@@ -24,10 +28,31 @@ class CameraScreen extends ConsumerStatefulWidget {
 
 class _CameraScreenState extends ConsumerState<CameraScreen>
     with WidgetsBindingObserver {
+  late final ProviderSubscription<CameraState> _cameraStateSubscription;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _cameraStateSubscription = ref.listenManual<CameraState>(
+      cameraControllerProvider,
+      (previous, next) {
+        final enteredSuccess =
+            previous?.captureStatus != CaptureStatus.success &&
+            next.captureStatus == CaptureStatus.success;
+        final imageUri = next.lastCapturedPath;
+        if (!enteredSuccess || imageUri == null) {
+          return;
+        }
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            return;
+          }
+          unawaited(context.push(AppRoutes.result, extra: imageUri));
+        });
+      },
+    );
 
     // Verify permissions first, then initialize platform connection if granted
     Future.microtask(() async {
@@ -40,6 +65,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   @override
   void dispose() {
+    _cameraStateSubscription.close();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -446,22 +472,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               const SizedBox(width: 48),
             ],
           ),
-
-          // Notification overlay text indicating capture result
-          if (state.lastCapturedPath != null &&
-              state.captureStatus == CaptureStatus.idle)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text(
-                'Captured: ${state.lastCapturedPath}',
-                style: const TextStyle(
-                  color: Color(0xFF2ECC71),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
         ],
       ),
     );

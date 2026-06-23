@@ -72,6 +72,42 @@ class CameraPlatformService {
     }
   }
 
+  /// Loads raw bytes for a previously captured `content://` image URI.
+  Future<Uint8List> loadCapturedImageBytes(String uri) async {
+    try {
+      final result = await _methodChannel.invokeMethod<Uint8List>(
+        'loadCapturedImageBytes',
+        {'uri': uri},
+      );
+      return result ?? Uint8List(0);
+    } on PlatformException catch (e, stack) {
+      AppLogger.e(
+        'CameraPlatformService',
+        'Failed to load captured image bytes: $uri',
+        e,
+        stack,
+      );
+      rethrow;
+    }
+  }
+
+  /// Opens a previously captured image in the Android system gallery.
+  Future<void> openMediaInGallery(String uri) async {
+    try {
+      await _methodChannel.invokeMethod<void>('openMediaInGallery', {
+        'uri': uri,
+      });
+    } on PlatformException catch (e, stack) {
+      AppLogger.e(
+        'CameraPlatformService',
+        'Failed to open media in gallery: $uri',
+        e,
+        stack,
+      );
+      rethrow;
+    }
+  }
+
   /// Sets the flash mode for active capturing.
   Future<Map<String, dynamic>> setFlashMode(String flashMode) async {
     try {

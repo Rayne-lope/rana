@@ -1,14 +1,18 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/core/widgets/main_shell.dart';
 import 'package:rana/features/camera/view/camera_screen.dart';
+import 'package:rana/features/camera/view/result_screen.dart';
 import 'package:rana/features/gallery/view/gallery_screen.dart';
 import 'package:rana/features/settings/view/settings_screen.dart';
 import 'package:rana/features/splash/view/splash_screen.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'app_router.g.dart';
+
+final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// Centrally-defined route paths.
 ///
@@ -25,12 +29,16 @@ abstract final class AppRoutes {
 
   /// Settings — app preferences.
   static const settings = '/settings';
+
+  /// Result preview shown after a successful capture.
+  static const result = '/result';
 }
 
 @riverpod
 GoRouter appRouter(Ref ref) {
   AppLogger.i('AppRouter', 'Initialising router');
   return GoRouter(
+    navigatorKey: _rootNavigatorKey,
     initialLocation: AppRoutes.splash,
     debugLogDiagnostics: true,
     routes: [
@@ -40,12 +48,20 @@ GoRouter appRouter(Ref ref) {
         name: 'splash',
         builder: (context, state) => const SplashScreen(),
       ),
+      GoRoute(
+        path: AppRoutes.result,
+        name: 'result',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => switch (state.extra) {
+          final String imageUri => ResultScreen(imageUri: imageUri),
+          _ => const SizedBox.shrink(),
+        },
+      ),
 
       // ── Main shell (Camera / Gallery / Settings) ────────────────────────
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) => MainShell(
-          navigationShell: navigationShell,
-        ),
+        builder: (context, state, navigationShell) =>
+            MainShell(navigationShell: navigationShell),
         branches: [
           StatefulShellBranch(
             routes: [

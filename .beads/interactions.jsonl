@@ -39,3 +39,5 @@
 {"id":"int-645ea066","kind":"field_change","created_at":"2026-06-23T10:28:06.91358Z","actor":"Rayne-lope","issue_id":"Rana-o54","extra":{"field":"assignee","new_value":"other","old_value":""}}
 {"id":"int-e90fe533","kind":"field_change","created_at":"2026-06-23T10:51:21.182775Z","actor":"Rayne-lope","issue_id":"Rana-o54","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"done"}}
 {"id":"int-7c514d6f","kind":"field_change","created_at":"2026-06-23T10:56:01.246742Z","actor":"Rayne-lope","issue_id":"Rana-ez4","extra":{"field":"assignee","new_value":"other","old_value":"Rayne-lope"}}
+{"id":"int-940cadb5","kind":"field_change","created_at":"2026-06-23T11:05:04.456447Z","actor":"Rayne-lope","issue_id":"Rana-ez4","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"done"}}
+{"id":"int-f4e55724","kind":"field_change","created_at":"2026-06-23T11:10:33.373873Z","actor":"Rayne-lope","issue_id":"Rana-78e","extra":{"field":"assignee","new_value":"other","old_value":"Rayne-lope"}}

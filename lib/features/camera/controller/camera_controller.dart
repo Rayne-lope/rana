@@ -132,15 +132,6 @@ class CameraController extends _$CameraController {
         captureStatus: CaptureStatus.success,
         lastCapturedPath: filePath,
       );
-
-      // Return state to idle after showing success message for 2 seconds
-      unawaited(
-        Future<void>.delayed(const Duration(seconds: 2)).then((_) {
-          if (state.captureStatus == CaptureStatus.success) {
-            state = state.copyWith(captureStatus: CaptureStatus.idle);
-          }
-        }),
-      );
     } on Object catch (e) {
       state = state.copyWith(
         captureStatus: CaptureStatus.error,
@@ -180,6 +171,14 @@ class CameraController extends _$CameraController {
       'lutPath': lutPath,
       'lutStrength': lutPath != null ? 1.0 : 0.0,
     };
+  }
+
+  /// Clears the transient success state once the result screen is dismissed.
+  void acknowledgeResultDismissed() {
+    if (state.captureStatus != CaptureStatus.success) {
+      return;
+    }
+    state = state.copyWith(captureStatus: CaptureStatus.idle);
   }
 
   /// Releases native camera resources and resets initialization state.

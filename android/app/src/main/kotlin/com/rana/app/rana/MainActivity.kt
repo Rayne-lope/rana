@@ -1,9 +1,11 @@
 package com.rana.app.rana
 
+import android.content.Intent
+import android.net.Uri
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.MethodChannel
 import android.os.Handler
 import android.os.Looper
 import androidx.camera.core.CameraSelector
@@ -79,6 +81,27 @@ class MainActivity : FlutterActivity() {
                         }
                     } else {
                         result.error("CAMERA_NOT_READY", "Camera preview not initialized", null)
+                    }
+                }
+                "loadCapturedImageBytes" -> {
+                    val uriArg = call.argument<String>("uri")
+                    if (uriArg.isNullOrBlank()) {
+                        result.error("INVALID_URI", "Image URI is required", null)
+                    } else {
+                        try {
+                            val imageBytes = loadCapturedImageBytes(Uri.parse(uriArg))
+                            result.success(imageBytes)
+                        } catch (e: Exception) {
+                            result.error("LOAD_IMAGE_FAILED", e.message, null)
+                        }
+                    }
+                }
+                "openMediaInGallery" -> {
+                    val uriArg = call.argument<String>("uri")
+                    if (uriArg.isNullOrBlank()) {
+                        result.error("INVALID_URI", "Image URI is required", null)
+                    } else {
+                        openMediaInGallery(Uri.parse(uriArg), result)
                     }
                 }
                 "setFlashMode" -> {
@@ -261,6 +284,39 @@ class MainActivity : FlutterActivity() {
             }
         }
         handler.post(fpsRunnable!!)
+    }
+
+    private fun loadCapturedImageBytes(uri: Uri): ByteArray {
+        return contentResolver.openInputStream(uri)?.use { stream ->
+            stream.readBytes()
+        } ?: throw IllegalStateException("Unable to open image stream")
+    }
+
+    private fun openMediaInGallery(
+        uri: Uri,
+        result: MethodChannel.Result
+    ) {
+        handler.post {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "image/*")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                val activity = intent.resolveActivity(packageManager)
+                if (activity == null) {
+                    result.error(
+                        "NO_GALLERY_APP",
+                        "No application available to view images",
+                        null
+                    )
+                    return@post
+                }
+                startActivity(intent)
+                result.success(null)
+            } catch (e: Exception) {
+                result.error("OPEN_GALLERY_FAILED", e.message, null)
+            }
+        }
     }
 
     private fun stopFpsStreaming() {

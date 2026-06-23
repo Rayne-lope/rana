@@ -226,6 +226,32 @@ void main() {
       );
     });
 
+    test('capture success remains active until result is dismissed', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final subscription = container.listen<CameraState>(
+        cameraControllerProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await controller.initialize();
+
+      await controller.capture();
+      expect(
+        container.read(cameraControllerProvider).captureStatus,
+        equals(CaptureStatus.success),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 2200));
+      expect(
+        container.read(cameraControllerProvider).captureStatus,
+        equals(CaptureStatus.success),
+      );
+    });
+
     test('capture sends active preset params including LUT', () async {
       const warmPreset = PresetModel(
         id: 'rana_warm',
@@ -320,6 +346,59 @@ void main() {
           .toList();
       expect(captureCalls.length, equals(1));
     });
+
+    test(
+      'acknowledgeResultDismissed resets to idle and preserves camera config',
+      () async {
+        const warmPreset = PresetModel(
+          id: 'rana_warm',
+          name: 'Rana Warm',
+          category: 'Classic',
+          color: PresetColor(temperature: 0.3, contrast: 0, saturation: 0.1),
+          grain: PresetGrain(intensity: 0.1),
+          vignette: PresetVignette(intensity: 0.05),
+          lut: 'assets/luts/rana_warm_v1.png',
+        );
+        final container = ProviderContainer(
+          overrides: [
+            presetRepositoryProvider.overrideWithValue(
+              const _FakePresetRepository([warmPreset]),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        final subscription = container.listen<CameraState>(
+          cameraControllerProvider,
+          (_, _) {},
+          fireImmediately: true,
+        );
+        addTearDown(subscription.close);
+
+        final controller = container.read(cameraControllerProvider.notifier);
+        await container.read(presetsProvider.future);
+        await controller.initialize();
+        await controller.toggleFlashMode();
+        await controller.toggleLens();
+        await controller.selectPreset(warmPreset);
+        await controller.capture();
+
+        final successState = container.read(cameraControllerProvider);
+        expect(successState.captureStatus, equals(CaptureStatus.success));
+        expect(successState.activePresetId, equals('rana_warm'));
+        expect(successState.flashMode, equals(FlashMode.on));
+        expect(successState.activeLens, equals(CameraLens.front));
+        expect(successState.lastCapturedPath, equals('/mock/path/photo.jpg'));
+
+        controller.acknowledgeResultDismissed();
+
+        final dismissedState = container.read(cameraControllerProvider);
+        expect(dismissedState.captureStatus, equals(CaptureStatus.idle));
+        expect(dismissedState.activePresetId, equals('rana_warm'));
+        expect(dismissedState.flashMode, equals(FlashMode.on));
+        expect(dismissedState.activeLens, equals(CameraLens.front));
+        expect(dismissedState.lastCapturedPath, equals('/mock/path/photo.jpg'));
+      },
+    );
 
     test('capture error resets status back to idle', () async {
       executeCaptureHandler = (_) async {
