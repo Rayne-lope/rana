@@ -1,14 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rana/core/router/app_router.dart';
+import 'package:rana/features/settings/provider/settings_provider.dart';
 
 /// Settings Screen — Displays settings and developer tools in debug mode.
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context, WidgetRef ref) => Scaffold(
         backgroundColor: const Color(0xFF0F0F11),
         appBar: AppBar(
           backgroundColor: const Color(0xFF0F0F11),
@@ -48,17 +50,20 @@ class SettingsScreen extends StatelessWidget {
               ),
               trailing: Icon(Icons.chevron_right, color: Colors.white24),
             ),
-            const ListTile(
-              leading: Icon(Icons.grid_on, color: Colors.white54),
-              title: Text(
+            ListTile(
+              leading: const Icon(Icons.grid_on, color: Colors.white54),
+              title: const Text(
                 'Grid Lines',
                 style: TextStyle(color: Colors.white),
               ),
               subtitle: Text(
-                'Off',
-                style: TextStyle(color: Colors.white30, fontSize: 12),
+                ref.watch(gridLinesProvider) ? 'On (3x3)' : 'Off',
+                style: const TextStyle(color: Colors.white30, fontSize: 12),
               ),
-              trailing: Icon(Icons.chevron_right, color: Colors.white24),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+              onTap: () => ref
+                  .read(gridLinesProvider.notifier)
+                  .update((state) => !state),
             ),
             Divider(color: Colors.white.withValues(alpha: 0.05), height: 32),
             const Padding(

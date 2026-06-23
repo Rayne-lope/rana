@@ -13,6 +13,7 @@ import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/camera/view/permission_screen.dart';
 import 'package:rana/features/camera/widgets/preset_chip_widget.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
+import 'package:rana/features/settings/provider/settings_provider.dart';
 
 /// Interactive Camera Screen — Phase 0.4 & 0.5 Implementation.
 ///
@@ -237,7 +238,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 const _AndroidCameraPreview(),
 
                 // 3x3 Composition Grid Lines
-                const _ViewfinderGrid(),
+                if (ref.watch(gridLinesProvider))
+                  const _ViewfinderGrid(),
 
                 // Date/Time Stamp (Classic Huji/Dazz cam orange stamp)
                 Positioned(
