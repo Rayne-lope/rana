@@ -62,11 +62,15 @@ class CameraPreviewView(
     init {
         textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
             override fun onSurfaceTextureAvailable(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
-                activity.runOnUiThread {
-                    glRenderer = CameraGlRenderer(surfaceTexture, width, height) { _ ->
-                        bindPreview()
-                    }
-                }
+                    glRenderer = CameraGlRenderer(
+                        surfaceTexture,
+                        width,
+                        height,
+                        onInputSurfaceReady = { _ -> bindPreview() },
+                        onGlError = { error ->
+                            android.util.Log.e("CameraPreviewView", "OpenGL ES initialization failed: $error")
+                        }
+                    )
             }
 
             override fun onSurfaceTextureSizeChanged(surfaceTexture: SurfaceTexture, width: Int, height: Int) {

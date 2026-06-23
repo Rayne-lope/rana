@@ -19,7 +19,8 @@ class CameraGlRenderer(
     private val outputSurfaceTexture: SurfaceTexture,
     private val width: Int,
     private val height: Int,
-    private val onInputSurfaceReady: (SurfaceTexture) -> Unit
+    private val onInputSurfaceReady: (SurfaceTexture) -> Unit,
+    private val onGlError: (String) -> Unit
 ) {
     private val tag = "CameraGlRenderer"
 
@@ -97,6 +98,10 @@ class CameraGlRenderer(
         uniform float uContrast;
         void main() {
             vec4 texColor = texture2D(sTexture, vTextureCoord);
+            if (uTemperature == 0.0 && uSaturation == 0.0 && uContrast == 0.0) {
+                gl_FragColor = texColor;
+                return;
+            }
             vec3 color = texColor.rgb;
             if (uTemperature > 0.0) {
                 color.r += uTemperature * 0.15;
@@ -121,7 +126,9 @@ class CameraGlRenderer(
                 setupShaders()
                 setupInputSurface()
             } catch (e: Exception) {
-                Log.e(tag, "Initialization failed: ${e.message}")
+                val errorMsg = e.message ?: "Unknown error"
+                Log.e(tag, "Initialization failed: $errorMsg")
+                onGlError(errorMsg)
             }
         }
     }
