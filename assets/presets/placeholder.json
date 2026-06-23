@@ -8,5 +8,11 @@
     "grain": 0.0,
     "vignette": 0.0,
     "warmth": 0.0
+  },
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    }
   }
 }

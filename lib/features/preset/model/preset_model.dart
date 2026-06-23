@@ -118,6 +118,89 @@ class PresetVignette {
   String toString() => 'PresetVignette(intensity: $intensity)';
 }
 
+/// Preset light leak effect parameters.
+@immutable
+class LightLeakEffect {
+  /// Main constructor.
+  const LightLeakEffect({
+    required this.intensity,
+    required this.variant,
+  });
+
+  /// Factory to parse from a JSON map.
+  factory LightLeakEffect.fromJson(Map<String, dynamic> json) =>
+      LightLeakEffect(
+        intensity: (json['intensity'] as num).toDouble(),
+        variant: json['variant'] as int,
+      );
+
+  /// The light leak intensity parameter.
+  final double intensity;
+
+  /// The light leak variant selection (0-3, or -1 for random).
+  final int variant;
+
+  /// Converts this instance to a JSON map.
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'intensity': intensity,
+        'variant': variant,
+      };
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is LightLeakEffect &&
+        other.intensity == intensity &&
+        other.variant == variant;
+  }
+
+  @override
+  int get hashCode => Object.hash(intensity, variant);
+
+  @override
+  String toString() =>
+      'LightLeakEffect(intensity: $intensity, variant: $variant)';
+}
+
+/// Group of preset effects.
+@immutable
+class PresetEffects {
+  /// Main constructor.
+  const PresetEffects({
+    required this.lightLeak,
+  });
+
+  /// Factory to parse from a JSON map.
+  factory PresetEffects.fromJson(Map<String, dynamic> json) {
+    final lightLeakJson = json['lightLeak'] as Map<String, dynamic>?;
+    return PresetEffects(
+      lightLeak: lightLeakJson != null
+          ? LightLeakEffect.fromJson(lightLeakJson)
+          : const LightLeakEffect(intensity: 0, variant: -1),
+    );
+  }
+
+  /// Light leak effect configurations.
+  final LightLeakEffect lightLeak;
+
+  /// Converts this instance to a JSON map.
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'lightLeak': lightLeak.toJson(),
+      };
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PresetEffects && other.lightLeak == lightLeak;
+  }
+
+  @override
+  int get hashCode => lightLeak.hashCode;
+
+  @override
+  String toString() => 'PresetEffects(lightLeak: $lightLeak)';
+}
+
 /// Dynamic, data-driven preset recipe model.
 @immutable
 class PresetModel {
@@ -132,6 +215,9 @@ class PresetModel {
     this.lut,
     this.overlay,
     this.behavior,
+    this.effects = const PresetEffects(
+      lightLeak: LightLeakEffect(intensity: 0, variant: -1),
+    ),
   });
 
   /// Factory to parse from a JSON map.
@@ -151,6 +237,11 @@ class PresetModel {
         lut: json['lut'],
         overlay: json['overlay'],
         behavior: json['behavior'],
+        effects: json['effects'] != null
+            ? PresetEffects.fromJson(json['effects'] as Map<String, dynamic>)
+            : const PresetEffects(
+                lightLeak: LightLeakEffect(intensity: 0, variant: -1),
+              ),
       );
 
   /// The unique identifier of the preset.
@@ -180,6 +271,9 @@ class PresetModel {
   /// Future placeholder for randomization behavior parameters.
   final dynamic behavior;
 
+  /// Preset visual effects config.
+  final PresetEffects effects;
+
   /// Converts this instance to a JSON map.
   Map<String, dynamic> toJson() => <String, dynamic>{
         'id': id,
@@ -191,6 +285,7 @@ class PresetModel {
         'lut': lut,
         'overlay': overlay,
         'behavior': behavior,
+        'effects': effects.toJson(),
       };
 
   @override
@@ -205,7 +300,8 @@ class PresetModel {
         other.vignette == vignette &&
         other.lut == lut &&
         other.overlay == overlay &&
-        other.behavior == behavior;
+        other.behavior == behavior &&
+        other.effects == effects;
   }
 
   @override
@@ -219,11 +315,12 @@ class PresetModel {
         lut,
         overlay,
         behavior,
+        effects,
       );
 
   @override
   String toString() =>
       'PresetModel(id: $id, name: $name, category: $category, '
       'color: $color, grain: $grain, vignette: $vignette, lut: $lut, '
-      'overlay: $overlay, behavior: $behavior)';
+      'overlay: $overlay, behavior: $behavior, effects: $effects)';
 }

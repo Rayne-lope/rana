@@ -156,6 +156,10 @@ class MainActivity : FlutterActivity() {
                     val lutPath = call.argument<String>("lutPath")
                     val lutStrength = (call.argument<Number>("lutStrength"))
                         ?.toFloat() ?: 0f
+                    val lightLeakIntensity = (call.argument<Number>("lightLeakIntensity"))
+                        ?.toFloat() ?: 0f
+                    val lightLeakVariant = (call.argument<Number>("lightLeakVariant"))
+                        ?.toInt() ?: -1
 
                     val bitmap = android.graphics.Bitmap.createBitmap(
                         512, 512, android.graphics.Bitmap.Config.ARGB_8888
@@ -181,7 +185,9 @@ class MainActivity : FlutterActivity() {
                                 grain = grain,
                                 vignette = vignette,
                                 lutAssetPath = lutPath,
-                                lutStrength = lutStrength
+                                lutStrength = lutStrength,
+                                lightLeakIntensity = lightLeakIntensity,
+                                lightLeakVariant = lightLeakVariant
                             )
                             val out = OfflineGlProcessor.processImage(
                                 context, bitmap, params
@@ -261,7 +267,9 @@ class MainActivity : FlutterActivity() {
             grain = numberArg("grain"),
             vignette = numberArg("vignette"),
             lutAssetPath = args?.get("lutPath") as? String,
-            lutStrength = numberArg("lutStrength")
+            lutStrength = numberArg("lutStrength"),
+            lightLeakIntensity = numberArg("lightLeakIntensity"),
+            lightLeakVariant = (args?.get("lightLeakVariant") as? Number)?.toInt() ?: -1
         )
     }
 

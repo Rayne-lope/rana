@@ -22,6 +22,8 @@ object GlShaderConstants {
         uniform float uGrain;
         uniform float uVignette;
         uniform float uTime;
+        uniform sampler2D uLightLeakTexture;
+        uniform float uLightLeakIntensity;
 
         float rand(vec2 co) {
             return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
@@ -61,6 +63,12 @@ object GlShaderConstants {
             return mix(color, lutColor, uLutStrength);
         }
 
+        vec3 applyLightLeak(vec3 baseColor, vec2 uv) {
+            if (uLightLeakIntensity <= 0.0) return baseColor;
+            vec3 leakColor = texture2D(uLightLeakTexture, uv).rgb;
+            return baseColor + leakColor * uLightLeakIntensity - baseColor * leakColor * uLightLeakIntensity;
+        }
+
         void main() {
             vec4 texColor = texture2D(sTexture, vTextureCoord);
             vec3 color = texColor.rgb;
@@ -83,6 +91,8 @@ object GlShaderConstants {
             if (uLutStrength > 0.0) {
                 color = applyLut(color);
             }
+
+            color = applyLightLeak(color, vTextureCoord);
 
             if (uGrain > 0.0) {
                 float noise = rand(vTextureCoord + vec2(uTime * 0.1, uTime * 0.07)) - 0.5;

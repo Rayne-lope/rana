@@ -15,5 +15,11 @@
   },
   "lut": "assets/luts/rana_warm_v1.png",
   "overlay": null,
-  "behavior": null
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.2,
+      "variant": -1
+    }
+  }
 }

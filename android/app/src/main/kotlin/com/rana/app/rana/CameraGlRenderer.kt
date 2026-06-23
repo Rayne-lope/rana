@@ -47,6 +47,8 @@ class CameraGlRenderer(
     private var uVignetteLoc: Int = -1
     private var uLutTextureLoc: Int = -1
     private var uLutStrengthLoc: Int = -1
+    private var uLightLeakTextureLoc: Int = -1
+    private var uLightLeakIntensityLoc: Int = -1
     private var sTextureLoc: Int = -1
     private var uTimeLoc: Int = -1
     private val startTime = System.currentTimeMillis()
@@ -57,9 +59,12 @@ class CameraGlRenderer(
     private var uGrain = 0.0f
     private var uVignette = 0.0f
     private var uLutStrength = 0.0f
+    private var uLightLeakIntensity = 0.0f
+    private var uLightLeakVariant = -1
     private var activeLutTextureId: Int = -1
     private var activeLutPath: String? = null
     private val lutTextureCache = mutableMapOf<String, Int>()
+    private val lightLeakTextureCache = mutableMapOf<Int, Int>()
 
     private val vertexCoords = floatArrayOf(
         -1.0f, -1.0f, 0.0f,
@@ -169,6 +174,8 @@ class CameraGlRenderer(
         uVignetteLoc = GLES20.glGetUniformLocation(programId, "uVignette")
         uLutTextureLoc = GLES20.glGetUniformLocation(programId, "uLutTexture")
         uLutStrengthLoc = GLES20.glGetUniformLocation(programId, "uLutStrength")
+        uLightLeakTextureLoc = GLES20.glGetUniformLocation(programId, "uLightLeakTexture")
+        uLightLeakIntensityLoc = GLES20.glGetUniformLocation(programId, "uLightLeakIntensity")
         sTextureLoc = GLES20.glGetUniformLocation(programId, "sTexture")
         uTimeLoc = GLES20.glGetUniformLocation(programId, "uTime")
     }
@@ -243,6 +250,20 @@ class CameraGlRenderer(
         )
         GLES20.glUniform1i(uLutTextureLoc, 1)
 
+        // Always bind texture unit 2 to prevent conflicts on different GPU drivers
+        val leakTexId = if (uLightLeakIntensity > 0.0f && uLightLeakVariant in 0..3) {
+            getOrLoadLightLeakTexture(uLightLeakVariant)
+        } else {
+            -1
+        }
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE2)
+        GLES20.glBindTexture(
+            GLES20.GL_TEXTURE_2D,
+            if (leakTexId != -1) leakTexId else 0
+        )
+        GLES20.glUniform1i(uLightLeakTextureLoc, 2)
+        GLES20.glUniform1f(uLightLeakIntensityLoc, uLightLeakIntensity)
+
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
         GLES20.glDisableVertexAttribArray(aPositionLoc)
@@ -294,7 +315,9 @@ class CameraGlRenderer(
         grain: Float,
         vignette: Float,
         lutPath: String?,
-        lutStrength: Float
+        lutStrength: Float,
+        lightLeakIntensity: Float,
+        lightLeakVariant: Int
     ) {
         renderHandler.post {
             uTemperature = temperature
@@ -303,6 +326,8 @@ class CameraGlRenderer(
             uGrain = grain
             uVignette = vignette
             uLutStrength = lutStrength
+            uLightLeakIntensity = lightLeakIntensity
+            uLightLeakVariant = lightLeakVariant
 
             if (lutPath != activeLutPath) {
                 activeLutPath = lutPath
@@ -312,8 +337,21 @@ class CameraGlRenderer(
                     -1
                 }
             }
-            Log.d("GlParams", "[PREVIEW] temp=$temperature sat=$saturation contrast=$contrast grain=$grain vignette=$vignette lut=$lutPath strength=$lutStrength")
+            Log.d("GlParams", "[PREVIEW] temp=$temperature sat=$saturation contrast=$contrast grain=$grain vignette=$vignette lut=$lutPath strength=$lutStrength leakIntensity=$lightLeakIntensity leakVariant=$lightLeakVariant")
         }
+    }
+
+    private fun getOrLoadLightLeakTexture(variant: Int): Int {
+        val cachedId = lightLeakTextureCache[variant]
+        if (cachedId != null && cachedId != -1) {
+            return cachedId
+        }
+        val assetPath = "assets/textures/light_leak_${variant + 1}.png"
+        val texId = loadLutTextureFromAsset(assetPath)
+        if (texId != -1) {
+            lightLeakTextureCache[variant] = texId
+        }
+        return texId
     }
 
     private fun getOrLoadLutTexture(assetPath: String): Int {
@@ -411,6 +449,13 @@ class CameraGlRenderer(
             lutTextureCache.clear()
             activeLutTextureId = -1
             activeLutPath = null
+
+            for (texId in lightLeakTextureCache.values) {
+                if (texId != -1) {
+                    GLES20.glDeleteTextures(1, intArrayOf(texId), 0)
+                }
+            }
+            lightLeakTextureCache.clear()
 
             if (programId != -1) {
                 GLES20.glDeleteProgram(programId)

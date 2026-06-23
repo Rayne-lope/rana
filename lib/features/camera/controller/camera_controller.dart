@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:rana/core/providers/preset_provider.dart';
 import 'package:rana/core/services/camera_platform_service.dart';
@@ -14,6 +15,9 @@ part 'camera_controller.g.dart';
 class CameraController extends _$CameraController {
   late final CameraPlatformService _platformService;
   StreamSubscription<Map<String, dynamic>>? _statusSubscription;
+  int? _currentPreviewVariant;
+
+  int _randomizeVariant() => Random().nextInt(4); // 0 to 3
 
   @override
   CameraState build() {
@@ -95,6 +99,16 @@ class CameraController extends _$CameraController {
   /// Selects active film preset on native rendering pipeline.
   Future<void> selectPreset(PresetModel preset) async {
     try {
+      final isNewPreset = state.activePresetId != preset.id;
+      final targetVariant = preset.effects.lightLeak.variant;
+      if (targetVariant == -1) {
+        if (isNewPreset || _currentPreviewVariant == null) {
+          _currentPreviewVariant = _randomizeVariant();
+        }
+      } else {
+        _currentPreviewVariant = targetVariant;
+      }
+
       final paramsMap = <String, dynamic>{
         'temperature': preset.color.temperature,
         'contrast': preset.color.contrast,
@@ -103,6 +117,8 @@ class CameraController extends _$CameraController {
         'vignette': preset.vignette.intensity,
         'lutPath': preset.lut,
         'lutStrength': preset.lut != null ? 1.0 : 0.0,
+        'lightLeakIntensity': preset.effects.lightLeak.intensity,
+        'lightLeakVariant': _currentPreviewVariant ?? -1,
       };
       AppLogger.glParams('PREVIEW', paramsMap);
       ref.read(consistencyDebugProvider.notifier).update(
@@ -141,6 +157,7 @@ class CameraController extends _$CameraController {
         captureStatus: CaptureStatus.success,
         lastCapturedPath: filePath,
       );
+      _randomizeNextVariantForPreview();
     } on Object catch (e) {
       state = state.copyWith(
         captureStatus: CaptureStatus.error,
@@ -179,7 +196,44 @@ class CameraController extends _$CameraController {
       'vignette': activePreset?.vignette.intensity ?? 0.0,
       'lutPath': lutPath,
       'lutStrength': lutPath != null ? 1.0 : 0.0,
+      'lightLeakIntensity': activePreset?.effects.lightLeak.intensity ?? 0.0,
+      'lightLeakVariant': _currentPreviewVariant ?? -1,
     };
+  }
+
+  void _randomizeNextVariantForPreview() {
+    PresetModel? activePreset;
+    final presets = ref.read(presetsProvider).valueOrNull;
+    if (presets != null) {
+      for (final preset in presets) {
+        if (preset.id == state.activePresetId) {
+          activePreset = preset;
+          break;
+        }
+      }
+    }
+    if (activePreset == null) return;
+
+    if (activePreset.effects.lightLeak.variant == -1) {
+      _currentPreviewVariant = _randomizeVariant();
+      final paramsMap = <String, dynamic>{
+        'temperature': activePreset.color.temperature,
+        'contrast': activePreset.color.contrast,
+        'saturation': activePreset.color.saturation,
+        'grain': activePreset.grain.intensity,
+        'vignette': activePreset.vignette.intensity,
+        'lutPath': activePreset.lut,
+        'lutStrength': activePreset.lut != null ? 1.0 : 0.0,
+        'lightLeakIntensity': activePreset.effects.lightLeak.intensity,
+        'lightLeakVariant': _currentPreviewVariant ?? -1,
+      };
+
+      AppLogger.glParams('PREVIEW_UPDATE_RANDOM', paramsMap);
+      ref.read(consistencyDebugProvider.notifier).update(
+            (state) => state.copyWith(lastPreviewParams: paramsMap),
+          );
+      unawaited(_platformService.selectPreset(activePreset.id, paramsMap));
+    }
   }
 
   /// Clears the transient success state once the result screen is dismissed.

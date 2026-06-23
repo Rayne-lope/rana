@@ -58,6 +58,8 @@ class _ConsistencyDebugScreenState
       'vignette',
       'lutPath',
       'lutStrength',
+      'lightLeakIntensity',
+      'lightLeakVariant',
     };
 
     var hasMismatch = false;

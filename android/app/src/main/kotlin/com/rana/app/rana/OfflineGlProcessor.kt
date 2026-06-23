@@ -20,6 +20,8 @@ object OfflineGlProcessor {
     private val isProcessing = AtomicBoolean(false)
     private val lutBitmapCache =
         java.util.concurrent.ConcurrentHashMap<String, Bitmap>()
+    private val lightLeakBitmapCache =
+        java.util.concurrent.ConcurrentHashMap<Int, Bitmap>()
 
     private val vertexCoords = floatArrayOf(
         -1.0f, -1.0f, 0.0f,
@@ -52,13 +54,14 @@ object OfflineGlProcessor {
             Log.e(TAG, "Processing already in progress")
             return null
         }
-        Log.d("GlParams", "[EXPORT] temp=${params.temperature} sat=${params.saturation} contrast=${params.contrast} grain=${params.grain} vignette=${params.vignette} lut=${params.lutAssetPath} strength=${params.lutStrength}")
+        Log.d("GlParams", "[EXPORT] temp=${params.temperature} sat=${params.saturation} contrast=${params.contrast} grain=${params.grain} vignette=${params.vignette} lut=${params.lutAssetPath} strength=${params.lutStrength} leakIntensity=${params.lightLeakIntensity} leakVariant=${params.lightLeakVariant}")
 
         var eglDisplay = EGL14.EGL_NO_DISPLAY
         var eglContext = EGL14.EGL_NO_CONTEXT
         var eglSurface = EGL14.EGL_NO_SURFACE
         var textureId = -1
         var lutTextureId = -1
+        var leakTextureId = -1
         var programId = -1
 
         var workingBitmap = inputBitmap
@@ -289,6 +292,60 @@ object OfflineGlProcessor {
             )
             GLES20.glUniform1i(uLutTextureLoc, 1)
 
+            val uLightLeakTextureLoc = GLES20.glGetUniformLocation(
+                programId, "uLightLeakTexture"
+            )
+            val uLightLeakIntensityLoc = GLES20.glGetUniformLocation(
+                programId, "uLightLeakIntensity"
+            )
+
+            if (params.lightLeakIntensity > 0f && params.lightLeakVariant in 0..3) {
+                val leakBitmap = getOrLoadLightLeakBitmap(context, params.lightLeakVariant)
+                if (leakBitmap != null) {
+                    val leakTextures = IntArray(1)
+                    GLES20.glGenTextures(1, leakTextures, 0)
+                    leakTextureId = leakTextures[0]
+                    if (leakTextureId != 0 && leakTextureId != -1) {
+                        GLES20.glActiveTexture(GLES20.GL_TEXTURE2)
+                        GLES20.glBindTexture(
+                            GLES20.GL_TEXTURE_2D, leakTextureId
+                        )
+                        GLES20.glTexParameteri(
+                            GLES20.GL_TEXTURE_2D,
+                            GLES20.GL_TEXTURE_MIN_FILTER,
+                            GLES20.GL_LINEAR
+                        )
+                        GLES20.glTexParameteri(
+                            GLES20.GL_TEXTURE_2D,
+                            GLES20.GL_TEXTURE_MAG_FILTER,
+                            GLES20.GL_LINEAR
+                        )
+                        GLES20.glTexParameteri(
+                            GLES20.GL_TEXTURE_2D,
+                            GLES20.GL_TEXTURE_WRAP_S,
+                            GLES20.GL_CLAMP_TO_EDGE
+                        )
+                        GLES20.glTexParameteri(
+                            GLES20.GL_TEXTURE_2D,
+                            GLES20.GL_TEXTURE_WRAP_T,
+                            GLES20.GL_CLAMP_TO_EDGE
+                        )
+                        GLUtils.texImage2D(
+                            GLES20.GL_TEXTURE_2D, 0, leakBitmap, 0
+                        )
+                    }
+                }
+            }
+
+            // Always bind texture unit 2 to prevent conflicts
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE2)
+            GLES20.glBindTexture(
+                GLES20.GL_TEXTURE_2D,
+                if (leakTextureId != -1) leakTextureId else 0
+            )
+            GLES20.glUniform1i(uLightLeakTextureLoc, 2)
+            GLES20.glUniform1f(uLightLeakIntensityLoc, params.lightLeakIntensity)
+
             // 8. Upload Input Bitmap Texture
             val textures = IntArray(1)
             GLES20.glGenTextures(1, textures, 0)
@@ -357,6 +414,9 @@ object OfflineGlProcessor {
             if (lutTextureId != -1) {
                 GLES20.glDeleteTextures(1, intArrayOf(lutTextureId), 0)
             }
+            if (leakTextureId != -1) {
+                GLES20.glDeleteTextures(1, intArrayOf(leakTextureId), 0)
+            }
             if (textureId != -1) {
                 GLES20.glDeleteTextures(1, intArrayOf(textureId), 0)
             }
@@ -409,6 +469,39 @@ object OfflineGlProcessor {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load LUT bitmap: $assetPath", e)
+            return null
+        }
+    }
+
+    private fun getOrLoadLightLeakBitmap(
+        context: android.content.Context,
+        variant: Int
+    ): Bitmap? {
+        val cached = lightLeakBitmapCache[variant]
+        if (cached != null) return cached
+
+        val assetPath = "assets/textures/light_leak_${variant + 1}.png"
+        try {
+            val loader = io.flutter.FlutterInjector.instance().flutterLoader()
+            val lookupKey = loader.getLookupKeyForAsset(assetPath)
+            context.assets.open(lookupKey).use { inputStream ->
+                val options = android.graphics.BitmapFactory.Options().apply {
+                    inScaled = false
+                }
+                val bitmap = android.graphics.BitmapFactory
+                    .decodeStream(inputStream, null, options)
+                if (bitmap != null) {
+                    Log.i(
+                        TAG,
+                        "Loaded Offline Light Leak: $assetPath, size: " +
+                        "${bitmap.width}x${bitmap.height}"
+                    )
+                    lightLeakBitmapCache[variant] = bitmap
+                }
+                return bitmap
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load Light Leak bitmap: $assetPath", e)
             return null
         }
     }

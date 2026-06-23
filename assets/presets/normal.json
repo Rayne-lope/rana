@@ -15,5 +15,11 @@
   },
   "lut": null,
   "overlay": null,
-  "behavior": null
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    }
+  }
 }
