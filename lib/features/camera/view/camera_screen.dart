@@ -35,21 +35,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       if (ref.read(permissionControllerProvider).isAllGranted) {
         await ref.read(cameraControllerProvider.notifier).initialize();
       }
-
-      // Temporary EGL Offline processor test run
-      try {
-        final res = await const MethodChannel('com.rana.app/camera_control')
-            .invokeMapMethod<String, dynamic>('testOfflineProcessing', {
-          'temperature': 0.3,
-          'saturation': 0.1,
-          'contrast': 0.0,
-          'grain': 0.1,
-          'vignette': 0.05,
-        });
-        AppLogger.i('CameraScreen', '[TEST] Offline EGL output: $res');
-      } on PlatformException catch (e) {
-        AppLogger.e('CameraScreen', '[TEST] Offline EGL failed: $e');
-      }
     });
   }
 
