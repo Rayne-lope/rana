@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rana/core/providers/permission_provider.dart';
+import 'package:rana/core/providers/preset_provider.dart';
 import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/camera/controller/camera_controller.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/camera/view/permission_screen.dart';
+import 'package:rana/features/camera/widgets/preset_chip_widget.dart';
+import 'package:rana/features/preset/model/preset_model.dart';
 
 /// Interactive Camera Screen — Phase 0.4 & 0.5 Implementation.
 ///
@@ -282,54 +285,106 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
 
   Widget _buildBottomPanel(CameraState state, CameraController controller) {
-    final presets = [
-      {'id': 'normal', 'name': 'NORMAL'},
-      {'id': 'rana_warm', 'name': 'RANA WARM'},
-      {'id': 'rana_cool', 'name': 'RANA COOL'},
-      {'id': 'rana_mono', 'name': 'RANA MONO'},
-    ];
+    final presetsAsync = ref.watch(presetsProvider);
 
     return Container(
       padding: const EdgeInsets.only(top: 16, bottom: 24),
       child: Column(
         children: [
-          // Preset Carousel Selector
-          SizedBox(
-            height: 40,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: presets.length,
-              itemBuilder: (context, index) {
-                final preset = presets[index];
-                final isSelected = state.activePresetId == preset['id'];
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: ChoiceChip(
-                    label: Text(
-                      preset['name']!,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1,
-                        color: isSelected ? Colors.black : Colors.white70,
-                      ),
+          presetsAsync.when(
+            data: (presetsList) {
+              if (presetsList.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'NO PRESETS FOUND',
+                    style: TextStyle(
+                      color: Colors.white38,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
                     ),
-                    selected: isSelected,
-                    selectedColor: const Color(0xFFF39C12), // Vintage orange
-                    backgroundColor: const Color(0xFF1E1E24),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    onSelected: (selected) {
-                      if (selected && state.isCameraInitialized) {
-                        controller.selectPreset(preset['id']!);
-                      }
-                    },
                   ),
                 );
-              },
+              }
+
+              final categories = <String>[];
+              final grouped = <String, List<PresetModel>>{};
+              for (final preset in presetsList) {
+                if (!grouped.containsKey(preset.category)) {
+                  categories.add(preset.category);
+                  grouped[preset.category] = [];
+                }
+                grouped[preset.category]!.add(preset);
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: categories.map((category) {
+                  final list = grouped[category]!;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 22,
+                          vertical: 6,
+                        ),
+                        child: Text(
+                          '● ${category.toUpperCase()}',
+                          style: const TextStyle(
+                            color: Color(0xFFF39C12),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 48,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: list.length,
+                          itemBuilder: (context, index) {
+                            final preset = list[index];
+                            final isSelected =
+                                state.activePresetId == preset.id;
+
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                              ),
+                              child: PresetChipWidget(
+                                preset: preset,
+                                isSelected: isSelected,
+                                isEnabled: state.isCameraInitialized,
+                                onSelected: (selected) {
+                                  if (selected) {
+                                    controller.selectPreset(preset);
+                                  }
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  );
+                }).toList(),
+              );
+            },
+            loading: _buildShimmerLoading,
+            error: (err, stack) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'FAILED TO LOAD PRESETS',
+                style: TextStyle(
+                  color: Colors.red.withValues(alpha: 0.8),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -399,6 +454,42 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final day = now.day.toString().padLeft(2, '0');
     return '$year $month $day';
   }
+
+  Widget _buildShimmerLoading() => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 22, vertical: 6),
+            child: SizedBox(
+              width: 60,
+              height: 10,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white10,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(
+            height: 48,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: 3,
+              itemBuilder: (context, index) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Chip(
+                  backgroundColor: const Color(0xFF1E1E24),
+                  label: const SizedBox(width: 50, height: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
 }
 
 class _ViewfinderGrid extends StatelessWidget {

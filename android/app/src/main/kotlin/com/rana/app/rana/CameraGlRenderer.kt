@@ -42,10 +42,14 @@ class CameraGlRenderer(
     private var uTemperatureLoc: Int = -1
     private var uSaturationLoc: Int = -1
     private var uContrastLoc: Int = -1
+    private var uGrainLoc: Int = -1
+    private var uVignetteLoc: Int = -1
 
     private var uTemperature = 0.0f
     private var uSaturation = 0.0f
     private var uContrast = 0.0f
+    private var uGrain = 0.0f
+    private var uVignette = 0.0f
 
     private val vertexCoords = floatArrayOf(
         -1.0f, -1.0f, 0.0f,
@@ -96,13 +100,17 @@ class CameraGlRenderer(
         uniform float uTemperature;
         uniform float uSaturation;
         uniform float uContrast;
+        uniform float uGrain;
+        uniform float uVignette;
+
+        float rand(vec2 co) {
+            return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+
         void main() {
             vec4 texColor = texture2D(sTexture, vTextureCoord);
-            if (uTemperature == 0.0 && uSaturation == 0.0 && uContrast == 0.0) {
-                gl_FragColor = texColor;
-                return;
-            }
             vec3 color = texColor.rgb;
+
             if (uTemperature > 0.0) {
                 color.r += uTemperature * 0.15;
                 color.g += uTemperature * 0.07;
@@ -112,9 +120,24 @@ class CameraGlRenderer(
                 color.g += uTemperature * 0.05;
                 color.b -= uTemperature * 0.15;
             }
+
             float luma = dot(color, vec3(0.299, 0.587, 0.114));
             color = mix(vec3(luma), color, 1.0 + uSaturation);
+
             color = (color - 0.5) * (1.0 + uContrast) + 0.5;
+
+            if (uGrain > 0.0) {
+                float noise = rand(vTextureCoord) - 0.5;
+                color += vec3(noise * uGrain * 0.25);
+            }
+
+            if (uVignette > 0.0) {
+                vec2 uv = vTextureCoord - 0.5;
+                float dist = length(uv);
+                float vignette = smoothstep(0.8, 0.8 - uVignette * 0.6, dist);
+                color *= vignette;
+            }
+
             gl_FragColor = vec4(clamp(color, 0.0, 1.0), texColor.a);
         }
     """.trimIndent()
@@ -191,6 +214,8 @@ class CameraGlRenderer(
         uTemperatureLoc = GLES20.glGetUniformLocation(programId, "uTemperature")
         uSaturationLoc = GLES20.glGetUniformLocation(programId, "uSaturation")
         uContrastLoc = GLES20.glGetUniformLocation(programId, "uContrast")
+        uGrainLoc = GLES20.glGetUniformLocation(programId, "uGrain")
+        uVignetteLoc = GLES20.glGetUniformLocation(programId, "uVignette")
     }
 
     private fun setupInputSurface() {
@@ -247,6 +272,8 @@ class CameraGlRenderer(
         GLES20.glUniform1f(uTemperatureLoc, uTemperature)
         GLES20.glUniform1f(uSaturationLoc, uSaturation)
         GLES20.glUniform1f(uContrastLoc, uContrast)
+        GLES20.glUniform1f(uGrainLoc, uGrain)
+        GLES20.glUniform1f(uVignetteLoc, uVignette)
 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
@@ -292,11 +319,19 @@ class CameraGlRenderer(
         return program
     }
 
-    fun updateFilterParams(temperature: Float, saturation: Float, contrast: Float) {
+    fun applyPresetParams(
+        temperature: Float,
+        saturation: Float,
+        contrast: Float,
+        grain: Float,
+        vignette: Float
+    ) {
         renderHandler.post {
             uTemperature = temperature
             uSaturation = saturation
             uContrast = contrast
+            uGrain = grain
+            uVignette = vignette
         }
     }
 

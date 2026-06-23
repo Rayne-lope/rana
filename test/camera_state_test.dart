@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rana/features/camera/controller/camera_controller.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
+import 'package:rana/features/preset/model/preset_model.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -154,13 +155,32 @@ void main() {
       await controller.initialize();
       log.clear();
 
-      await controller.selectPreset('classic_f1');
+      const preset = PresetModel(
+        id: 'classic_f1',
+        name: 'Classic F1',
+        category: 'Classic',
+        color: PresetColor(
+          temperature: 0.1,
+          contrast: 0.2,
+          saturation: 0.3,
+        ),
+        grain: PresetGrain(intensity: 0.4),
+        vignette: PresetVignette(intensity: 0.5),
+      );
+
+      await controller.selectPreset(preset);
       final state = container.read(cameraControllerProvider);
       expect(state.activePresetId, equals('classic_f1'));
       expect(log.length, equals(1));
       expect(log.first.method, equals('selectPreset'));
       final args = log.first.arguments as Map<dynamic, dynamic>;
       expect(args['presetId'], equals('classic_f1'));
+      final params = args['params'] as Map<dynamic, dynamic>;
+      expect(params['temperature'], equals(0.1));
+      expect(params['contrast'], equals(0.2));
+      expect(params['saturation'], equals(0.3));
+      expect(params['grain'], equals(0.4));
+      expect(params['vignette'], equals(0.5));
     });
 
     test(

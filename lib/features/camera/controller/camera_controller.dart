@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:rana/core/services/camera_platform_service.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
+import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'camera_controller.g.dart';
@@ -89,10 +90,17 @@ class CameraController extends _$CameraController {
   }
 
   /// Selects active film preset on native rendering pipeline.
-  Future<void> selectPreset(String presetId) async {
+  Future<void> selectPreset(PresetModel preset) async {
     try {
-      await _platformService.selectPreset(presetId);
-      state = state.copyWith(activePresetId: presetId);
+      final paramsMap = <String, double>{
+        'temperature': preset.color.temperature,
+        'contrast': preset.color.contrast,
+        'saturation': preset.color.saturation,
+        'grain': preset.grain.intensity,
+        'vignette': preset.vignette.intensity,
+      };
+      await _platformService.selectPreset(preset.id, paramsMap);
+      state = state.copyWith(activePresetId: preset.id);
     } on Object catch (e) {
       state = state.copyWith(errorMessage: e.toString());
     }
