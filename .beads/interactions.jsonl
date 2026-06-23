@@ -17,3 +17,4 @@
 {"id":"int-4bcb2f0e","kind":"field_change","created_at":"2026-06-22T16:40:14.515588Z","actor":"Rayne-lope","issue_id":"Rana-9dx","extra":{"field":"assignee","new_value":"gemini","old_value":""}}
 {"id":"int-41f4347f","kind":"field_change","created_at":"2026-06-22T17:19:48.515023Z","actor":"Rayne-lope","issue_id":"Rana-9dx","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"done\n"}}
 {"id":"int-b5c28d1e","kind":"field_change","created_at":"2026-06-22T17:23:19.18112Z","actor":"Rayne-lope","issue_id":"Rana-e86","extra":{"field":"assignee","new_value":"gemini","old_value":"Rayne-lope"}}
+{"id":"int-12a04f5c","kind":"field_change","created_at":"2026-06-23T01:34:37.878464Z","actor":"Rayne-lope","issue_id":"Rana-e86","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"done"}}
