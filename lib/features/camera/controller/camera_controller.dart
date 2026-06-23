@@ -122,7 +122,7 @@ class CameraController extends _$CameraController {
       };
       AppLogger.glParams('PREVIEW', paramsMap);
       ref.read(consistencyDebugProvider.notifier).update(
-            (state) => state.copyWith(lastPreviewParams: paramsMap),
+            (state) => GlParamsState(lastPreviewParams: paramsMap),
           );
       await _platformService.selectPreset(preset.id, paramsMap);
       state = state.copyWith(activePresetId: preset.id);
@@ -136,8 +136,14 @@ class CameraController extends _$CameraController {
     if (state.captureStatus != CaptureStatus.idle) return;
 
     final captureParams = _buildCaptureParams();
+    final activePreviewParams =
+        ref.read(consistencyDebugProvider).lastPreviewParams;
     ref.read(consistencyDebugProvider.notifier).update(
-          (state) => state.copyWith(lastExportParams: captureParams),
+          (state) => GlParamsState(
+            lastPreviewParams: state.lastPreviewParams,
+            lastExportParams: captureParams,
+            lastCapturedPreviewParams: activePreviewParams ?? captureParams,
+          ),
         );
 
     state = state.copyWith(

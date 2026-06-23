@@ -47,7 +47,8 @@ class _ConsistencyDebugScreenState
   @override
   Widget build(BuildContext context) {
     final glState = ref.watch(consistencyDebugProvider);
-    final preview = glState.lastPreviewParams;
+    final preview =
+        glState.lastCapturedPreviewParams ?? glState.lastPreviewParams;
     final export = glState.lastExportParams;
 
     final allKeys = {
