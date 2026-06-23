@@ -547,7 +547,7 @@ Sebaliknya, control user yang ditampilkan adalah:
 
 ## Concept
 
-```
+```1
 Base Preset (e.g. Rana Warm)
 +
 Rana Style Parameters

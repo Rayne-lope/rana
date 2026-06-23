@@ -59,15 +59,7 @@ class CameraPreviewView(
     private val orientationEventListener = object : OrientationEventListener(context) {
         override fun onOrientationChanged(orientation: Int) {
             if (orientation == ORIENTATION_UNKNOWN) return
-            val rotation = when (orientation) {
-                in 45 until 135 -> Surface.ROTATION_270
-                in 135 until 225 -> Surface.ROTATION_180
-                in 225 until 315 -> Surface.ROTATION_90
-                else -> Surface.ROTATION_0
-            }
-            currentRotation = rotation
-            imageCapture?.targetRotation = rotation
-            previewUseCase?.targetRotation = rotation
+            syncCurrentRotationFromDisplay()
         }
     }
 
@@ -184,15 +176,7 @@ class CameraPreviewView(
                     imageCapture
                 )
 
-                val displayRotation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    activity.display?.rotation ?: Surface.ROTATION_0
-                } else {
-                    @Suppress("DEPRECATION")
-                    activity.windowManager.defaultDisplay.rotation
-                }
-                currentRotation = displayRotation
-                imageCapture?.targetRotation = displayRotation
-                previewUseCase?.targetRotation = displayRotation
+                syncCurrentRotationFromDisplay()
 
                 if (orientationEventListener.canDetectOrientation()) {
                     orientationEventListener.enable()
@@ -291,6 +275,7 @@ class CameraPreviewView(
             return
         }
 
+        syncCurrentRotationFromDisplay()
         capture.targetRotation = currentRotation
 
         capture.takePicture(
@@ -438,6 +423,18 @@ class CameraPreviewView(
                 lutSkipped = processingPlan.skipLut
             )
         )
+    }
+
+    private fun syncCurrentRotationFromDisplay() {
+        val displayRotation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            activity.display?.rotation ?: Surface.ROTATION_0
+        } else {
+            @Suppress("DEPRECATION")
+            activity.windowManager.defaultDisplay.rotation
+        }
+        currentRotation = displayRotation
+        imageCapture?.targetRotation = displayRotation
+        previewUseCase?.targetRotation = displayRotation
     }
 
     private fun transformCapturedBitmap(

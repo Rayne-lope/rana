@@ -33,6 +33,7 @@ void main() {
       expect(model.effects.bloom.intensity, 0.0);
       expect(model.effects.halation.intensity, 0.0);
       expect(model.effects.lensDistortion.strength, 0.0);
+      expect(model.style, isNull);
     });
 
     test('successfully parses rana_warm.json', () {
@@ -47,21 +48,22 @@ void main() {
       expect(model.id, 'rana_warm');
       expect(model.name, 'Rana Warm');
       expect(model.category, 'Classic');
-      expect(model.color.temperature, 0.3);
+      expect(model.color.temperature, 0.24);
       expect(model.color.contrast, 0.0);
-      expect(model.color.saturation, 0.1);
+      expect(model.color.saturation, 0.08);
       expect(model.grain.intensity, 0.1);
       expect(model.vignette.intensity, 0.05);
       expect(model.lut, 'assets/luts/rana_warm_v1.png');
       expect(model.overlay, isNull);
       expect(model.behavior, isNull);
-      expect(model.effects.lightLeak.intensity, 0.22);
+      expect(model.effects.lightLeak.intensity, 0.12);
       expect(model.effects.lightLeak.variant, -1);
-      expect(model.effects.dust.intensity, 0.06);
-      expect(model.effects.bloom.threshold, 0.65);
-      expect(model.effects.bloom.intensity, 0.10);
-      expect(model.effects.halation.intensity, 0.08);
+      expect(model.effects.dust.intensity, 0.04);
+      expect(model.effects.bloom.threshold, 0.78);
+      expect(model.effects.bloom.intensity, 0.05);
+      expect(model.effects.halation.intensity, 0.03);
       expect(model.effects.lensDistortion.strength, 0.06);
+      expect(model.style, isNull);
     });
 
     test('successfully parses rana_cool.json', () {
@@ -91,6 +93,7 @@ void main() {
       expect(model.effects.bloom.intensity, 0.06);
       expect(model.effects.halation.intensity, 0.03);
       expect(model.effects.lensDistortion.strength, 0.04);
+      expect(model.style, isNull);
     });
 
     test('successfully parses rana_mono.json', () {
@@ -120,6 +123,64 @@ void main() {
       expect(model.effects.bloom.intensity, 0.05);
       expect(model.effects.halation.intensity, 0.0);
       expect(model.effects.lensDistortion.strength, 0.08);
+      expect(model.style, isNull);
+    });
+
+    test('successfully parses preset with style block', () {
+      final jsonMap = {
+        'id': 'custom_styled',
+        'name': 'Custom Styled',
+        'category': 'Custom',
+        'color': {
+          'temperature': 0.1,
+          'contrast': -0.1,
+          'saturation': 0.2,
+        },
+        'grain': {
+          'intensity': 0.15,
+        },
+        'vignette': {
+          'intensity': 0.3,
+        },
+        'lut': 'assets/luts/custom.png',
+        'effects': {
+          'lightLeak': {
+            'intensity': 0.1,
+            'variant': 2,
+          },
+          'dust': {
+            'intensity': 0.05,
+          },
+        },
+        'style': {
+          'tone': 12.0,
+          'color': -15.0,
+          'texture': 25.0,
+          'styleStrength': 85.0,
+          'undertoneX': 0.35,
+          'undertoneY': -0.45,
+        }
+      };
+
+      final model = PresetModel.fromJson(jsonMap);
+
+      expect(model.id, 'custom_styled');
+      expect(model.style, isNotNull);
+      expect(model.style!.tone, 12.0);
+      expect(model.style!.color, -15.0);
+      expect(model.style!.texture, 25.0);
+      expect(model.style!.styleStrength, 85.0);
+      expect(model.style!.undertoneX, 0.35);
+      expect(model.style!.undertoneY, -0.45);
+
+      final serialized = model.toJson();
+      expect(serialized['style'], isNotNull);
+      expect(serialized['style']['tone'], 12.0);
+      expect(serialized['style']['color'], -15.0);
+      expect(serialized['style']['texture'], 25.0);
+      expect(serialized['style']['styleStrength'], 85.0);
+      expect(serialized['style']['undertoneX'], 0.35);
+      expect(serialized['style']['undertoneY'], -0.45);
     });
   });
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'rana_style.dart';
 
 /// Preset color parameters.
 @immutable
@@ -379,6 +380,7 @@ class PresetModel {
       lightLeak: LightLeakEffect(intensity: 0, variant: -1),
       dust: DustEffect(intensity: 0),
     ),
+    this.style,
   });
 
   /// Factory to parse from a JSON map.
@@ -398,6 +400,9 @@ class PresetModel {
             lightLeak: LightLeakEffect(intensity: 0, variant: -1),
             dust: DustEffect(intensity: 0),
           ),
+    style: json['style'] != null
+        ? RanaStyle.fromJson(json['style'] as Map<String, dynamic>)
+        : null,
   );
 
   /// The unique identifier of the preset.
@@ -430,6 +435,9 @@ class PresetModel {
   /// Preset visual effects config.
   final PresetEffects effects;
 
+  /// Optional style parameters for Phase 6.
+  final RanaStyle? style;
+
   /// Converts this instance to a JSON map.
   Map<String, dynamic> toJson() => <String, dynamic>{
     'id': id,
@@ -442,6 +450,7 @@ class PresetModel {
     'overlay': overlay,
     'behavior': behavior,
     'effects': effects.toJson(),
+    'style': style?.toJson(),
   };
 
   @override
@@ -457,7 +466,8 @@ class PresetModel {
         other.lut == lut &&
         other.overlay == overlay &&
         other.behavior == behavior &&
-        other.effects == effects;
+        other.effects == effects &&
+        other.style == style;
   }
 
   @override
@@ -472,11 +482,12 @@ class PresetModel {
     overlay,
     behavior,
     effects,
+    style,
   );
 
   @override
   String toString() =>
       'PresetModel(id: $id, name: $name, category: $category, '
       'color: $color, grain: $grain, vignette: $vignette, lut: $lut, '
-      'overlay: $overlay, behavior: $behavior, effects: $effects)';
+      'overlay: $overlay, behavior: $behavior, effects: $effects, style: $style)';
 }
