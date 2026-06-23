@@ -102,7 +102,11 @@ class CameraGlRenderer(
 
     private val fragmentShaderCode = """
         #extension GL_OES_EGL_image_external : require
+        #ifdef GL_FRAGMENT_PRECISION_HIGH
+        precision highp float;
+        #else
         precision mediump float;
+        #endif
         varying vec2 vTextureCoord;
         uniform samplerExternalOES sTexture;
         uniform sampler2D uLutTexture;
@@ -118,23 +122,30 @@ class CameraGlRenderer(
         }
 
         vec3 applyLut(vec3 color) {
-            float blueVal = color.b * 15.0;
+            vec3 lutInput = clamp(color, 0.0, 1.0);
+            float blueVal = lutInput.b * 15.0;
             
             float blueCellLower = floor(blueVal);
             float xOffsetLower = mod(blueCellLower, 8.0) / 8.0;
-            float yOffsetLower = floor(blueCellLower / 8.0) / 2.0;
+            float blueRowLower = floor(blueCellLower / 8.0);
+            float lutYLower = 1.0 - (
+                (blueRowLower * 8.0 + lutInput.g * 7.0 + 0.5) / 16.0
+            );
             vec2 lutUVLower = vec2(
-                xOffsetLower + (color.r * 63.0 + 0.5) / 512.0,
-                yOffsetLower + (color.g * 7.0 + 0.5) / 16.0
+                xOffsetLower + (lutInput.r * 63.0 + 0.5) / 512.0,
+                lutYLower
             );
             vec3 lutColorLower = texture2D(uLutTexture, lutUVLower).rgb;
             
             float blueCellUpper = min(blueCellLower + 1.0, 15.0);
             float xOffsetUpper = mod(blueCellUpper, 8.0) / 8.0;
-            float yOffsetUpper = floor(blueCellUpper / 8.0) / 2.0;
+            float blueRowUpper = floor(blueCellUpper / 8.0);
+            float lutYUpper = 1.0 - (
+                (blueRowUpper * 8.0 + lutInput.g * 7.0 + 0.5) / 16.0
+            );
             vec2 lutUVUpper = vec2(
-                xOffsetUpper + (color.r * 63.0 + 0.5) / 512.0,
-                yOffsetUpper + (color.g * 7.0 + 0.5) / 16.0
+                xOffsetUpper + (lutInput.r * 63.0 + 0.5) / 512.0,
+                lutYUpper
             );
             vec3 lutColorUpper = texture2D(uLutTexture, lutUVUpper).rgb;
             
