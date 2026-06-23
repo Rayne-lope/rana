@@ -22,6 +22,8 @@ object OfflineGlProcessor {
         java.util.concurrent.ConcurrentHashMap<String, Bitmap>()
     private val lightLeakBitmapCache =
         java.util.concurrent.ConcurrentHashMap<Int, Bitmap>()
+    private val dustBitmapCache =
+        java.util.concurrent.ConcurrentHashMap<String, Bitmap>()
 
     private val vertexCoords = floatArrayOf(
         -1.0f, -1.0f, 0.0f,
@@ -54,7 +56,7 @@ object OfflineGlProcessor {
             Log.e(TAG, "Processing already in progress")
             return null
         }
-        Log.d("GlParams", "[EXPORT] temp=${params.temperature} sat=${params.saturation} contrast=${params.contrast} grain=${params.grain} vignette=${params.vignette} lut=${params.lutAssetPath} strength=${params.lutStrength} leakIntensity=${params.lightLeakIntensity} leakVariant=${params.lightLeakVariant}")
+        Log.d("GlParams", "[EXPORT] temp=${params.temperature} sat=${params.saturation} contrast=${params.contrast} grain=${params.grain} vignette=${params.vignette} lut=${params.lutAssetPath} strength=${params.lutStrength} leakIntensity=${params.lightLeakIntensity} leakVariant=${params.lightLeakVariant} dustIntensity=${params.dustIntensity}")
 
         var eglDisplay = EGL14.EGL_NO_DISPLAY
         var eglContext = EGL14.EGL_NO_CONTEXT
@@ -62,6 +64,7 @@ object OfflineGlProcessor {
         var textureId = -1
         var lutTextureId = -1
         var leakTextureId = -1
+        var dustTextureId = -1
         var programId = -1
 
         var workingBitmap = inputBitmap
@@ -244,6 +247,19 @@ object OfflineGlProcessor {
             )
             GLES20.glUniform1f(uLutStrengthLoc, params.lutStrength)
 
+            val uDustTextureLoc = GLES20.glGetUniformLocation(
+                programId, "uDustTexture"
+            )
+            val uDustIntensityLoc = GLES20.glGetUniformLocation(
+                programId, "uDustIntensity"
+            )
+            val uDustUVOffsetXLoc = GLES20.glGetUniformLocation(
+                programId, "uDustUVOffsetX"
+            )
+            val uDustUVOffsetYLoc = GLES20.glGetUniformLocation(
+                programId, "uDustUVOffsetY"
+            )
+
             if (params.lutAssetPath != null && params.lutStrength > 0f) {
                 val lutBitmap = getOrLoadLutBitmap(
                     context, params.lutAssetPath
@@ -346,6 +362,58 @@ object OfflineGlProcessor {
             GLES20.glUniform1i(uLightLeakTextureLoc, 2)
             GLES20.glUniform1f(uLightLeakIntensityLoc, params.lightLeakIntensity)
 
+            val dustUVOffsetX = (0..1000).random() / 1000f
+            val dustUVOffsetY = (0..1000).random() / 1000f
+
+            if (params.dustIntensity > 0f) {
+                val dustBmp = getOrLoadDustBitmap(context)
+                if (dustBmp != null) {
+                    val dustTextures = IntArray(1)
+                    GLES20.glGenTextures(1, dustTextures, 0)
+                    dustTextureId = dustTextures[0]
+                    if (dustTextureId != 0 && dustTextureId != -1) {
+                        GLES20.glActiveTexture(GLES20.GL_TEXTURE3)
+                        GLES20.glBindTexture(
+                            GLES20.GL_TEXTURE_2D, dustTextureId
+                        )
+                        GLES20.glTexParameteri(
+                            GLES20.GL_TEXTURE_2D,
+                            GLES20.GL_TEXTURE_MIN_FILTER,
+                            GLES20.GL_LINEAR
+                        )
+                        GLES20.glTexParameteri(
+                            GLES20.GL_TEXTURE_2D,
+                            GLES20.GL_TEXTURE_MAG_FILTER,
+                            GLES20.GL_LINEAR
+                        )
+                        GLES20.glTexParameteri(
+                            GLES20.GL_TEXTURE_2D,
+                            GLES20.GL_TEXTURE_WRAP_S,
+                            GLES20.GL_CLAMP_TO_EDGE
+                        )
+                        GLES20.glTexParameteri(
+                            GLES20.GL_TEXTURE_2D,
+                            GLES20.GL_TEXTURE_WRAP_T,
+                            GLES20.GL_CLAMP_TO_EDGE
+                        )
+                        GLUtils.texImage2D(
+                            GLES20.GL_TEXTURE_2D, 0, dustBmp, 0
+                        )
+                    }
+                }
+            }
+
+            // Always bind texture unit 3 to prevent conflicts
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE3)
+            GLES20.glBindTexture(
+                GLES20.GL_TEXTURE_2D,
+                if (dustTextureId != -1) dustTextureId else 0
+            )
+            GLES20.glUniform1i(uDustTextureLoc, 3)
+            GLES20.glUniform1f(uDustIntensityLoc, params.dustIntensity)
+            GLES20.glUniform1f(uDustUVOffsetXLoc, dustUVOffsetX)
+            GLES20.glUniform1f(uDustUVOffsetYLoc, dustUVOffsetY)
+
             // 8. Upload Input Bitmap Texture
             val textures = IntArray(1)
             GLES20.glGenTextures(1, textures, 0)
@@ -416,6 +484,9 @@ object OfflineGlProcessor {
             }
             if (leakTextureId != -1) {
                 GLES20.glDeleteTextures(1, intArrayOf(leakTextureId), 0)
+            }
+            if (dustTextureId != -1) {
+                GLES20.glDeleteTextures(1, intArrayOf(dustTextureId), 0)
             }
             if (textureId != -1) {
                 GLES20.glDeleteTextures(1, intArrayOf(textureId), 0)
@@ -502,6 +573,38 @@ object OfflineGlProcessor {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load Light Leak bitmap: $assetPath", e)
+            return null
+        }
+    }
+
+    private fun getOrLoadDustBitmap(
+        context: android.content.Context
+    ): Bitmap? {
+        val assetPath = "assets/textures/dust_scratches_atlas.png"
+        val cached = dustBitmapCache[assetPath]
+        if (cached != null) return cached
+
+        try {
+            val loader = io.flutter.FlutterInjector.instance().flutterLoader()
+            val lookupKey = loader.getLookupKeyForAsset(assetPath)
+            context.assets.open(lookupKey).use { inputStream ->
+                val options = android.graphics.BitmapFactory.Options().apply {
+                    inScaled = false
+                }
+                val bitmap = android.graphics.BitmapFactory
+                    .decodeStream(inputStream, null, options)
+                if (bitmap != null) {
+                    Log.i(
+                        TAG,
+                        "Loaded Offline Dust Atlas: $assetPath, size: " +
+                        "${bitmap.width}x${bitmap.height}"
+                    )
+                    dustBitmapCache[assetPath] = bitmap
+                }
+                return bitmap
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load Dust Atlas bitmap: $assetPath", e)
             return null
         }
     }

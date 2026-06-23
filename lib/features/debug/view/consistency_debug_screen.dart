@@ -61,6 +61,7 @@ class _ConsistencyDebugScreenState
       'lutStrength',
       'lightLeakIntensity',
       'lightLeakVariant',
+      'dustIntensity',
     };
 
     var hasMismatch = false;

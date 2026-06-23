@@ -222,6 +222,7 @@ class CameraPreviewView(
             ?.toFloat() ?: 0.0f
         val lightLeakIntensity = (params["lightLeakIntensity"] as? Number)?.toFloat() ?: 0.0f
         val lightLeakVariant = (params["lightLeakVariant"] as? Number)?.toInt() ?: -1
+        val dustIntensity = (params["dustIntensity"] as? Number)?.toFloat() ?: 0.0f
         
         glRenderer?.applyPresetParams(
             temperature = temp,
@@ -232,7 +233,8 @@ class CameraPreviewView(
             lutPath = lutPath,
             lutStrength = lutStrength,
             lightLeakIntensity = lightLeakIntensity,
-            lightLeakVariant = lightLeakVariant
+            lightLeakVariant = lightLeakVariant,
+            dustIntensity = dustIntensity
         )
     }
 

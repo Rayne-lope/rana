@@ -160,6 +160,8 @@ class MainActivity : FlutterActivity() {
                         ?.toFloat() ?: 0f
                     val lightLeakVariant = (call.argument<Number>("lightLeakVariant"))
                         ?.toInt() ?: -1
+                    val dustIntensity = (call.argument<Number>("dustIntensity"))
+                        ?.toFloat() ?: 0f
 
                     val bitmap = android.graphics.Bitmap.createBitmap(
                         512, 512, android.graphics.Bitmap.Config.ARGB_8888
@@ -187,7 +189,8 @@ class MainActivity : FlutterActivity() {
                                 lutAssetPath = lutPath,
                                 lutStrength = lutStrength,
                                 lightLeakIntensity = lightLeakIntensity,
-                                lightLeakVariant = lightLeakVariant
+                                lightLeakVariant = lightLeakVariant,
+                                dustIntensity = dustIntensity
                             )
                             val out = OfflineGlProcessor.processImage(
                                 context, bitmap, params
@@ -269,7 +272,8 @@ class MainActivity : FlutterActivity() {
             lutAssetPath = args?.get("lutPath") as? String,
             lutStrength = numberArg("lutStrength"),
             lightLeakIntensity = numberArg("lightLeakIntensity"),
-            lightLeakVariant = (args?.get("lightLeakVariant") as? Number)?.toInt() ?: -1
+            lightLeakVariant = (args?.get("lightLeakVariant") as? Number)?.toInt() ?: -1,
+            dustIntensity = numberArg("dustIntensity")
         )
     }
 

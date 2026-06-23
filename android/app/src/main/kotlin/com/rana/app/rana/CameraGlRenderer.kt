@@ -49,6 +49,10 @@ class CameraGlRenderer(
     private var uLutStrengthLoc: Int = -1
     private var uLightLeakTextureLoc: Int = -1
     private var uLightLeakIntensityLoc: Int = -1
+    private var uDustTextureLoc: Int = -1
+    private var uDustIntensityLoc: Int = -1
+    private var uDustUVOffsetXLoc: Int = -1
+    private var uDustUVOffsetYLoc: Int = -1
     private var sTextureLoc: Int = -1
     private var uTimeLoc: Int = -1
     private val startTime = System.currentTimeMillis()
@@ -61,6 +65,10 @@ class CameraGlRenderer(
     private var uLutStrength = 0.0f
     private var uLightLeakIntensity = 0.0f
     private var uLightLeakVariant = -1
+    private var uDustIntensity = 0.0f
+    private var dustUVOffsetX = 0.0f
+    private var dustUVOffsetY = 0.0f
+    private var dustTextureId: Int = -1
     private var activeLutTextureId: Int = -1
     private var activeLutPath: String? = null
     private val lutTextureCache = mutableMapOf<String, Int>()
@@ -98,12 +106,21 @@ class CameraGlRenderer(
 
 
 
+    private val dustAnimRunnable = object : Runnable {
+        override fun run() {
+            dustUVOffsetX = (0..1000).random() / 1000f
+            dustUVOffsetY = (0..1000).random() / 1000f
+            renderHandler.postDelayed(this, 1000)
+        }
+    }
+
     init {
         renderHandler.post {
             try {
                 initEgl()
                 setupShaders()
                 setupInputSurface()
+                renderHandler.post(dustAnimRunnable)
             } catch (e: Exception) {
                 val errorMsg = e.message ?: "Unknown error"
                 Log.e(tag, "Initialization failed: $errorMsg")
@@ -176,6 +193,10 @@ class CameraGlRenderer(
         uLutStrengthLoc = GLES20.glGetUniformLocation(programId, "uLutStrength")
         uLightLeakTextureLoc = GLES20.glGetUniformLocation(programId, "uLightLeakTexture")
         uLightLeakIntensityLoc = GLES20.glGetUniformLocation(programId, "uLightLeakIntensity")
+        uDustTextureLoc = GLES20.glGetUniformLocation(programId, "uDustTexture")
+        uDustIntensityLoc = GLES20.glGetUniformLocation(programId, "uDustIntensity")
+        uDustUVOffsetXLoc = GLES20.glGetUniformLocation(programId, "uDustUVOffsetX")
+        uDustUVOffsetYLoc = GLES20.glGetUniformLocation(programId, "uDustUVOffsetY")
         sTextureLoc = GLES20.glGetUniformLocation(programId, "sTexture")
         uTimeLoc = GLES20.glGetUniformLocation(programId, "uTime")
     }
@@ -264,6 +285,22 @@ class CameraGlRenderer(
         GLES20.glUniform1i(uLightLeakTextureLoc, 2)
         GLES20.glUniform1f(uLightLeakIntensityLoc, uLightLeakIntensity)
 
+        // Always bind texture unit 3 to prevent conflicts on different GPU drivers
+        val activeDustTexId = if (uDustIntensity > 0.0f) {
+            getOrLoadDustTexture()
+        } else {
+            -1
+        }
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE3)
+        GLES20.glBindTexture(
+            GLES20.GL_TEXTURE_2D,
+            if (activeDustTexId != -1) activeDustTexId else 0
+        )
+        GLES20.glUniform1i(uDustTextureLoc, 3)
+        GLES20.glUniform1f(uDustIntensityLoc, uDustIntensity)
+        GLES20.glUniform1f(uDustUVOffsetXLoc, dustUVOffsetX)
+        GLES20.glUniform1f(uDustUVOffsetYLoc, dustUVOffsetY)
+
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
         GLES20.glDisableVertexAttribArray(aPositionLoc)
@@ -317,7 +354,8 @@ class CameraGlRenderer(
         lutPath: String?,
         lutStrength: Float,
         lightLeakIntensity: Float,
-        lightLeakVariant: Int
+        lightLeakVariant: Int,
+        dustIntensity: Float
     ) {
         renderHandler.post {
             uTemperature = temperature
@@ -328,6 +366,7 @@ class CameraGlRenderer(
             uLutStrength = lutStrength
             uLightLeakIntensity = lightLeakIntensity
             uLightLeakVariant = lightLeakVariant
+            uDustIntensity = dustIntensity
 
             if (lutPath != activeLutPath) {
                 activeLutPath = lutPath
@@ -337,8 +376,16 @@ class CameraGlRenderer(
                     -1
                 }
             }
-            Log.d("GlParams", "[PREVIEW] temp=$temperature sat=$saturation contrast=$contrast grain=$grain vignette=$vignette lut=$lutPath strength=$lutStrength leakIntensity=$lightLeakIntensity leakVariant=$lightLeakVariant")
+            Log.d("GlParams", "[PREVIEW] temp=$temperature sat=$saturation contrast=$contrast grain=$grain vignette=$vignette lut=$lutPath strength=$lutStrength leakIntensity=$lightLeakIntensity leakVariant=$lightLeakVariant dustIntensity=$dustIntensity")
         }
+    }
+
+    private fun getOrLoadDustTexture(): Int {
+        if (dustTextureId != -1) {
+            return dustTextureId
+        }
+        dustTextureId = loadLutTextureFromAsset("assets/textures/dust_scratches_atlas.png")
+        return dustTextureId
     }
 
     private fun getOrLoadLightLeakTexture(variant: Int): Int {
@@ -430,6 +477,7 @@ class CameraGlRenderer(
 
     fun release() {
         val handler = renderHandler
+        handler.removeCallbacks(dustAnimRunnable)
         handler.post {
             cameraSurfaceTexture?.setOnFrameAvailableListener(null)
             cameraSurfaceTexture?.release()
@@ -456,6 +504,11 @@ class CameraGlRenderer(
                 }
             }
             lightLeakTextureCache.clear()
+
+            if (dustTextureId != -1) {
+                GLES20.glDeleteTextures(1, intArrayOf(dustTextureId), 0)
+                dustTextureId = -1
+            }
 
             if (programId != -1) {
                 GLES20.glDeleteProgram(programId)

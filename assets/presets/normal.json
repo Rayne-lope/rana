@@ -20,6 +20,9 @@
     "lightLeak": {
       "intensity": 0.0,
       "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
     }
   }
 }

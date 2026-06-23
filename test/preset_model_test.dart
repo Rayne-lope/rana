@@ -28,6 +28,7 @@ void main() {
       expect(model.behavior, isNull);
       expect(model.effects.lightLeak.intensity, 0.0);
       expect(model.effects.lightLeak.variant, -1);
+      expect(model.effects.dust.intensity, 0.0);
     });
 
     test('successfully parses rana_warm.json', () {
@@ -52,6 +53,7 @@ void main() {
       expect(model.behavior, isNull);
       expect(model.effects.lightLeak.intensity, 0.2);
       expect(model.effects.lightLeak.variant, -1);
+      expect(model.effects.dust.intensity, 0.08);
     });
 
     test('successfully parses rana_cool.json', () {
@@ -76,6 +78,7 @@ void main() {
       expect(model.behavior, isNull);
       expect(model.effects.lightLeak.intensity, 0.1);
       expect(model.effects.lightLeak.variant, -1);
+      expect(model.effects.dust.intensity, 0.0);
     });
 
     test('successfully parses rana_mono.json', () {
@@ -100,6 +103,7 @@ void main() {
       expect(model.behavior, isNull);
       expect(model.effects.lightLeak.intensity, 0.0);
       expect(model.effects.lightLeak.variant, -1);
+      expect(model.effects.dust.intensity, 0.20);
     });
   });
 }

@@ -119,6 +119,7 @@ class CameraController extends _$CameraController {
         'lutStrength': preset.lut != null ? 1.0 : 0.0,
         'lightLeakIntensity': preset.effects.lightLeak.intensity,
         'lightLeakVariant': _currentPreviewVariant ?? -1,
+        'dustIntensity': preset.effects.dust.intensity,
       };
       AppLogger.glParams('PREVIEW', paramsMap);
       ref.read(consistencyDebugProvider.notifier).update(
@@ -204,6 +205,7 @@ class CameraController extends _$CameraController {
       'lutStrength': lutPath != null ? 1.0 : 0.0,
       'lightLeakIntensity': activePreset?.effects.lightLeak.intensity ?? 0.0,
       'lightLeakVariant': _currentPreviewVariant ?? -1,
+      'dustIntensity': activePreset?.effects.dust.intensity ?? 0.0,
     };
   }
 

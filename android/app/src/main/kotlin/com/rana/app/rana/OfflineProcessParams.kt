@@ -12,5 +12,6 @@ data class OfflineProcessParams(
     val lutAssetPath: String? = null,
     val lutStrength: Float = 0f,
     val lightLeakIntensity: Float = 0f,
-    val lightLeakVariant: Int = -1
+    val lightLeakVariant: Int = -1,
+    val dustIntensity: Float = 0f
 )

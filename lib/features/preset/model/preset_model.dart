@@ -162,43 +162,88 @@ class LightLeakEffect {
       'LightLeakEffect(intensity: $intensity, variant: $variant)';
 }
 
+/// Preset dust and scratches overlay parameters.
+@immutable
+class DustEffect {
+  /// Main constructor.
+  const DustEffect({
+    required this.intensity,
+  });
+
+  /// Factory to parse from a JSON map.
+  factory DustEffect.fromJson(Map<String, dynamic> json) => DustEffect(
+        intensity: (json['intensity'] as num).toDouble(),
+      );
+
+  /// The dust and scratches overlay intensity.
+  final double intensity;
+
+  /// Converts this instance to a JSON map.
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'intensity': intensity,
+      };
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is DustEffect && other.intensity == intensity;
+  }
+
+  @override
+  int get hashCode => intensity.hashCode;
+
+  @override
+  String toString() => 'DustEffect(intensity: $intensity)';
+}
+
 /// Group of preset effects.
 @immutable
 class PresetEffects {
   /// Main constructor.
   const PresetEffects({
     required this.lightLeak,
+    required this.dust,
   });
 
   /// Factory to parse from a JSON map.
   factory PresetEffects.fromJson(Map<String, dynamic> json) {
     final lightLeakJson = json['lightLeak'] as Map<String, dynamic>?;
+    final dustJson = json['dust'] as Map<String, dynamic>?;
     return PresetEffects(
       lightLeak: lightLeakJson != null
           ? LightLeakEffect.fromJson(lightLeakJson)
           : const LightLeakEffect(intensity: 0, variant: -1),
+      dust: dustJson != null
+          ? DustEffect.fromJson(dustJson)
+          : const DustEffect(intensity: 0),
     );
   }
 
   /// Light leak effect configurations.
   final LightLeakEffect lightLeak;
 
+  /// Dust and scratches effect configurations.
+  final DustEffect dust;
+
   /// Converts this instance to a JSON map.
   Map<String, dynamic> toJson() => <String, dynamic>{
         'lightLeak': lightLeak.toJson(),
+        'dust': dust.toJson(),
       };
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is PresetEffects && other.lightLeak == lightLeak;
+    return other is PresetEffects &&
+        other.lightLeak == lightLeak &&
+        other.dust == dust;
   }
 
   @override
-  int get hashCode => lightLeak.hashCode;
+  int get hashCode => Object.hash(lightLeak, dust);
 
   @override
-  String toString() => 'PresetEffects(lightLeak: $lightLeak)';
+  String toString() => 'PresetEffects(lightLeak: $lightLeak, dust: $dust)';
 }
 
 /// Dynamic, data-driven preset recipe model.
@@ -217,6 +262,7 @@ class PresetModel {
     this.behavior,
     this.effects = const PresetEffects(
       lightLeak: LightLeakEffect(intensity: 0, variant: -1),
+      dust: DustEffect(intensity: 0),
     ),
   });
 
@@ -241,6 +287,7 @@ class PresetModel {
             ? PresetEffects.fromJson(json['effects'] as Map<String, dynamic>)
             : const PresetEffects(
                 lightLeak: LightLeakEffect(intensity: 0, variant: -1),
+                dust: DustEffect(intensity: 0),
               ),
       );
 
