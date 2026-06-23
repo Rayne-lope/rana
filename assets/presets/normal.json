@@ -19,7 +19,7 @@
   "effects": {
     "lightLeak": {
       "intensity": 0.0,
-      "variant": -1
+      "variant": 0
     },
     "dust": {
       "intensity": 0.0

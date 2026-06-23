@@ -184,6 +184,9 @@ void main() {
       expect(params['vignette'], equals(0.5));
       expect(params['lutPath'], isNull);
       expect(params['lutStrength'], equals(0.0));
+      expect(params['lightLeakIntensity'], equals(0.0));
+      expect(params['lightLeakVariant'], inInclusiveRange(0, 3));
+      expect(params['dustIntensity'], equals(0.0));
       expect(params['bloomThreshold'], equals(0.8));
       expect(params['bloomIntensity'], equals(0.0));
       expect(params['halationIntensity'], equals(0.0));
@@ -266,9 +269,9 @@ void main() {
         vignette: PresetVignette(intensity: 0.05),
         lut: 'assets/luts/rana_warm_v1.png',
         effects: PresetEffects(
-          lightLeak: LightLeakEffect(intensity: 0, variant: -1),
-          dust: DustEffect(intensity: 0),
-          bloom: PresetBloom(threshold: 0.7, intensity: 0.10),
+          lightLeak: LightLeakEffect(intensity: 0.22, variant: -1),
+          dust: DustEffect(intensity: 0.06),
+          bloom: PresetBloom(threshold: 0.65, intensity: 0.10),
           halation: PresetHalation(intensity: 0.08),
           lensDistortion: PresetLensDistortion(strength: 0.06),
         ),
@@ -286,6 +289,19 @@ void main() {
       await container.read(presetsProvider.future);
       await controller.initialize();
       await controller.selectPreset(warmPreset);
+      final previewCall = log.singleWhere(
+        (call) => call.method == 'selectPreset',
+      );
+      final previewArgs = previewCall.arguments as Map<dynamic, dynamic>;
+      final previewParams = previewArgs['params'] as Map<dynamic, dynamic>;
+      final previewVariant = previewParams['lightLeakVariant'] as int;
+      expect(previewParams['lightLeakIntensity'], equals(0.22));
+      expect(previewVariant, inInclusiveRange(0, 3));
+      expect(previewParams['dustIntensity'], equals(0.06));
+      expect(previewParams['bloomThreshold'], equals(0.65));
+      expect(previewParams['bloomIntensity'], equals(0.10));
+      expect(previewParams['halationIntensity'], equals(0.08));
+      expect(previewParams['lensDistortionStrength'], equals(0.06));
       log.clear();
 
       await controller.capture();
@@ -301,7 +317,10 @@ void main() {
       expect(args['vignette'], equals(0.05));
       expect(args['lutPath'], equals('assets/luts/rana_warm_v1.png'));
       expect(args['lutStrength'], equals(1.0));
-      expect(args['bloomThreshold'], equals(0.7));
+      expect(args['lightLeakIntensity'], equals(0.22));
+      expect(args['lightLeakVariant'], equals(previewVariant));
+      expect(args['dustIntensity'], equals(0.06));
+      expect(args['bloomThreshold'], equals(0.65));
       expect(args['bloomIntensity'], equals(0.10));
       expect(args['halationIntensity'], equals(0.08));
       expect(args['lensDistortionStrength'], equals(0.06));
@@ -335,6 +354,9 @@ void main() {
       expect(args['vignette'], equals(0.0));
       expect(args['lutPath'], isNull);
       expect(args['lutStrength'], equals(0.0));
+      expect(args['lightLeakIntensity'], equals(0.0));
+      expect(args['lightLeakVariant'], equals(-1));
+      expect(args['dustIntensity'], equals(0.0));
       expect(args['bloomThreshold'], equals(0.8));
       expect(args['bloomIntensity'], equals(0.0));
       expect(args['halationIntensity'], equals(0.0));

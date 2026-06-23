@@ -22,7 +22,14 @@
       "variant": -1
     },
     "dust": {
-      "intensity": 0.0
+      "intensity": 0.04
+    },
+    "bloom": {
+      "threshold": 0.75,
+      "intensity": 0.06
+    },
+    "halation": {
+      "intensity": 0.03
     },
     "lensDistortion": {
       "strength": 0.04

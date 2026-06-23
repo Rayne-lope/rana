@@ -74,6 +74,10 @@ object GlShaderConstants {
         vec3 applyColorGrade(vec3 inputColor) {
             vec3 color = inputColor;
 
+            if (uLutStrength > 0.0) {
+                color = applyLut(color);
+            }
+
             if (uTemperature > 0.0) {
                 color.r += uTemperature * 0.15;
                 color.g += uTemperature * 0.07;
@@ -87,10 +91,6 @@ object GlShaderConstants {
             float luma = dot(color, vec3(0.299, 0.587, 0.114));
             color = mix(vec3(luma), color, 1.0 + uSaturation);
             color = (color - 0.5) * (1.0 + uContrast) + 0.5;
-
-            if (uLutStrength > 0.0) {
-                color = applyLut(color);
-            }
 
             return color;
         }

@@ -18,11 +18,18 @@
   "behavior": null,
   "effects": {
     "lightLeak": {
-      "intensity": 0.0,
-      "variant": -1
+      "intensity": 0.08,
+      "variant": 3
     },
     "dust": {
-      "intensity": 0.20
+      "intensity": 0.22
+    },
+    "bloom": {
+      "threshold": 0.80,
+      "intensity": 0.05
+    },
+    "halation": {
+      "intensity": 0.0
     },
     "lensDistortion": {
       "strength": 0.08

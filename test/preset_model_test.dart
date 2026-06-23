@@ -27,7 +27,7 @@ void main() {
       expect(model.overlay, isNull);
       expect(model.behavior, isNull);
       expect(model.effects.lightLeak.intensity, 0.0);
-      expect(model.effects.lightLeak.variant, -1);
+      expect(model.effects.lightLeak.variant, 0);
       expect(model.effects.dust.intensity, 0.0);
       expect(model.effects.bloom.threshold, 0.8);
       expect(model.effects.bloom.intensity, 0.0);
@@ -55,10 +55,10 @@ void main() {
       expect(model.lut, 'assets/luts/rana_warm_v1.png');
       expect(model.overlay, isNull);
       expect(model.behavior, isNull);
-      expect(model.effects.lightLeak.intensity, 0.2);
+      expect(model.effects.lightLeak.intensity, 0.22);
       expect(model.effects.lightLeak.variant, -1);
-      expect(model.effects.dust.intensity, 0.08);
-      expect(model.effects.bloom.threshold, 0.7);
+      expect(model.effects.dust.intensity, 0.06);
+      expect(model.effects.bloom.threshold, 0.65);
       expect(model.effects.bloom.intensity, 0.10);
       expect(model.effects.halation.intensity, 0.08);
       expect(model.effects.lensDistortion.strength, 0.06);
@@ -86,10 +86,10 @@ void main() {
       expect(model.behavior, isNull);
       expect(model.effects.lightLeak.intensity, 0.1);
       expect(model.effects.lightLeak.variant, -1);
-      expect(model.effects.dust.intensity, 0.0);
-      expect(model.effects.bloom.threshold, 0.8);
-      expect(model.effects.bloom.intensity, 0.0);
-      expect(model.effects.halation.intensity, 0.0);
+      expect(model.effects.dust.intensity, 0.04);
+      expect(model.effects.bloom.threshold, 0.75);
+      expect(model.effects.bloom.intensity, 0.06);
+      expect(model.effects.halation.intensity, 0.03);
       expect(model.effects.lensDistortion.strength, 0.04);
     });
 
@@ -113,11 +113,11 @@ void main() {
       expect(model.lut, isNull);
       expect(model.overlay, isNull);
       expect(model.behavior, isNull);
-      expect(model.effects.lightLeak.intensity, 0.0);
-      expect(model.effects.lightLeak.variant, -1);
-      expect(model.effects.dust.intensity, 0.20);
-      expect(model.effects.bloom.threshold, 0.8);
-      expect(model.effects.bloom.intensity, 0.0);
+      expect(model.effects.lightLeak.intensity, 0.08);
+      expect(model.effects.lightLeak.variant, 3);
+      expect(model.effects.dust.intensity, 0.22);
+      expect(model.effects.bloom.threshold, 0.80);
+      expect(model.effects.bloom.intensity, 0.05);
       expect(model.effects.halation.intensity, 0.0);
       expect(model.effects.lensDistortion.strength, 0.08);
     });

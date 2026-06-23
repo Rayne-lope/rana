@@ -68,7 +68,26 @@ void main() {
   },
   "lut": null,
   "overlay": null,
-  "behavior": null
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": 0
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.8,
+      "intensity": 0.0
+    },
+    "halation": {
+      "intensity": 0.0
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  }
 }
 ''');
 
@@ -88,9 +107,28 @@ void main() {
   "vignette": {
     "intensity": 0.05
   },
-  "lut": null,
+  "lut": "assets/luts/rana_warm_v1.png",
   "overlay": null,
-  "behavior": null
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.22,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.06
+    },
+    "bloom": {
+      "threshold": 0.65,
+      "intensity": 0.10
+    },
+    "halation": {
+      "intensity": 0.08
+    },
+    "lensDistortion": {
+      "strength": 0.06
+    }
+  }
 }
 ''');
 
@@ -100,14 +138,18 @@ void main() {
       expect(presets.length, equals(2));
       expect(presets[0].id, equals('normal'));
       expect(presets[1].id, equals('rana_warm'));
+      expect(presets[0].effects.lightLeak.variant, equals(0));
       expect(presets[0].effects.bloom.threshold, equals(0.8));
       expect(presets[0].effects.bloom.intensity, equals(0.0));
       expect(presets[0].effects.halation.intensity, equals(0.0));
       expect(presets[0].effects.lensDistortion.strength, equals(0.0));
-      expect(presets[1].effects.bloom.threshold, equals(0.8));
-      expect(presets[1].effects.bloom.intensity, equals(0.0));
-      expect(presets[1].effects.halation.intensity, equals(0.0));
-      expect(presets[1].effects.lensDistortion.strength, equals(0.0));
+      expect(presets[1].lut, equals('assets/luts/rana_warm_v1.png'));
+      expect(presets[1].effects.lightLeak.intensity, equals(0.22));
+      expect(presets[1].effects.dust.intensity, equals(0.06));
+      expect(presets[1].effects.bloom.threshold, equals(0.65));
+      expect(presets[1].effects.bloom.intensity, equals(0.10));
+      expect(presets[1].effects.halation.intensity, equals(0.08));
+      expect(presets[1].effects.lensDistortion.strength, equals(0.06));
     });
 
     test('Corrupt JSON: skips invalid files and logs error', () async {
