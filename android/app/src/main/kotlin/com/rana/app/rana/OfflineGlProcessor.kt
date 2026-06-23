@@ -1,7 +1,6 @@
 package com.rana.app.rana
 
 import android.graphics.Bitmap
-import android.graphics.Matrix
 import android.opengl.EGL14
 import android.opengl.EGLConfig
 import android.opengl.EGLContext
@@ -428,21 +427,13 @@ object OfflineGlProcessor {
             )
             outBitmap.copyPixelsFromBuffer(readBuf)
 
-            // 10. Flip Y axis
-            val flipMatrix = Matrix().apply { preScale(1f, -1f) }
-            val flippedBitmap = Bitmap.createBitmap(
-                outBitmap, 0, 0, outBitmap.width, outBitmap.height,
-                flipMatrix, false
-            )
-            
-            if (outBitmap != flippedBitmap) {
-                outBitmap.recycle()
-            }
+            // GLUtils bitmap upload plus these texture coordinates already
+            // preserve Android bitmap row order; an extra Y flip inverts exports.
             if (workingBitmap != inputBitmap) {
                 workingBitmap.recycle()
             }
 
-            return flippedBitmap
+            return outBitmap
 
         } catch (e: Exception) {
             Log.e(TAG, "Error processing offline image", e)
