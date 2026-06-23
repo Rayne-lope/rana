@@ -61,16 +61,22 @@ class CameraPreviewView(
 
     init {
         textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-            override fun onSurfaceTextureAvailable(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
-                    glRenderer = CameraGlRenderer(
-                        surfaceTexture,
-                        width,
-                        height,
-                        onInputSurfaceReady = { _ -> bindPreview() },
-                        onGlError = { error ->
-                            android.util.Log.e("CameraPreviewView", "OpenGL ES initialization failed: $error")
-                        }
-                    )
+            override fun onSurfaceTextureAvailable(
+                surfaceTexture: SurfaceTexture, width: Int, height: Int
+            ) {
+                glRenderer = CameraGlRenderer(
+                    context,
+                    surfaceTexture,
+                    width,
+                    height,
+                    onInputSurfaceReady = { _ -> bindPreview() },
+                    onGlError = { error ->
+                        android.util.Log.e(
+                            "CameraPreviewView",
+                            "OpenGL ES initialization failed: $error"
+                        )
+                    }
+                )
             }
 
             override fun onSurfaceTextureSizeChanged(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
@@ -197,13 +203,18 @@ class CameraPreviewView(
         val cont = (params["contrast"] as? Number)?.toFloat() ?: 0.0f
         val grain = (params["grain"] as? Number)?.toFloat() ?: 0.0f
         val vignette = (params["vignette"] as? Number)?.toFloat() ?: 0.0f
+        val lutPath = params["lutPath"] as? String
+        val lutStrength = (params["lutStrength"] as? Number)
+            ?.toFloat() ?: 0.0f
         
         glRenderer?.applyPresetParams(
             temperature = temp,
             saturation = sat,
             contrast = cont,
             grain = grain,
-            vignette = vignette
+            vignette = vignette,
+            lutPath = lutPath,
+            lutStrength = lutStrength
         )
     }
 

@@ -92,12 +92,14 @@ class CameraController extends _$CameraController {
   /// Selects active film preset on native rendering pipeline.
   Future<void> selectPreset(PresetModel preset) async {
     try {
-      final paramsMap = <String, double>{
+      final paramsMap = <String, dynamic>{
         'temperature': preset.color.temperature,
         'contrast': preset.color.contrast,
         'saturation': preset.color.saturation,
         'grain': preset.grain.intensity,
         'vignette': preset.vignette.intensity,
+        'lutPath': preset.lut,
+        'lutStrength': preset.lut != null ? 1.0 : 0.0,
       };
       await _platformService.selectPreset(preset.id, paramsMap);
       state = state.copyWith(activePresetId: preset.id);

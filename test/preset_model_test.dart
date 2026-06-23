@@ -45,7 +45,7 @@ void main() {
       expect(model.color.saturation, 0.1);
       expect(model.grain.intensity, 0.1);
       expect(model.vignette.intensity, 0.05);
-      expect(model.lut, isNull);
+      expect(model.lut, 'assets/luts/rana_warm_v1.png');
       expect(model.overlay, isNull);
       expect(model.behavior, isNull);
     });
@@ -67,7 +67,7 @@ void main() {
       expect(model.color.saturation, 0.05);
       expect(model.grain.intensity, 0.0);
       expect(model.vignette.intensity, 0.0);
-      expect(model.lut, isNull);
+      expect(model.lut, 'assets/luts/rana_cool_v1.png');
       expect(model.overlay, isNull);
       expect(model.behavior, isNull);
     });

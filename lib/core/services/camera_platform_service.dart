@@ -30,7 +30,7 @@ class CameraPlatformService {
   /// Sets the active film/analog preset on the native rendering pipeline.
   Future<Map<String, dynamic>> selectPreset(
     String presetId,
-    Map<String, double> params,
+    Map<String, dynamic> params,
   ) async {
     try {
       final result = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>(

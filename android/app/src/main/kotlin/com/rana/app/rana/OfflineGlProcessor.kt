@@ -19,6 +19,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 object OfflineGlProcessor {
     private const val TAG = "OfflineGlProcessor"
     private val isProcessing = AtomicBoolean(false)
+    private val lutBitmapCache =
+        java.util.concurrent.ConcurrentHashMap<String, Bitmap>()
 
     private val vertexCoords = floatArrayOf(
         -1.0f, -1.0f, 0.0f,
@@ -49,6 +51,8 @@ object OfflineGlProcessor {
         precision mediump float;
         varying vec2 vTextureCoord;
         uniform sampler2D sTexture;
+        uniform sampler2D uLutTexture;
+        uniform float uLutStrength;
         uniform float uTemperature;
         uniform float uSaturation;
         uniform float uContrast;
@@ -59,6 +63,33 @@ object OfflineGlProcessor {
             return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
         }
 
+        vec3 applyLut(vec3 color) {
+            float blueVal = color.b * 15.0;
+            
+            float blueCellLower = floor(blueVal);
+            float xOffsetLower = mod(blueCellLower, 8.0) / 8.0;
+            float yOffsetLower = floor(blueCellLower / 8.0) / 2.0;
+            vec2 lutUVLower = vec2(
+                xOffsetLower + (color.r * 63.0 + 0.5) / 512.0,
+                yOffsetLower + (color.g * 7.0 + 0.5) / 16.0
+            );
+            vec3 lutColorLower = texture2D(uLutTexture, lutUVLower).rgb;
+            
+            float blueCellUpper = min(blueCellLower + 1.0, 15.0);
+            float xOffsetUpper = mod(blueCellUpper, 8.0) / 8.0;
+            float yOffsetUpper = floor(blueCellUpper / 8.0) / 2.0;
+            vec2 lutUVUpper = vec2(
+                xOffsetUpper + (color.r * 63.0 + 0.5) / 512.0,
+                yOffsetUpper + (color.g * 7.0 + 0.5) / 16.0
+            );
+            vec3 lutColorUpper = texture2D(uLutTexture, lutUVUpper).rgb;
+            
+            vec3 lutColor = mix(
+                lutColorLower, lutColorUpper, fract(blueVal)
+            );
+            return mix(color, lutColor, uLutStrength);
+        }
+
         void main() {
             vec4 texColor = texture2D(sTexture, vTextureCoord);
             vec3 color = texColor.rgb;
@@ -67,7 +98,7 @@ object OfflineGlProcessor {
                 color.r += uTemperature * 0.15;
                 color.g += uTemperature * 0.07;
                 color.b -= uTemperature * 0.05;
-            } else {
+            } else if (uTemperature < 0.0) {
                 color.r += uTemperature * 0.05;
                 color.g += uTemperature * 0.05;
                 color.b -= uTemperature * 0.15;
@@ -77,6 +108,10 @@ object OfflineGlProcessor {
             color = mix(vec3(luma), color, 1.0 + uSaturation);
 
             color = (color - 0.5) * (1.0 + uContrast) + 0.5;
+
+            if (uLutStrength > 0.0) {
+                color = applyLut(color);
+            }
 
             if (uGrain > 0.0) {
                 float noise = rand(vTextureCoord) - 0.5;
@@ -95,6 +130,7 @@ object OfflineGlProcessor {
     """.trimIndent()
 
     fun processImage(
+        context: android.content.Context,
         inputBitmap: Bitmap,
         params: OfflineProcessParams
     ): Bitmap? {
@@ -107,6 +143,7 @@ object OfflineGlProcessor {
         var eglContext = EGL14.EGL_NO_CONTEXT
         var eglSurface = EGL14.EGL_NO_SURFACE
         var textureId = -1
+        var lutTextureId = -1
         var programId = -1
 
         var workingBitmap = inputBitmap
@@ -270,11 +307,61 @@ object OfflineGlProcessor {
             GLES20.glUniform1f(uGrainLoc, params.grain)
             GLES20.glUniform1f(uVignetteLoc, params.vignette)
 
+            val uLutTextureLoc = GLES20.glGetUniformLocation(
+                programId, "uLutTexture"
+            )
+            val uLutStrengthLoc = GLES20.glGetUniformLocation(
+                programId, "uLutStrength"
+            )
+            GLES20.glUniform1f(uLutStrengthLoc, params.lutStrength)
+
+            if (params.lutAssetPath != null && params.lutStrength > 0f) {
+                val lutBitmap = getOrLoadLutBitmap(
+                    context, params.lutAssetPath
+                )
+                if (lutBitmap != null) {
+                    val lutTextures = IntArray(1)
+                    GLES20.glGenTextures(1, lutTextures, 0)
+                    lutTextureId = lutTextures[0]
+                    if (lutTextureId != 0 && lutTextureId != -1) {
+                        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
+                        GLES20.glBindTexture(
+                            GLES20.GL_TEXTURE_2D, lutTextureId
+                        )
+                        GLES20.glTexParameteri(
+                            GLES20.GL_TEXTURE_2D,
+                            GLES20.GL_TEXTURE_MIN_FILTER,
+                            GLES20.GL_LINEAR
+                        )
+                        GLES20.glTexParameteri(
+                            GLES20.GL_TEXTURE_2D,
+                            GLES20.GL_TEXTURE_MAG_FILTER,
+                            GLES20.GL_LINEAR
+                        )
+                        GLES20.glTexParameteri(
+                            GLES20.GL_TEXTURE_2D,
+                            GLES20.GL_TEXTURE_WRAP_S,
+                            GLES20.GL_CLAMP_TO_EDGE
+                        )
+                        GLES20.glTexParameteri(
+                            GLES20.GL_TEXTURE_2D,
+                            GLES20.GL_TEXTURE_WRAP_T,
+                            GLES20.GL_CLAMP_TO_EDGE
+                        )
+                        GLUtils.texImage2D(
+                            GLES20.GL_TEXTURE_2D, 0, lutBitmap, 0
+                        )
+                        GLES20.glUniform1i(uLutTextureLoc, 1)
+                    }
+                }
+            }
+
             // 8. Upload Input Bitmap Texture
             val textures = IntArray(1)
             GLES20.glGenTextures(1, textures, 0)
             textureId = textures[0]
 
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId)
             GLES20.glTexParameteri(
                 GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER,
@@ -295,6 +382,10 @@ object OfflineGlProcessor {
 
             // Upload via GLUtils to handle format conversion
             GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, workingBitmap, 0)
+            val sTextureLoc = GLES20.glGetUniformLocation(
+                programId, "sTexture"
+            )
+            GLES20.glUniform1i(sTextureLoc, 0)
 
             // Clear viewport and Draw
             GLES20.glViewport(0, 0, workingBitmap.width, workingBitmap.height)
@@ -340,6 +431,9 @@ object OfflineGlProcessor {
             return null
         } finally {
             // Clean up resources cleanly
+            if (lutTextureId != -1) {
+                GLES20.glDeleteTextures(1, intArrayOf(lutTextureId), 0)
+            }
             if (textureId != -1) {
                 GLES20.glDeleteTextures(1, intArrayOf(textureId), 0)
             }
@@ -361,6 +455,30 @@ object OfflineGlProcessor {
                 EGL14.eglTerminate(eglDisplay)
             }
             isProcessing.set(false)
+        }
+    }
+
+    private fun getOrLoadLutBitmap(
+        context: android.content.Context,
+        assetPath: String
+    ): Bitmap? {
+        val cached = lutBitmapCache[assetPath]
+        if (cached != null) return cached
+
+        try {
+            val loader = io.flutter.FlutterInjector.instance().flutterLoader()
+            val lookupKey = loader.getLookupKeyForAsset(assetPath)
+            context.assets.open(lookupKey).use { inputStream ->
+                val bitmap = android.graphics.BitmapFactory
+                    .decodeStream(inputStream)
+                if (bitmap != null) {
+                    lutBitmapCache[assetPath] = bitmap
+                }
+                return bitmap
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load LUT bitmap: $assetPath", e)
+            return null
         }
     }
 

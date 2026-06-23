@@ -16,6 +16,7 @@ import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
 class CameraGlRenderer(
+    private val context: android.content.Context,
     private val outputSurfaceTexture: SurfaceTexture,
     private val width: Int,
     private val height: Int,
@@ -44,12 +45,18 @@ class CameraGlRenderer(
     private var uContrastLoc: Int = -1
     private var uGrainLoc: Int = -1
     private var uVignetteLoc: Int = -1
+    private var uLutTextureLoc: Int = -1
+    private var uLutStrengthLoc: Int = -1
 
     private var uTemperature = 0.0f
     private var uSaturation = 0.0f
     private var uContrast = 0.0f
     private var uGrain = 0.0f
     private var uVignette = 0.0f
+    private var uLutStrength = 0.0f
+    private var activeLutTextureId: Int = -1
+    private var activeLutPath: String? = null
+    private val lutTextureCache = mutableMapOf<String, Int>()
 
     private val vertexCoords = floatArrayOf(
         -1.0f, -1.0f, 0.0f,
@@ -97,6 +104,8 @@ class CameraGlRenderer(
         precision mediump float;
         varying vec2 vTextureCoord;
         uniform samplerExternalOES sTexture;
+        uniform sampler2D uLutTexture;
+        uniform float uLutStrength;
         uniform float uTemperature;
         uniform float uSaturation;
         uniform float uContrast;
@@ -105,6 +114,33 @@ class CameraGlRenderer(
 
         float rand(vec2 co) {
             return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+
+        vec3 applyLut(vec3 color) {
+            float blueVal = color.b * 15.0;
+            
+            float blueCellLower = floor(blueVal);
+            float xOffsetLower = mod(blueCellLower, 8.0) / 8.0;
+            float yOffsetLower = floor(blueCellLower / 8.0) / 2.0;
+            vec2 lutUVLower = vec2(
+                xOffsetLower + (color.r * 63.0 + 0.5) / 512.0,
+                yOffsetLower + (color.g * 7.0 + 0.5) / 16.0
+            );
+            vec3 lutColorLower = texture2D(uLutTexture, lutUVLower).rgb;
+            
+            float blueCellUpper = min(blueCellLower + 1.0, 15.0);
+            float xOffsetUpper = mod(blueCellUpper, 8.0) / 8.0;
+            float yOffsetUpper = floor(blueCellUpper / 8.0) / 2.0;
+            vec2 lutUVUpper = vec2(
+                xOffsetUpper + (color.r * 63.0 + 0.5) / 512.0,
+                yOffsetUpper + (color.g * 7.0 + 0.5) / 16.0
+            );
+            vec3 lutColorUpper = texture2D(uLutTexture, lutUVUpper).rgb;
+            
+            vec3 lutColor = mix(
+                lutColorLower, lutColorUpper, fract(blueVal)
+            );
+            return mix(color, lutColor, uLutStrength);
         }
 
         void main() {
@@ -125,6 +161,10 @@ class CameraGlRenderer(
             color = mix(vec3(luma), color, 1.0 + uSaturation);
 
             color = (color - 0.5) * (1.0 + uContrast) + 0.5;
+
+            if (uLutStrength > 0.0) {
+                color = applyLut(color);
+            }
 
             if (uGrain > 0.0) {
                 float noise = rand(vTextureCoord) - 0.5;
@@ -216,6 +256,8 @@ class CameraGlRenderer(
         uContrastLoc = GLES20.glGetUniformLocation(programId, "uContrast")
         uGrainLoc = GLES20.glGetUniformLocation(programId, "uGrain")
         uVignetteLoc = GLES20.glGetUniformLocation(programId, "uVignette")
+        uLutTextureLoc = GLES20.glGetUniformLocation(programId, "uLutTexture")
+        uLutStrengthLoc = GLES20.glGetUniformLocation(programId, "uLutStrength")
     }
 
     private fun setupInputSurface() {
@@ -274,6 +316,13 @@ class CameraGlRenderer(
         GLES20.glUniform1f(uContrastLoc, uContrast)
         GLES20.glUniform1f(uGrainLoc, uGrain)
         GLES20.glUniform1f(uVignetteLoc, uVignette)
+        GLES20.glUniform1f(uLutStrengthLoc, uLutStrength)
+
+        if (uLutStrength > 0.0f && activeLutTextureId != -1) {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, activeLutTextureId)
+            GLES20.glUniform1i(uLutTextureLoc, 1)
+        }
 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
@@ -324,7 +373,9 @@ class CameraGlRenderer(
         saturation: Float,
         contrast: Float,
         grain: Float,
-        vignette: Float
+        vignette: Float,
+        lutPath: String?,
+        lutStrength: Float
     ) {
         renderHandler.post {
             uTemperature = temperature
@@ -332,6 +383,81 @@ class CameraGlRenderer(
             uContrast = contrast
             uGrain = grain
             uVignette = vignette
+            uLutStrength = lutStrength
+
+            if (lutPath != activeLutPath) {
+                activeLutPath = lutPath
+                activeLutTextureId = if (lutPath != null) {
+                    getOrLoadLutTexture(lutPath)
+                } else {
+                    -1
+                }
+            }
+        }
+    }
+
+    private fun getOrLoadLutTexture(assetPath: String): Int {
+        val cachedId = lutTextureCache[assetPath]
+        if (cachedId != null && cachedId != -1) {
+            return cachedId
+        }
+        val texId = loadLutTextureFromAsset(assetPath)
+        if (texId != -1) {
+            lutTextureCache[assetPath] = texId
+        }
+        return texId
+    }
+
+    private fun loadLutTextureFromAsset(assetPath: String): Int {
+        try {
+            val loader = io.flutter.FlutterInjector.instance().flutterLoader()
+            val lookupKey = loader.getLookupKeyForAsset(assetPath)
+            context.assets.open(lookupKey).use { inputStream ->
+                val bitmap = android.graphics.BitmapFactory
+                    .decodeStream(inputStream) ?: return -1
+                
+                val textures = IntArray(1)
+                GLES20.glGenTextures(1, textures, 0)
+                val texId = textures[0]
+                if (texId == 0) {
+                    bitmap.recycle()
+                    return -1
+                }
+                
+                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texId)
+                GLES20.glTexParameteri(
+                    GLES20.GL_TEXTURE_2D,
+                    GLES20.GL_TEXTURE_MIN_FILTER,
+                    GLES20.GL_LINEAR
+                )
+                GLES20.glTexParameteri(
+                    GLES20.GL_TEXTURE_2D,
+                    GLES20.GL_TEXTURE_MAG_FILTER,
+                    GLES20.GL_LINEAR
+                )
+                GLES20.glTexParameteri(
+                    GLES20.GL_TEXTURE_2D,
+                    GLES20.GL_TEXTURE_WRAP_S,
+                    GLES20.GL_CLAMP_TO_EDGE
+                )
+                GLES20.glTexParameteri(
+                    GLES20.GL_TEXTURE_2D,
+                    GLES20.GL_TEXTURE_WRAP_T,
+                    GLES20.GL_CLAMP_TO_EDGE
+                )
+                
+                android.opengl.GLUtils.texImage2D(
+                    GLES20.GL_TEXTURE_2D,
+                    0,
+                    bitmap,
+                    0
+                )
+                bitmap.recycle()
+                return texId
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "Failed to load LUT texture: $assetPath", e)
+            return -1
         }
     }
 
@@ -348,13 +474,25 @@ class CameraGlRenderer(
                 oesTextureId = -1
             }
 
+            for (texId in lutTextureCache.values) {
+                if (texId != -1) {
+                    GLES20.glDeleteTextures(1, intArrayOf(texId), 0)
+                }
+            }
+            lutTextureCache.clear()
+            activeLutTextureId = -1
+            activeLutPath = null
+
             if (programId != -1) {
                 GLES20.glDeleteProgram(programId)
                 programId = -1
             }
 
             if (eglDisplay != EGL14.EGL_NO_DISPLAY) {
-                EGL14.eglMakeCurrent(eglDisplay, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
+                EGL14.eglMakeCurrent(
+                    eglDisplay, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE,
+                    EGL14.EGL_NO_CONTEXT
+                )
                 if (eglSurface != EGL14.EGL_NO_SURFACE) {
                     EGL14.eglDestroySurface(eglDisplay, eglSurface)
                     eglSurface = EGL14.EGL_NO_SURFACE

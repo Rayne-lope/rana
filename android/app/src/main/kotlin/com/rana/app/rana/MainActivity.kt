@@ -114,6 +114,9 @@ class MainActivity : FlutterActivity() {
                         ?.toFloat() ?: 0f
                     val vignette = (call.argument<Number>("vignette"))
                         ?.toFloat() ?: 0f
+                    val lutPath = call.argument<String>("lutPath")
+                    val lutStrength = (call.argument<Number>("lutStrength"))
+                        ?.toFloat() ?: 0f
 
                     val bitmap = android.graphics.Bitmap.createBitmap(
                         512, 512, android.graphics.Bitmap.Config.ARGB_8888
@@ -137,10 +140,12 @@ class MainActivity : FlutterActivity() {
                                 saturation = sat,
                                 contrast = cont,
                                 grain = grain,
-                                vignette = vignette
+                                vignette = vignette,
+                                lutAssetPath = lutPath,
+                                lutStrength = lutStrength
                             )
                             val out = OfflineGlProcessor.processImage(
-                                bitmap, params
+                                context, bitmap, params
                             )
                             if (out != null) {
                                 val cacheDir = context.externalCacheDir 
