@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:rana/core/providers/preset_provider.dart';
 import 'package:rana/core/services/camera_platform_service.dart';
+import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
+import 'package:rana/features/debug/provider/consistency_debug_provider.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -102,6 +104,10 @@ class CameraController extends _$CameraController {
         'lutPath': preset.lut,
         'lutStrength': preset.lut != null ? 1.0 : 0.0,
       };
+      AppLogger.glParams('PREVIEW', paramsMap);
+      ref.read(consistencyDebugProvider.notifier).update(
+            (state) => state.copyWith(lastPreviewParams: paramsMap),
+          );
       await _platformService.selectPreset(preset.id, paramsMap);
       state = state.copyWith(activePresetId: preset.id);
     } on Object catch (e) {
@@ -114,6 +120,9 @@ class CameraController extends _$CameraController {
     if (state.captureStatus != CaptureStatus.idle) return;
 
     final captureParams = _buildCaptureParams();
+    ref.read(consistencyDebugProvider.notifier).update(
+          (state) => state.copyWith(lastExportParams: captureParams),
+        );
 
     state = state.copyWith(
       captureStatus: CaptureStatus.capturing,

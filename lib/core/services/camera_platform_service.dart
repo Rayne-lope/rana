@@ -56,6 +56,7 @@ class CameraPlatformService {
     Map<String, dynamic> params,
   ) async {
     try {
+      AppLogger.glParams('EXPORT', params);
       final result = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>(
         'executeCapture',
         params,

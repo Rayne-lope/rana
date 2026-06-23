@@ -30,4 +30,17 @@ abstract final class AppLogger {
     StackTrace? stackTrace,
   ]) =>
       _logger.e('[$tag] $message', error: error, stackTrace: stackTrace);
+
+  static void glParams(String stage, Map<String, dynamic> params) {
+    final temp = params['temperature'] ?? 0.0;
+    final sat = params['saturation'] ?? 0.0;
+    final contrast = params['contrast'] ?? 0.0;
+    final grain = params['grain'] ?? 0.0;
+    final vignette = params['vignette'] ?? 0.0;
+    final lut = params['lutPath'];
+    final strength = params['lutStrength'] ?? 0.0;
+    final msg = '[$stage] temp=$temp sat=$sat contrast=$contrast '
+        'grain=$grain vignette=$vignette lut=$lut strength=$strength';
+    d('GlParams', msg);
+  }
 }

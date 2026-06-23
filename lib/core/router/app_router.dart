@@ -5,6 +5,7 @@ import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/core/widgets/main_shell.dart';
 import 'package:rana/features/camera/view/camera_screen.dart';
 import 'package:rana/features/camera/view/result_screen.dart';
+import 'package:rana/features/debug/view/consistency_debug_screen.dart';
 import 'package:rana/features/gallery/view/gallery_screen.dart';
 import 'package:rana/features/settings/view/settings_screen.dart';
 import 'package:rana/features/splash/view/splash_screen.dart';
@@ -32,6 +33,9 @@ abstract final class AppRoutes {
 
   /// Result preview shown after a successful capture.
   static const result = '/result';
+
+  /// Shader consistency debug screen.
+  static const consistencyDebug = '/consistency-debug';
 }
 
 @riverpod
@@ -56,6 +60,12 @@ GoRouter appRouter(Ref ref) {
           final String imageUri => ResultScreen(imageUri: imageUri),
           _ => const SizedBox.shrink(),
         },
+      ),
+      GoRoute(
+        path: AppRoutes.consistencyDebug,
+        name: 'consistencyDebug',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const ConsistencyDebugScreen(),
       ),
 
       // ── Main shell (Camera / Gallery / Settings) ────────────────────────
