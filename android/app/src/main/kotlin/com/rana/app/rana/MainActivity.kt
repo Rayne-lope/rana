@@ -16,8 +16,6 @@ class MainActivity : FlutterActivity() {
 
     private var eventSink: EventChannel.EventSink? = null
     private val handler = Handler(Looper.getMainLooper())
-    private var fpsRunnable: Runnable? = null
-    private var isStreamingFps = false
     var activePreviewView: CameraPreviewView? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -162,6 +160,12 @@ class MainActivity : FlutterActivity() {
                         ?.toInt() ?: -1
                     val dustIntensity = (call.argument<Number>("dustIntensity"))
                         ?.toFloat() ?: 0f
+                    val bloomThreshold = (call.argument<Number>("bloomThreshold"))
+                        ?.toFloat() ?: 0.8f
+                    val bloomIntensity = (call.argument<Number>("bloomIntensity"))
+                        ?.toFloat() ?: 0f
+                    val halationIntensity = (call.argument<Number>("halationIntensity"))
+                        ?.toFloat() ?: 0f
 
                     val bitmap = android.graphics.Bitmap.createBitmap(
                         512, 512, android.graphics.Bitmap.Config.ARGB_8888
@@ -190,7 +194,10 @@ class MainActivity : FlutterActivity() {
                                 lutStrength = lutStrength,
                                 lightLeakIntensity = lightLeakIntensity,
                                 lightLeakVariant = lightLeakVariant,
-                                dustIntensity = dustIntensity
+                                dustIntensity = dustIntensity,
+                                bloomThreshold = bloomThreshold,
+                                bloomIntensity = bloomIntensity,
+                                halationIntensity = halationIntensity
                             )
                             val out = OfflineGlProcessor.processImage(
                                 context, bitmap, params
@@ -246,11 +253,9 @@ class MainActivity : FlutterActivity() {
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     eventSink = events
-                    startFpsStreaming()
                 }
 
                 override fun onCancel(arguments: Any?) {
-                    stopFpsStreaming()
                     eventSink = null
                 }
             }
@@ -273,29 +278,24 @@ class MainActivity : FlutterActivity() {
             lutStrength = numberArg("lutStrength"),
             lightLeakIntensity = numberArg("lightLeakIntensity"),
             lightLeakVariant = (args?.get("lightLeakVariant") as? Number)?.toInt() ?: -1,
-            dustIntensity = numberArg("dustIntensity")
+            dustIntensity = numberArg("dustIntensity"),
+            bloomThreshold = (args?.get("bloomThreshold") as? Number)?.toFloat() ?: 0.8f,
+            bloomIntensity = numberArg("bloomIntensity"),
+            halationIntensity = numberArg("halationIntensity")
         )
     }
 
-    private fun startFpsStreaming() {
-        if (isStreamingFps) return
-        isStreamingFps = true
-        fpsRunnable = object : Runnable {
-            override fun run() {
-                if (!isStreamingFps) return
-                // Emit random FPS values between 24 and 30 for realism
-                val mockFps = (24..30).random()
-                val eventData = mapOf(
+    fun dispatchPreviewFps(fps: Int) {
+        handler.post {
+            eventSink?.success(
+                mapOf(
                     "type" to "status_update",
-                    "fps" to mockFps,
+                    "fps" to fps,
                     "active" to true,
                     "timestamp" to System.currentTimeMillis()
                 )
-                eventSink?.success(eventData)
-                handler.postDelayed(this, 1000)
-            }
+            )
         }
-        handler.post(fpsRunnable!!)
     }
 
     private fun loadCapturedImageBytes(uri: Uri): ByteArray {
@@ -329,12 +329,6 @@ class MainActivity : FlutterActivity() {
                 result.error("OPEN_GALLERY_FAILED", e.message, null)
             }
         }
-    }
-
-    private fun stopFpsStreaming() {
-        isStreamingFps = false
-        fpsRunnable?.let { handler.removeCallbacks(it) }
-        fpsRunnable = null
     }
 
     private fun android.graphics.Bitmap.safeRecycle() {

@@ -45,8 +45,7 @@ void main() {
         'assets/presets/normal.json': [],
         'assets/presets/rana_warm.json': [],
       };
-      final encoded = const StandardMessageCodec()
-          .encodeMessage(manifestData)!;
+      final encoded = const StandardMessageCodec().encodeMessage(manifestData)!;
 
       final bundle = FakeAssetBundle();
       bundle.setBytes('AssetManifest.bin', encoded);
@@ -101,6 +100,12 @@ void main() {
       expect(presets.length, equals(2));
       expect(presets[0].id, equals('normal'));
       expect(presets[1].id, equals('rana_warm'));
+      expect(presets[0].effects.bloom.threshold, equals(0.8));
+      expect(presets[0].effects.bloom.intensity, equals(0.0));
+      expect(presets[0].effects.halation.intensity, equals(0.0));
+      expect(presets[1].effects.bloom.threshold, equals(0.8));
+      expect(presets[1].effects.bloom.intensity, equals(0.0));
+      expect(presets[1].effects.halation.intensity, equals(0.0));
     });
 
     test('Corrupt JSON: skips invalid files and logs error', () async {
@@ -108,8 +113,7 @@ void main() {
         'assets/presets/normal.json': [],
         'assets/presets/corrupt.json': [],
       };
-      final encoded = const StandardMessageCodec()
-          .encodeMessage(manifestData)!;
+      final encoded = const StandardMessageCodec().encodeMessage(manifestData)!;
 
       final bundle = FakeAssetBundle();
       bundle.setBytes('AssetManifest.bin', encoded);
@@ -143,6 +147,9 @@ void main() {
 
       expect(presets.length, equals(1));
       expect(presets[0].id, equals('normal'));
+      expect(presets[0].effects.bloom.threshold, equals(0.8));
+      expect(presets[0].effects.bloom.intensity, equals(0.0));
+      expect(presets[0].effects.halation.intensity, equals(0.0));
     });
 
     test('Missing File: skips missing files and logs error', () async {
@@ -150,8 +157,7 @@ void main() {
         'assets/presets/normal.json': [],
         'assets/presets/missing.json': [],
       };
-      final encoded = const StandardMessageCodec()
-          .encodeMessage(manifestData)!;
+      final encoded = const StandardMessageCodec().encodeMessage(manifestData)!;
 
       final bundle = FakeAssetBundle();
       bundle.setBytes('AssetManifest.bin', encoded);
@@ -185,6 +191,9 @@ void main() {
 
       expect(presets.length, equals(1));
       expect(presets[0].id, equals('normal'));
+      expect(presets[0].effects.bloom.threshold, equals(0.8));
+      expect(presets[0].effects.bloom.intensity, equals(0.0));
+      expect(presets[0].effects.halation.intensity, equals(0.0));
     });
   });
 }

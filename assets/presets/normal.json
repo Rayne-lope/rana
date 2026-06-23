@@ -23,6 +23,13 @@
     },
     "dust": {
       "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.8,
+      "intensity": 0.0
+    },
+    "halation": {
+      "intensity": 0.0
     }
   }
 }

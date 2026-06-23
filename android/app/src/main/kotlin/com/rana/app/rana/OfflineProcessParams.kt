@@ -13,5 +13,8 @@ data class OfflineProcessParams(
     val lutStrength: Float = 0f,
     val lightLeakIntensity: Float = 0f,
     val lightLeakVariant: Int = -1,
-    val dustIntensity: Float = 0f
+    val dustIntensity: Float = 0f,
+    val bloomThreshold: Float = 0.8f,
+    val bloomIntensity: Float = 0f,
+    val halationIntensity: Float = 0f
 )

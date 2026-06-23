@@ -184,6 +184,9 @@ void main() {
       expect(params['vignette'], equals(0.5));
       expect(params['lutPath'], isNull);
       expect(params['lutStrength'], equals(0.0));
+      expect(params['bloomThreshold'], equals(0.8));
+      expect(params['bloomIntensity'], equals(0.0));
+      expect(params['halationIntensity'], equals(0.0));
     });
 
     test('capture flow enters processing and updates file path', () async {
@@ -261,6 +264,12 @@ void main() {
         grain: PresetGrain(intensity: 0.1),
         vignette: PresetVignette(intensity: 0.05),
         lut: 'assets/luts/rana_warm_v1.png',
+        effects: PresetEffects(
+          lightLeak: LightLeakEffect(intensity: 0, variant: -1),
+          dust: DustEffect(intensity: 0),
+          bloom: PresetBloom(threshold: 0.7, intensity: 0.10),
+          halation: PresetHalation(intensity: 0.08),
+        ),
       );
       final container = ProviderContainer(
         overrides: [
@@ -290,6 +299,9 @@ void main() {
       expect(args['vignette'], equals(0.05));
       expect(args['lutPath'], equals('assets/luts/rana_warm_v1.png'));
       expect(args['lutStrength'], equals(1.0));
+      expect(args['bloomThreshold'], equals(0.7));
+      expect(args['bloomIntensity'], equals(0.10));
+      expect(args['halationIntensity'], equals(0.08));
     });
 
     test('capture sends neutral params when preset is unavailable', () async {
@@ -320,6 +332,9 @@ void main() {
       expect(args['vignette'], equals(0.0));
       expect(args['lutPath'], isNull);
       expect(args['lutStrength'], equals(0.0));
+      expect(args['bloomThreshold'], equals(0.8));
+      expect(args['bloomIntensity'], equals(0.0));
+      expect(args['halationIntensity'], equals(0.0));
     });
 
     test('rapid duplicate capture calls invoke native capture once', () async {

@@ -82,6 +82,9 @@ class CameraPreviewView(
                     width,
                     height,
                     onInputSurfaceReady = { _ -> bindPreview() },
+                    onFpsUpdate = { fps ->
+                        activity.dispatchPreviewFps(fps)
+                    },
                     onGlError = { error ->
                         android.util.Log.e(
                             "CameraPreviewView",
@@ -223,7 +226,10 @@ class CameraPreviewView(
         val lightLeakIntensity = (params["lightLeakIntensity"] as? Number)?.toFloat() ?: 0.0f
         val lightLeakVariant = (params["lightLeakVariant"] as? Number)?.toInt() ?: -1
         val dustIntensity = (params["dustIntensity"] as? Number)?.toFloat() ?: 0.0f
-        
+        val bloomThreshold = (params["bloomThreshold"] as? Number)?.toFloat() ?: 0.8f
+        val bloomIntensity = (params["bloomIntensity"] as? Number)?.toFloat() ?: 0.0f
+        val halationIntensity = (params["halationIntensity"] as? Number)?.toFloat() ?: 0.0f
+
         glRenderer?.applyPresetParams(
             temperature = temp,
             saturation = sat,
@@ -234,7 +240,10 @@ class CameraPreviewView(
             lutStrength = lutStrength,
             lightLeakIntensity = lightLeakIntensity,
             lightLeakVariant = lightLeakVariant,
-            dustIntensity = dustIntensity
+            dustIntensity = dustIntensity,
+            bloomThreshold = bloomThreshold,
+            bloomIntensity = bloomIntensity,
+            halationIntensity = halationIntensity
         )
     }
 

@@ -109,22 +109,11 @@ class CameraController extends _$CameraController {
         _currentPreviewVariant = targetVariant;
       }
 
-      final paramsMap = <String, dynamic>{
-        'temperature': preset.color.temperature,
-        'contrast': preset.color.contrast,
-        'saturation': preset.color.saturation,
-        'grain': preset.grain.intensity,
-        'vignette': preset.vignette.intensity,
-        'lutPath': preset.lut,
-        'lutStrength': preset.lut != null ? 1.0 : 0.0,
-        'lightLeakIntensity': preset.effects.lightLeak.intensity,
-        'lightLeakVariant': _currentPreviewVariant ?? -1,
-        'dustIntensity': preset.effects.dust.intensity,
-      };
+      final paramsMap = _buildPreviewParams(preset);
       AppLogger.glParams('PREVIEW', paramsMap);
-      ref.read(consistencyDebugProvider.notifier).update(
-            (state) => GlParamsState(lastPreviewParams: paramsMap),
-          );
+      ref
+          .read(consistencyDebugProvider.notifier)
+          .update((state) => GlParamsState(lastPreviewParams: paramsMap));
       await _platformService.selectPreset(preset.id, paramsMap);
       state = state.copyWith(activePresetId: preset.id);
     } on Object catch (e) {
@@ -137,9 +126,12 @@ class CameraController extends _$CameraController {
     if (state.captureStatus != CaptureStatus.idle) return;
 
     final captureParams = _buildCaptureParams();
-    final activePreviewParams =
-        ref.read(consistencyDebugProvider).lastPreviewParams;
-    ref.read(consistencyDebugProvider.notifier).update(
+    final activePreviewParams = ref
+        .read(consistencyDebugProvider)
+        .lastPreviewParams;
+    ref
+        .read(consistencyDebugProvider.notifier)
+        .update(
           (state) => GlParamsState(
             lastPreviewParams: state.lastPreviewParams,
             lastExportParams: captureParams,
@@ -206,6 +198,9 @@ class CameraController extends _$CameraController {
       'lightLeakIntensity': activePreset?.effects.lightLeak.intensity ?? 0.0,
       'lightLeakVariant': _currentPreviewVariant ?? -1,
       'dustIntensity': activePreset?.effects.dust.intensity ?? 0.0,
+      'bloomThreshold': activePreset?.effects.bloom.threshold ?? 0.8,
+      'bloomIntensity': activePreset?.effects.bloom.intensity ?? 0.0,
+      'halationIntensity': activePreset?.effects.halation.intensity ?? 0.0,
     };
   }
 
@@ -224,24 +219,36 @@ class CameraController extends _$CameraController {
 
     if (activePreset.effects.lightLeak.variant == -1) {
       _currentPreviewVariant = _randomizeVariant();
-      final paramsMap = <String, dynamic>{
-        'temperature': activePreset.color.temperature,
-        'contrast': activePreset.color.contrast,
-        'saturation': activePreset.color.saturation,
-        'grain': activePreset.grain.intensity,
-        'vignette': activePreset.vignette.intensity,
-        'lutPath': activePreset.lut,
-        'lutStrength': activePreset.lut != null ? 1.0 : 0.0,
-        'lightLeakIntensity': activePreset.effects.lightLeak.intensity,
-        'lightLeakVariant': _currentPreviewVariant ?? -1,
-      };
+      final paramsMap = _buildPreviewParams(activePreset);
 
       AppLogger.glParams('PREVIEW_UPDATE_RANDOM', paramsMap);
-      ref.read(consistencyDebugProvider.notifier).update(
-            (state) => state.copyWith(lastPreviewParams: paramsMap),
-          );
+      ref
+          .read(consistencyDebugProvider.notifier)
+          .update((state) => state.copyWith(lastPreviewParams: paramsMap));
       unawaited(_platformService.selectPreset(activePreset.id, paramsMap));
     }
+  }
+
+  Map<String, dynamic> _buildPreviewParams(PresetModel preset) {
+    final lutPath = preset.lut is String && (preset.lut as String).isNotEmpty
+        ? preset.lut as String
+        : null;
+
+    return <String, dynamic>{
+      'temperature': preset.color.temperature,
+      'contrast': preset.color.contrast,
+      'saturation': preset.color.saturation,
+      'grain': preset.grain.intensity,
+      'vignette': preset.vignette.intensity,
+      'lutPath': lutPath,
+      'lutStrength': lutPath != null ? 1.0 : 0.0,
+      'lightLeakIntensity': preset.effects.lightLeak.intensity,
+      'lightLeakVariant': _currentPreviewVariant ?? -1,
+      'dustIntensity': preset.effects.dust.intensity,
+      'bloomThreshold': preset.effects.bloom.threshold,
+      'bloomIntensity': preset.effects.bloom.intensity,
+      'halationIntensity': preset.effects.halation.intensity,
+    };
   }
 
   /// Clears the transient success state once the result screen is dismissed.

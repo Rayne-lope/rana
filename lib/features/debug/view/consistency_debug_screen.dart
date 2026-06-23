@@ -62,6 +62,9 @@ class _ConsistencyDebugScreenState
       'lightLeakIntensity',
       'lightLeakVariant',
       'dustIntensity',
+      'bloomThreshold',
+      'bloomIntensity',
+      'halationIntensity',
     };
 
     var hasMismatch = false;
@@ -83,10 +86,7 @@ class _ConsistencyDebugScreenState
         foregroundColor: Colors.white,
         title: const Text(
           'GL Shader Consistency',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
         ),
       ),
       body: SingleChildScrollView(
@@ -240,11 +240,7 @@ class _ConsistencyDebugScreenState
                     ),
                     // Rows
                     for (final key in allKeys)
-                      _buildComparisonRow(
-                        key,
-                        preview?[key],
-                        export?[key],
-                      ),
+                      _buildComparisonRow(key, preview?[key], export?[key]),
                   ],
                 ),
               ),
@@ -406,18 +402,15 @@ class _ConsistencyDebugScreenState
     Color? color,
     Color? borderColor,
     EdgeInsetsGeometry padding = const EdgeInsets.all(16),
-  }) =>
-      Container(
-        padding: padding,
-        decoration: BoxDecoration(
-          color: color,
-          border: borderColor != null
-              ? Border.all(color: borderColor)
-              : null,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: child,
-      );
+  }) => Container(
+    padding: padding,
+    decoration: BoxDecoration(
+      color: color,
+      border: borderColor != null ? Border.all(color: borderColor) : null,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: child,
+  );
 
   TableRow _buildComparisonRow(
     String key,
@@ -465,20 +458,19 @@ class _ConsistencyDebugScreenState
     bool isCode = false,
     Color? color,
     Alignment align = Alignment.centerLeft,
-  }) =>
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        alignment: align,
-        child: Text(
-          text,
-          overflow: TextOverflow.ellipsis,
-          maxLines: 2,
-          style: TextStyle(
-            color: color ?? (isHeader ? Colors.white54 : Colors.white),
-            fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
-            fontSize: isHeader ? 11 : (isCode ? 12 : 13),
-            fontFamily: isCode ? 'monospace' : null,
-          ),
-        ),
-      );
+  }) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+    alignment: align,
+    child: Text(
+      text,
+      overflow: TextOverflow.ellipsis,
+      maxLines: 2,
+      style: TextStyle(
+        color: color ?? (isHeader ? Colors.white54 : Colors.white),
+        fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
+        fontSize: isHeader ? 11 : (isCode ? 12 : 13),
+        fontFamily: isCode ? 'monospace' : null,
+      ),
+    ),
+  );
 }
