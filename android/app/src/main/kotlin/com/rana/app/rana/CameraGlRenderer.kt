@@ -413,8 +413,17 @@ class CameraGlRenderer(
             val loader = io.flutter.FlutterInjector.instance().flutterLoader()
             val lookupKey = loader.getLookupKeyForAsset(assetPath)
             context.assets.open(lookupKey).use { inputStream ->
+                val options = android.graphics.BitmapFactory.Options().apply {
+                    inScaled = false
+                }
                 val bitmap = android.graphics.BitmapFactory
-                    .decodeStream(inputStream) ?: return -1
+                    .decodeStream(inputStream, null, options) ?: return -1
+
+                Log.i(
+                    tag,
+                    "Loaded LUT: $assetPath, size: " +
+                    "${bitmap.width}x${bitmap.height}"
+                )
                 
                 val textures = IntArray(1)
                 GLES20.glGenTextures(1, textures, 0)

@@ -469,9 +469,17 @@ object OfflineGlProcessor {
             val loader = io.flutter.FlutterInjector.instance().flutterLoader()
             val lookupKey = loader.getLookupKeyForAsset(assetPath)
             context.assets.open(lookupKey).use { inputStream ->
+                val options = android.graphics.BitmapFactory.Options().apply {
+                    inScaled = false
+                }
                 val bitmap = android.graphics.BitmapFactory
-                    .decodeStream(inputStream)
+                    .decodeStream(inputStream, null, options)
                 if (bitmap != null) {
+                    Log.i(
+                        TAG,
+                        "Loaded Offline LUT: $assetPath, size: " +
+                        "${bitmap.width}x${bitmap.height}"
+                    )
                     lutBitmapCache[assetPath] = bitmap
                 }
                 return bitmap
