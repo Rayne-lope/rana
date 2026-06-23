@@ -103,6 +103,85 @@ class MainActivity : FlutterActivity() {
                     }
                     result.success(mapOf("status" to "released"))
                 }
+                "testOfflineProcessing" -> {
+                    val temp = (call.argument<Number>("temperature"))
+                        ?.toFloat() ?: 0f
+                    val sat = (call.argument<Number>("saturation"))
+                        ?.toFloat() ?: 0f
+                    val cont = (call.argument<Number>("contrast"))
+                        ?.toFloat() ?: 0f
+                    val grain = (call.argument<Number>("grain"))
+                        ?.toFloat() ?: 0f
+                    val vignette = (call.argument<Number>("vignette"))
+                        ?.toFloat() ?: 0f
+
+                    val bitmap = android.graphics.Bitmap.createBitmap(
+                        512, 512, android.graphics.Bitmap.Config.ARGB_8888
+                    )
+                    val canvas = android.graphics.Canvas(bitmap)
+                    val paint = android.graphics.Paint()
+                    val gradient = android.graphics.LinearGradient(
+                        0f, 0f, 512f, 512f,
+                        android.graphics.Color.RED, android.graphics.Color.BLUE,
+                        android.graphics.Shader.TileMode.CLAMP
+                    )
+                    paint.shader = gradient
+                    canvas.drawRect(0f, 0f, 512f, 512f, paint)
+
+                    val executor = java.util.concurrent.Executors
+                        .newSingleThreadExecutor()
+                    executor.execute {
+                        try {
+                            val params = OfflineProcessParams(
+                                temperature = temp,
+                                saturation = sat,
+                                contrast = cont,
+                                grain = grain,
+                                vignette = vignette
+                            )
+                            val out = OfflineGlProcessor.processImage(
+                                bitmap, params
+                            )
+                            if (out != null) {
+                                val cacheDir = context.externalCacheDir 
+                                    ?: context.cacheDir
+                                val file = java.io.File(
+                                    cacheDir, "offline_test_output.png"
+                                )
+                                java.io.FileOutputStream(file).use { stream ->
+                                    out.compress(
+                                        android.graphics.Bitmap
+                                            .CompressFormat.PNG,
+                                        100, stream
+                                    )
+                                }
+                                out.recycle()
+                                bitmap.recycle()
+                                handler.post {
+                                    result.success(
+                                        mapOf(
+                                            "status" to "success",
+                                            "filePath" to file.absolutePath
+                                        )
+                                    )
+                                }
+                            } else {
+                                bitmap.recycle()
+                                handler.post {
+                                    result.error(
+                                        "PROCESS_FAILED",
+                                        "OfflineGlProcessor returned null", null
+                                    )
+                                }
+                            }
+                        } catch (e: Exception) {
+                            bitmap.recycle()
+                            handler.post {
+                                result.error("ERROR", e.message, null)
+                            }
+                        }
+                    }
+                }
                 else -> {
                     result.notImplemented()
                 }
