@@ -3,9 +3,9 @@
   "name": "Rana Warm",
   "category": "Classic",
   "color": {
-    "temperature": 0.3,
+    "temperature": 0.24,
     "contrast": 0.0,
-    "saturation": 0.1
+    "saturation": 0.08
   },
   "grain": {
     "intensity": 0.1
@@ -18,18 +18,18 @@
   "behavior": null,
   "effects": {
     "lightLeak": {
-      "intensity": 0.22,
+      "intensity": 0.12,
       "variant": -1
     },
     "dust": {
-      "intensity": 0.06
+      "intensity": 0.04
     },
     "bloom": {
-      "threshold": 0.65,
-      "intensity": 0.10
+      "threshold": 0.78,
+      "intensity": 0.05
     },
     "halation": {
-      "intensity": 0.08
+      "intensity": 0.03
     },
     "lensDistortion": {
       "strength": 0.06

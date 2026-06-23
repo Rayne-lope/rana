@@ -10,6 +10,8 @@
 ### Value Proposition
 Rana adalah kamera Android yang memberi pengalaman foto retro dengan preview live, preset film, grain, light leak, date stamp, dan proses capture yang terasa seperti kamera analog, tetapi tetap praktis untuk pengguna modern.
 
+Mulai Phase 6, Rana mengembangkan **Rana Styles** — sebuah sistem adjustment visual yang diinspirasi oleh Apple Photographic Styles, memungkinkan pengguna membentuk mood foto mereka tanpa perlu memahami parameter teknis kamera.
+
 ### Prinsip Produk
 1. **Simple first** — buka app langsung ke kamera.
 2. **Realtime feel** — user melihat efek sebelum memotret.
@@ -26,17 +28,20 @@ Rana adalah kamera Android yang memberi pengalaman foto retro dengan preview liv
 - Menyediakan preview filter realtime yang terasa halus.
 - Menyediakan output foto yang sama atau sangat dekat dengan preview.
 - Menjadi basis untuk pengembangan filter pack dan efek lanjutan.
+- **[Phase 6+]** Memungkinkan pengguna menyesuaikan visual look secara personal tanpa editor profesional.
 
 ### Technical Goals
 - Kamera preview stabil di banyak device.
 - Rendering efek menggunakan GPU pipeline, bukan CPU bitmap processing.
 - Export image resolusi tinggi dengan kualitas konsisten.
 - Struktur kode modular agar mudah dikembangkan AI agent.
+- **[Phase 6+]** Style parameters diteruskan sebagai shader uniforms sehingga tidak ada camera restart saat adjustment.
 
 ### Business Goals
 - MVP cepat selesai.
 - Fitur dasar cukup kuat untuk dipakai user nyata.
 - Fondasi cukup fleksibel untuk monetisasi preset pack atau premium features nanti.
+- **[Phase 6+]** Rana Styles menjadi diferensiator produk utama di pasar kamera retro Android.
 
 ---
 
@@ -62,17 +67,23 @@ Preset pada Rana tidak boleh dianggap hanya sebagai file LUT warna (Look-Up Tabl
 Setiap preset didefinisikan sebagai kombinasi dari:
 - **Color Parameters** (Pengaturan warna dasar seperti temperature, tint, contrast, dll.)
 - **Tone Curve** (Kurva nada warna)
-- **Grain Settings** (Intensitas dan ukuran grain film)
+- **Texture Settings** (Intensitas dan karakter grain/dust film — user-facing label: **Texture**)
 - **Vignette Settings** (Intensitas vignette sudut gambar)
 - **LUT** (Look-Up Table warna 2D/3D opsional)
 - **Overlay** (Aset PNG leak/dust/frame opsional)
 - **Effects** (Efek tambahan seperti halation/bloom opsional)
 - **Randomization Behaviors** (Perilaku acak masa depan per foto)
 
+> [!NOTE]
+> **Terminologi Penting — Texture vs Grain:**  
+> Mulai Phase 6, label user-facing untuk grain diubah dari "Grain" menjadi **"Texture"**.  
+> Texture secara internal memetakan ke: grain intensity, grain size, dust amount, softness, dan film texture character.  
+> Perubahan ini tidak merusak arsitektur internal — hanya label UI dan data model gaya yang berubah.
+
 ```
 Preset
 ├── Color Parameters
-├── Grain
+├── Texture (grain + dust + softness)
 ├── Vignette
 ├── LUT (optional)
 ├── Overlay (optional)
@@ -86,10 +97,13 @@ Untuk mempermudah ekspansi tanpa harus mengubah arsitektur inti engine di masa m
 - **Layer 2 — Asset Layer**: Berkas pendukung seperti file LUT, light leak overlays, dust overlays, dan frames. Diperkenalkan pada Phase 4–5.
 - **Layer 3 — Behavior Layer**: Perilaku acak (random grain seed, random light leak selection, random dust variation, dan preset-specific randomness). Diperkenalkan pada Phase 7+.
 
+**[NEW — Phase 6+] Layer 4 — Style Layer**: Parameter Rana Styles (Tone, Color, Texture, Style Strength, Undertone X/Y) yang diterapkan di atas base preset. Ini adalah lapisan adjustable yang bisa dikustomisasi per user.
+
 Arsitektur berlapis ini memisahkan logika dasar (Engine) dengan data (Preset Recipes & Assets) sehingga penambahan preset baru di kemudian hari tidak memerlukan refaktorisasi kode program.
 
-### 3. Skema Preset (Preset Schema)
-Skema JSON preset masa depan yang extensible dirancang sebagai berikut:
+### 3. Skema Preset (Preset Schema) — Version 2
+
+Skema JSON preset yang telah diperbarui untuk mendukung Base Preset + Style Layer:
 
 ```json
 {
@@ -97,9 +111,9 @@ Skema JSON preset masa depan yang extensible dirancang sebagai berikut:
   "name": "Rana Warm",
   "category": "Classic",
   "color": {
-    "temperature": 0.2,
-    "contrast": 0.1,
-    "saturation": 0.15
+    "temperature": 0.24,
+    "contrast": 0.0,
+    "saturation": 0.08
   },
   "grain": {
     "intensity": 0.1
@@ -107,12 +121,58 @@ Skema JSON preset masa depan yang extensible dirancang sebagai berikut:
   "vignette": {
     "intensity": 0.05
   },
-  "lut": null,
+  "lut": "assets/luts/rana_warm_v1.png",
   "overlay": null,
-  "behavior": null
+  "behavior": null,
+  "effects": {
+    "lightLeak": { "intensity": 0.12, "variant": -1 },
+    "dust": { "intensity": 0.04 },
+    "bloom": { "threshold": 0.78, "intensity": 0.05 },
+    "halation": { "intensity": 0.03 },
+    "lensDistortion": { "strength": 0.06 }
+  }
 }
 ```
-Skema ini dapat dikembangkan di fase-fase berikutnya dengan menambahkan objek baru (misal: `"lut": "assets/luts/classic1.png"`, `"behavior": { "random_leak": true }`) tanpa merusak parser engine yang sudah ada.
+
+Untuk menyimpan RanaStyle (custom style oleh user):
+
+```json
+{
+  "version": 2,
+  "basePresetId": "rana_warm",
+  "style": {
+    "id": "my_warm_rose",
+    "name": "My Warm Rose",
+    "tone": 72,
+    "color": 83,
+    "texture": 38,
+    "styleStrength": 80,
+    "undertoneX": 0.35,
+    "undertoneY": 0.18
+  }
+}
+```
+
+Internal mapping dari Texture value ke analog parameters:
+
+```json
+{
+  "texture": {
+    "grainIntensity": 0.38,
+    "grainSize": 0.8,
+    "dustIntensity": 0.08,
+    "softness": 0.12
+  }
+}
+```
+
+Schema requirements:
+- Harus memiliki versi (versioned).
+- Harus bisa dikembangkan (extensible).
+- Harus backward-compatible dengan preset JSON lama.
+- Harus mendukung custom user-created styles.
+- Harus mendukung komposisi basePreset + style layer.
+- Harus mendukung import/export/share style di masa depan.
 
 ### 4. Strategi Preset Jangka Panjang (Long-Term Preset Strategy)
 Rana dirancang untuk mendukung preset analog legendaris seperti:
@@ -124,6 +184,55 @@ Rana dirancang untuk mendukung preset analog legendaris seperti:
 - Gaya Y2K Camera
 
 Dukungan preset ini akan dicapai secara dinamis melalui kombinasi **Preset Engine**, **LUTs**, **Overlay Assets**, dan **Randomization Systems** tanpa mengubah kode arsitektur inti. Roadmap pengembangan Rana sengaja memisahkan antara **Engine Development** (pembuatan mesin rendering dan parser) dan **Preset Content Creation** (pembuatan resep preset dan aset grafis).
+
+---
+
+## 3.6. Research Basis — Photographic Styles Inspiration
+
+> [!IMPORTANT]
+> Rana **bukan** mencoba mengkloning UI Apple atau mengklaim feature parity dengan iPhone.  
+> Riset Apple Photographic Styles digunakan hanya sebagai **inspirasi produk dan arsitektur**.  
+> Implementasi Rana adalah **Android shader-based approximation**, bukan Apple ISP parity.
+
+### Apa itu Apple Photographic Styles?
+Apple Photographic Styles (diperkenalkan di iPhone 13, diperluas di iPhone 16 / iOS 18) adalah sistem pipeline-based yang menerapkan "style" kustom ke foto **mid-pipeline** oleh ISP kamera. Ini berbeda dari filter biasa karena:
+
+- Diterapkan pada data sensor sebelum final rendering, bukan post-hoc di atas JPEG.
+- Non-destructive: parameter tersimpan dan bisa diubah ulang tanpa kehilangan kualitas.
+- Menggunakan tone curve dan color matrix adaptif, bukan LUT statis.
+- Dapat mempertahankan detail highlight/shadow dan melindungi skin tone.
+
+Controls user-facing yang disediakan Apple:
+- **Tone** — mengontrol mood tonal (contrast, brightness, shadow lift)
+- **Color** — mengontrol intensitas warna (saturation/vibrance)
+- **Intensity** — seberapa kuat style diterapkan (0–100%)
+- **Undertone Grid** (iOS 18) — 2D pad untuk Warm↔Cool vs Green↔Magenta
+
+### Perbedaan dengan LUT dan Filter Biasa
+| Pendekatan | Cara Kerja | Reversible | Adaptif |
+|---|---|---|---|
+| Filter biasa / Dazz Cam | Static overlay di atas JPEG | ❌ | ❌ |
+| LUT-based preset | Remaps setiap RGB pixel secara statis | ❌ | ❌ |
+| Apple Photographic Styles | Parameterized ISP transform, mid-pipeline | ✅ | ✅ |
+| **Rana Styles (Phase 6)** | Shader uniforms di GPU pipeline, post-capture | ✅ | Partial |
+
+### Mengapa Rana Tidak Bisa Replikasi Penuh?
+Apple menggunakan:
+1. ISP (Image Signal Processor) proprietary yang tidak bisa diakses Android pihak ketiga.
+2. Machine learning untuk segmentasi skin tone, sky, dll.
+3. RAW sensor data sebagai input untuk style adjustments.
+
+Rana menggunakan:
+- CameraX (YUV → JPEG, tidak ada akses RAW yang konsisten antar device).
+- OpenGL ES custom fragment shader (GPU compute, bukan ISP).
+- Preset Engine + LUT support yang sudah ada.
+
+### Tujuan Desain Rana Styles
+Membawa **kesederhanaan UX Photographic Styles** ke dalam identitas produk kamera film Rana, dengan cara:
+- Menyembunyikan parameter teknis dari user.
+- Menggunakan bahasa yang intuitif: Tone, Color, Texture.
+- Memberikan 2D Undertone pad untuk color balance visual.
+- Mempertahankan konsistensi preview vs export.
 
 ---
 
@@ -376,9 +485,9 @@ Mengintegrasikan pengolahan resolusi tinggi dan binding LUT tekstur yang efisien
 Menambahkan efek khas kamera film yang membuat Rana terasa lebih hidup.
 
 ## Deliverables
-- Grain.
-- Light leak.
-- Dust and scratches.
+- Grain (animated, non-static).
+- Light leak (screen blend, animated random UV offset).
+- Dust and scratches (multiply blend, animated UV offset, 1s interval).
 - Date stamp.
 - Subtle bloom / halation.
 - Lens distortion ringan.
@@ -393,6 +502,19 @@ Menambahkan efek khas kamera film yang membuat Rana terasa lebih hidup.
 7. Tambahkan intensity control.
 8. Kombinasikan efek dalam urutan yang efisien.
 
+## Rendering Order (Final — Wajib Diikuti)
+```
+1. Lens Distortion (UV warp — dilakukan PERTAMA)
+2. Color Grading / LUT (Phase 4)
+3. Temperature / Saturation / Contrast (Phase 3)
+4. Bloom / Halation (multi-pass FBO)
+5. Light Leak (screen blend)
+6. Dust & Scratches (multiply blend)
+7. Film Grain (animated noise)
+8. Vignette
+9. Clamp(0.0, 1.0)
+```
+
 ## Acceptance Criteria
 - Efek terasa analog, bukan sekadar filter biasa.
 - Efek tidak terlalu berat.
@@ -404,12 +526,421 @@ Menambahkan efek khas kamera film yang membuat Rana terasa lebih hidup.
 ## Frontier Model Priority
 **High**
 
-## Why
-Secara visual keliatan simple, tapi butuh tuning bagus supaya tidak fake. Halation dan bloom lebih sulit karena multi-pass rendering.
+## Status
+✅ **Completed**
 
 ---
 
-# Phase 6 — Gallery, History, and Sharing
+# Phase 6 — Rana Styles Engine
+
+## Objective
+Membangun sistem style adjustment yang terinspirasi Apple Photographic Styles, diadaptasi untuk Rana.
+
+Rana Styles memungkinkan pengguna menyesuaikan visual mood dari preset yang sudah ada tanpa perlu memahami kontrol kamera teknis. User tidak perlu tahu ISO, shutter speed, EV, curves, gamma, atau color matrix.
+
+Sebaliknya, control user yang ditampilkan adalah:
+- **Tone**
+- **Color**
+- **Texture**
+- **Style Strength**
+- **Undertone Grid**
+
+## Concept
+
+```
+Base Preset (e.g. Rana Warm)
++
+Rana Style Parameters
+  - Tone 72
+  - Color 83
+  - Texture 38
+  - Style Strength 80
+  - Undertone Warm/Rose
+======================
+My Rana Warm
+(saved as custom style)
+```
+
+## Deliverables
+- RanaStyle data model.
+- JSON schema migration dari Preset-only ke Preset + Style Layer.
+- Style state management di Flutter camera controller.
+- Compact style parameter strip di main capture screen (TONE / COLOR / TEXTURE).
+- Expanded Rana Styles panel.
+- Tone slider.
+- Color slider.
+- Texture slider (menggantikan Grain sebagai label user-facing utama).
+- Style Strength slider.
+- Undertone 2D direction pad (Warm↔Cool vs Green↔Magenta).
+- Save as Style.
+- Apply Style.
+- Reset Style.
+- Preview/export consistency menggunakan parameter style yang sama.
+- Native shader uniform mapping.
+
+---
+
+## User-Facing Controls
+
+### 1. Tone
+
+**Label:** `TONE`
+
+**Purpose:** Mengontrol mood tonal.
+
+**Internal mapping:**
+- contrast
+- gamma / tone curve
+- shadow lift
+- highlight rolloff
+
+**User sees:** `TONE 72`
+
+**Shader uniform:** `uTone`
+
+**Implementation note:** Dapat diimplementasikan sebagai power function pada luminance channel:  
+`L_out = pow(L_in, pow(2.0, toneValue / 100.0))`
+
+---
+
+### 2. Color
+
+**Label:** `COLOR`
+
+**Purpose:** Mengontrol intensitas warna.
+
+**Internal mapping:**
+- saturation
+- vibrance-like adjustment
+- chroma scaling
+
+**User sees:** `COLOR 83`
+
+**Shader uniform:** `uColor`
+
+**Implementation note:** Dalam Lab space atau HSV:  
+`C' = C * (1.0 + colorValue / 100.0)`
+
+---
+
+### 3. Texture
+
+**Label:** `TEXTURE`
+
+**Purpose:** Mengontrol karakter surface film analog.
+
+**Internal mapping:**
+- grain intensity
+- grain size
+- dust amount
+- softness
+- film texture character
+
+**User sees:** `TEXTURE 38`
+
+**Shader uniform:** `uTexture`
+
+> [!IMPORTANT]
+> Jangan expose raw grain controls sebagai UI utama di Phase 6.  
+> Texture adalah label yang lebih premium, fleksibel, dan intuitif.
+
+**Internal mapping contoh:** Nilai `TEXTURE 38` → `{ grainIntensity: 0.38, grainSize: 0.8, dustIntensity: 0.08, softness: 0.12 }`
+
+---
+
+### 4. Style Strength
+
+**Label:** `STYLE STRENGTH`
+
+**Purpose:** Mengontrol seberapa kuat style layer diterapkan.
+
+**Internal mapping:**
+- blend amount antara base preset dan styled output
+- LUT/style blend strength
+- effect intensity multiplier
+
+**Range:** 0–100
+
+**Shader uniform:** `uStyleStrength`
+
+---
+
+### 5. Undertone Grid
+
+**Label:** `UNDERTONE`
+
+**Purpose:** 2D control pad yang mengatur arah warna secara visual.
+
+**Axes:**
+- X-axis: `Warm ↔ Cool`
+- Y-axis: `Green / Olive ↔ Magenta / Rose`
+
+**Behavior:**
+- Move right → cooler / more blue
+- Move left → warmer / more amber
+- Move up → more magenta / rose
+- Move down → more green / olive
+
+**Shader uniforms:** `uUndertoneX`, `uUndertoneY`
+
+**Implementation note (dari apple_tonal.md):**  
+Menggunakan color balance matrix:
+```glsl
+// Approx model in RGB space
+float alpha = kTemp * uUndertoneX;   // warm-cool
+float beta  = kTint * uUndertoneY;   // green-magenta
+
+mat3 M = mat3(
+  1.0 + alpha,  0.0,         0.0,
+  0.0,          1.0 - beta,  0.0,
+  0.0,          0.0,         1.0 - alpha
+) + mat3(
+  0.0,  0.0,   0.0,
+  0.0,  beta,  0.0,
+  0.0,  0.0,   beta
+);
+
+color = M * color;
+```
+
+Atau dalam Lab space:
+```
+a' = a + k_tint  * uUndertoneY   // magenta-green
+b' = b + k_temp  * uUndertoneX   // amber-cool
+```
+
+---
+
+## UI/UX Requirements
+
+### Main Capture Screen
+
+Main capture screen harus tetap:
+- camera-first
+- minimal
+- tidak terlalu teknis
+- premium
+- analog-inspired
+
+Tambahkan compact style parameter strip yang tampil **di dalam atau di atas Rana Action Plate**:
+
+```
+[ TONE 72 ]  [ COLOR 83 ]  [ TEXTURE 38 ]
+```
+
+Jangan tambahkan full editor complexity ke main camera screen.
+
+### Expanded Rana Styles Panel
+
+Ketika user tap tombol "Style", buka expanded panel yang berisi:
+- preview image / live preview area
+- nama preset aktif
+- Tone slider
+- Color slider
+- Texture slider
+- Style Strength slider
+- Undertone 2D pad (labeled axes: Warm↔Cool, Green↔Magenta)
+- Reset button
+- Apply button
+- Save as Style button
+
+UI harus terasa lebih dekat ke **iPhone Photographic Styles** daripada Lightroom.
+
+**Hindari menampilkan:**
+- exposure
+- gamma
+- lift/gain
+- HSL sliders
+- RGB channels
+- curve editor
+- pro mode controls
+
+### User Flow
+
+```
+User selects preset
+↓
+User taps Style button
+↓
+Expanded Rana Styles panel terbuka
+↓
+Adjusts Tone / Color / Texture
+↓
+Adjusts Undertone direction pad
+↓
+Applies style (Apply button)
+↓
+Optionally saves as custom style (Save as Style)
+```
+
+**Contoh:**
+```
+Rana Warm
+↓ Style
+Tone 68, Color 82, Texture 42, Undertone Rose/Warm
+↓ Save as Style
+"My Warm Rose"
+```
+
+---
+
+## Engine Architecture
+
+### Conceptual Rendering Order (Phase 6)
+
+```
+Base camera frame
+↓
+Base preset recipe (LUT + color params)
+↓
+Analog effects defaults (grain, light leak, dust)
+↓
+[NEW] Rana Style Layer
+  ↓ Tone adjustment (uTone)
+  ↓ Color adjustment (uColor)
+  ↓ Texture adjustment (uTexture → grain + dust override)
+  ↓ Undertone color matrix (uUndertoneX, uUndertoneY)
+  ↓ Style Strength blend (uStyleStrength)
+↓
+Final preview / export
+```
+
+**Important:** Preview pipeline dan export pipeline harus menggunakan style parameters yang sama.
+
+### Shader Uniforms (Phase 6)
+
+```glsl
+uniform float uTone;           // -100..100
+uniform float uColor;          // -100..100
+uniform float uTexture;        // 0..100
+uniform float uStyleStrength;  // 0..100
+uniform float uUndertoneX;     // -1.0..1.0 (warm-cool)
+uniform float uUndertoneY;     // -1.0..1.0 (green-magenta)
+```
+
+### GLSL Implementation Sketch
+
+```glsl
+vec3 color = texture2D(sTexture, vTextureCoord).rgb;
+
+// 1. Apply base preset LUT (if any)
+color = sampleLUT(color, uLutTexture, uStyleStrength);
+
+// 2. Tone adjustment (gamma / tone curve)
+color = pow(color, vec3(pow(2.0, uTone / 100.0)));
+
+// 3. Color / saturation
+float avg = (color.r + color.g + color.b) / 3.0;
+color = mix(vec3(avg), color, 1.0 + uColor / 100.0);
+
+// 4. Undertone color balance matrix
+float alpha = 0.15 * uUndertoneX;
+float beta  = 0.12 * uUndertoneY;
+color.r = color.r * (1.0 + alpha + beta);
+color.g = color.g * (1.0 - beta);
+color.b = color.b * (1.0 - alpha + beta);
+
+color = clamp(color, 0.0, 1.0);
+```
+
+---
+
+## Technical Requirements
+
+### Preview Pipeline
+- Style changes harus update preview secara realtime.
+- Tone, Color, Texture, dan Undertone tidak boleh restart camera session.
+- Gunakan shader uniforms, bukan rebuild shader setiap adjustment.
+- Style changes harus smooth (tidak ada frame drop saat slider di-drag).
+
+### Export Pipeline
+- Foto yang di-export harus match preview semaksimal mungkin.
+- Offline processor harus menerima RanaStyle parameters yang sama.
+- Style parameters dimasukkan ke output metadata jika memungkinkan.
+
+### Performance
+- Realtime preview tetap stabil (target: 24–30 FPS).
+- Hindari heavy multi-pass rendering untuk Phase 6 V1.
+- Gunakan shader math sederhana untuk Tone/Color/Undertone.
+- Texture reuse existing grain system dari Phase 5.
+- Tidak ada ML/segmentation di Phase 6 V1.
+
+---
+
+## Tasks
+
+1. Buat `RanaStyle` model (Dart).
+2. Extend preset schema ke Preset + Style Layer (versioned JSON schema v2).
+3. Tambahkan style state ke Flutter camera controller.
+4. Tambahkan compact style parameter strip di main capture screen (TONE / COLOR / TEXTURE).
+5. Buat expanded Rana Styles panel.
+6. Implement Tone slider.
+7. Implement Color slider.
+8. Implement Texture slider (mapping ke grain/dust/softness engine).
+9. Implement Style Strength slider.
+10. Implement Undertone 2D pad.
+11. Map Undertone X/Y ke shader color balance matrix.
+12. Map Texture value ke existing grain/dust/softness engine dari Phase 5.
+13. Pass style params dari Flutter ke native renderer via MethodChannel.
+14. Tambahkan OpenGL shader uniforms (uTone, uColor, uTexture, uStyleStrength, uUndertoneX, uUndertoneY).
+15. Apply style params di realtime preview (CameraGlRenderer).
+16. Apply style params di offline export (OfflineGlProcessor).
+17. Implement Reset Style.
+18. Implement Apply Style.
+19. Implement Save as Style.
+20. Persist custom style JSON secara lokal.
+21. Verifikasi preview/export consistency (tambahkan style params ke GL Shader Consistency debug screen).
+22. Tambahkan debug panel/logging untuk style params.
+
+---
+
+## Acceptance Criteria
+
+- Main capture screen menampilkan compact style parameters (TONE / COLOR / TEXTURE).
+- User bisa membuka Rana Styles panel dari capture screen.
+- User bisa adjust Tone dan melihat preview update realtime.
+- User bisa adjust Color dan melihat preview update realtime.
+- User bisa adjust Texture dan melihat grain/film texture update.
+- User bisa adjust Undertone pad dan melihat warm/cool/green/magenta bias update.
+- User bisa reset style.
+- User bisa apply style.
+- User bisa save custom style.
+- Exported image secara visual match preview.
+- Preset lama tetap berjalan (backward compatible).
+- Old preset schema tetap didukung.
+- Tidak ada camera restart saat mengubah style parameters.
+- Tidak ada FPS regression signifikan.
+
+---
+
+## Phase 6 Non-Goals
+
+**Jangan dimasukkan di Phase 6 V1:**
+- Apple-level ISP integration
+- RAW-based non-destructive editing
+- ML skin segmentation
+- Full Lightroom-style editor
+- Curve editor
+- HSL panel
+- Manual camera mode
+- Video styles
+- Cloud sync
+- Style marketplace
+
+---
+
+## Difficulty
+**Very Hard**
+
+## Frontier Model Priority
+**Very High**
+
+## Why
+Phase ini memperkenalkan style layer system baru, realtime shader parameter control, UI complexity, preview/export consistency requirements, dan schema evolution. Keputusan arsitektur di phase ini mempengaruhi semua preset customization, custom styles, dan long-term product differentiation.
+
+---
+
+# Phase 7 — Gallery, History, and Sharing
 
 ## Objective
 Memberi user tempat melihat hasil foto, favorit, dan share cepat.
@@ -445,7 +976,7 @@ Bukan area paling kompleks, lebih ke UX dan storage integration.
 
 ---
 
-# Phase 7 — Advanced Effects
+# Phase 8 — Advanced Effects
 
 ## Objective
 Menambahkan efek tingkat lanjut yang meningkatkan diferensiasi produk.
@@ -480,7 +1011,7 @@ Double exposure dan compositing bisa rumit karena butuh kontrol frame, timing, d
 
 ---
 
-# Phase 8 — Performance, Compatibility, and Device Tuning
+# Phase 9 — Performance, Compatibility, and Device Tuning
 
 ## Objective
 Memastikan app enak dipakai di banyak device Android.
@@ -520,7 +1051,7 @@ Fragmentasi Android sering jadi sumber bug paling besar.
 
 ---
 
-# Phase 9 — Monetization / Premium Structure (Optional)
+# Phase 10 — Monetization / Premium Structure (Optional)
 
 ## Objective
 Mempersiapkan struktur bisnis tanpa merusak UX.
@@ -545,7 +1076,7 @@ Mempersiapkan struktur bisnis tanpa merusak UX.
 
 ---
 
-# Phase 10 — Video Recording (Belakangan)
+# Phase 11 — Video Recording (Belakangan)
 
 ## Objective
 Menambahkan video setelah foto sudah stabil.
@@ -576,43 +1107,52 @@ Video + realtime filter + encode adalah kombinasi paling berat.
 
 ## 5. Recommended Prioritization for AI Agents
 
-### Frontline frontier model should handle:
-1. **Phase 2 — Live Preview Effect Pipeline**
-2. **Phase 3 — Preset Engine Architecture**
-3. **Phase 4 — High-Resolution Export & LUT Support**
-4. **Phase 7 — Advanced Analog Effects**
-5. **Phase 10 — Video Recording**
+### Frontier model should handle:
+1. **Phase 6 — Rana Styles Engine** ← Highest priority for current phase
+2. **Phase 4 — High-Resolution Export & LUT Support**
+3. **Phase 8 — Advanced Effects**
+4. **Phase 9 — Performance, Compatibility, and Device Tuning**
+5. **Phase 11 — Video Recording**
 
 ### Medium model or general agent can handle:
 1. Phase 0 — Foundation
 2. Phase 1 — Basic Camera Capture
-3. Phase 5 — Core Analog Effects
-4. Phase 6 — Gallery & Sharing
-5. Phase 8 — Performance & Device Tuning
-6. Phase 9 — Monetization structure
+3. Phase 2 — Live Preview Effect Pipeline (initial scaffolding)
+4. Phase 7 — Gallery & Sharing
+5. Phase 10 — Monetization structure
+6. UI polish, documentation, non-critical CRUD
 
 ---
 
 ## 6. Suggested MVP Definition
 
-### MVP v1 for Rana
+### MVP v1 for Rana (Phases 0–5 Complete)
 - Flutter shell.
 - Native camera preview.
-- 5 film presets.
+- 5 film presets (Rana Warm, Rana Cool, Rana Mono + 2 more).
 - Realtime filter preview.
 - Capture photo.
 - High-res save.
-- Grain.
+- Grain (animated).
 - Light leak.
+- Dust & scratches overlay.
 - Date stamp.
 - Gallery preview.
 
-### Not in MVP v1
+### Beta Target (Phase 6 Complete)
+- Everything in MVP v1.
+- Compact style strip on main screen (TONE / COLOR / TEXTURE).
+- Expanded Rana Styles panel.
+- Undertone grid.
+- Save as Style feature.
+- Preview/export style consistency.
+
+### Not in MVP v1 or Beta
 - Video.
 - Double exposure.
-- Complex bloom.
 - Cloud sync.
 - Login.
+- Style marketplace.
 
 ---
 
@@ -627,22 +1167,42 @@ Video + realtime filter + encode adalah kombinasi paling berat.
 - CameraX
 - OpenGL ES
 - MediaStore
-- MediaCodec later
+- MediaCodec (Phase 11)
 - Kotlin for bridge/plugin code
 
 ### Data & Assets
-- LUT textures
-- Overlay PNG assets
-- JSON preset metadata
+- LUT textures (2D/3D PNG)
+- Overlay PNG assets (light leak, dust, frames)
+- JSON preset metadata (v1 schema: base preset)
+- JSON style metadata (v2 schema: RanaStyle)
 
 ### Architecture Style
 - Feature-first modular structure
 - Flutter UI as shell
 - Native rendering/camera engine under it
+- Shader uniforms as the parameter transport mechanism (no camera restart on style change)
 
 ---
 
 ## 8. Final Product Direction
+
+Rana should not compete only by having many presets.
+
+Rana should compete by combining:
+
+```
+Film Presets
++
+Analog Effects (Phase 5)
++
+Rana Styles (Phase 6)
+```
+
+This allows users to create their own personal visual look without using a professional editor.
+
+**Positioning:**
+> Dazz Cam gives many looks.  
+> Rana gives cinematic film looks that users can subtly shape into their own.
 
 Rana should feel like:
 - fast to open,
@@ -652,8 +1212,8 @@ Rana should feel like:
 - and stable on real Android devices.
 
 The highest-risk technical areas are the ones that need frontier-level assistance:
-- realtime shader pipeline,
-- high-res export consistency,
-- advanced analog effects,
-- and video later.
-
+- **Phase 6 — Rana Styles Engine** (realtime shader style pipeline, undertone math, style-export consistency)
+- realtime shader pipeline (Phase 2–5),
+- high-res export consistency (Phase 4),
+- advanced analog effects (Phase 8),
+- and video later (Phase 11).
