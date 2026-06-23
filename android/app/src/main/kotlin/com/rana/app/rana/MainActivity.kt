@@ -39,8 +39,14 @@ class MainActivity : FlutterActivity() {
                     result.success(mapOf("status" to "initialized", "lens" to lensStr))
                 }
                 "selectPreset" -> {
-                    val presetId = call.argument<String>("presetId")
-                    result.success(mapOf("status" to "preset_selected", "presetId" to presetId))
+                    val presetId = call.argument<String>("presetId") ?: "normal"
+                    val preview = activePreviewView
+                    if (preview != null) {
+                        preview.setPreset(presetId)
+                        result.success(mapOf("status" to "preset_selected", "presetId" to presetId))
+                    } else {
+                        result.error("CAMERA_NOT_READY", "Camera preview not initialized", null)
+                    }
                 }
                 "executeCapture" -> {
                     val preview = activePreviewView

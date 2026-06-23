@@ -187,6 +187,16 @@ class CameraPreviewView(
         imageCapture?.flashMode = flashMode
     }
 
+    fun setPreset(presetId: String) {
+        val (temp, sat, cont) = when (presetId) {
+            "rana_warm" -> Triple(0.3f, 0.1f, 0.0f)
+            "rana_cool" -> Triple(-0.3f, 0.05f, 0.0f)
+            "rana_mono" -> Triple(0.0f, -1.0f, 0.1f)
+            else -> Triple(0.0f, 0.0f, 0.0f) // normal/none
+        }
+        glRenderer?.updateFilterParams(temp, sat, cont)
+    }
+
     fun takePicture(callback: (success: Boolean, filePathOrUri: String?, errorMsg: String?) -> Unit) {
         val capture = imageCapture
         if (capture == null) {

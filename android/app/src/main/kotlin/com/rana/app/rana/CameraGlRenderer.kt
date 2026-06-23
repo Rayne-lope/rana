@@ -38,6 +38,13 @@ class CameraGlRenderer(
     private var aPositionLoc: Int = -1
     private var aTextureCoordLoc: Int = -1
     private var uTexMatrixLoc: Int = -1
+    private var uTemperatureLoc: Int = -1
+    private var uSaturationLoc: Int = -1
+    private var uContrastLoc: Int = -1
+
+    private var uTemperature = 0.0f
+    private var uSaturation = 0.0f
+    private var uContrast = 0.0f
 
     private val vertexCoords = floatArrayOf(
         -1.0f, -1.0f, 0.0f,
@@ -85,8 +92,25 @@ class CameraGlRenderer(
         precision mediump float;
         varying vec2 vTextureCoord;
         uniform samplerExternalOES sTexture;
+        uniform float uTemperature;
+        uniform float uSaturation;
+        uniform float uContrast;
         void main() {
-            gl_FragColor = texture2D(sTexture, vTextureCoord);
+            vec4 texColor = texture2D(sTexture, vTextureCoord);
+            vec3 color = texColor.rgb;
+            if (uTemperature > 0.0) {
+                color.r += uTemperature * 0.15;
+                color.g += uTemperature * 0.07;
+                color.b -= uTemperature * 0.05;
+            } else if (uTemperature < 0.0) {
+                color.r += uTemperature * 0.05;
+                color.g += uTemperature * 0.05;
+                color.b -= uTemperature * 0.15;
+            }
+            float luma = dot(color, vec3(0.299, 0.587, 0.114));
+            color = mix(vec3(luma), color, 1.0 + uSaturation);
+            color = (color - 0.5) * (1.0 + uContrast) + 0.5;
+            gl_FragColor = vec4(clamp(color, 0.0, 1.0), texColor.a);
         }
     """.trimIndent()
 
@@ -157,6 +181,9 @@ class CameraGlRenderer(
         aPositionLoc = GLES20.glGetAttribLocation(programId, "aPosition")
         aTextureCoordLoc = GLES20.glGetAttribLocation(programId, "aTextureCoord")
         uTexMatrixLoc = GLES20.glGetUniformLocation(programId, "uTexMatrix")
+        uTemperatureLoc = GLES20.glGetUniformLocation(programId, "uTemperature")
+        uSaturationLoc = GLES20.glGetUniformLocation(programId, "uSaturation")
+        uContrastLoc = GLES20.glGetUniformLocation(programId, "uContrast")
     }
 
     private fun setupInputSurface() {
@@ -210,6 +237,9 @@ class CameraGlRenderer(
         GLES20.glVertexAttribPointer(aTextureCoordLoc, 2, GLES20.GL_FLOAT, false, 8, textureBuffer)
 
         GLES20.glUniformMatrix4fv(uTexMatrixLoc, 1, false, texMatrix, 0)
+        GLES20.glUniform1f(uTemperatureLoc, uTemperature)
+        GLES20.glUniform1f(uSaturationLoc, uSaturation)
+        GLES20.glUniform1f(uContrastLoc, uContrast)
 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
@@ -253,6 +283,14 @@ class CameraGlRenderer(
             return 0
         }
         return program
+    }
+
+    fun updateFilterParams(temperature: Float, saturation: Float, contrast: Float) {
+        renderHandler.post {
+            uTemperature = temperature
+            uSaturation = saturation
+            uContrast = contrast
+        }
     }
 
     fun release() {
