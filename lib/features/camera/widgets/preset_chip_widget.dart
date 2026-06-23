@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
+import 'package:rana/features/preset/widgets/preset_thumbnail_widget.dart';
 
 /// Reusable preset chip widget.
 class PresetChipWidget extends StatelessWidget {
@@ -24,29 +25,9 @@ class PresetChipWidget extends StatelessWidget {
   /// Callback when selected.
   final ValueChanged<bool> onSelected;
 
-  Color _getThumbnailColor() {
-    switch (preset.id) {
-      case 'rana_warm':
-        return const Color(0xFFE67E22);
-      case 'rana_cool':
-        return const Color(0xFF3498DB);
-      case 'rana_mono':
-        return const Color(0xFF7F8C8D);
-      default:
-        return const Color(0xFFBDC3C7);
-    }
-  }
-
   @override
   Widget build(BuildContext context) => ChoiceChip(
-        avatar: Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: _getThumbnailColor(),
-          ),
-        ),
+        avatar: PresetThumbnailWidget(preset: preset),
         label: Text(
           preset.name.toUpperCase(),
           style: TextStyle(
