@@ -51,10 +51,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         state == AppLifecycleState.inactive) {
       ref.read(cameraControllerProvider.notifier).releaseCamera();
     } else if (state == AppLifecycleState.resumed) {
-      ref
-          .read(permissionControllerProvider.notifier)
-          .checkPermissions()
-          .then((_) {
+      ref.read(permissionControllerProvider.notifier).checkPermissions().then((
+        _,
+      ) {
         if (ref.read(permissionControllerProvider).isAllGranted) {
           ref.read(cameraControllerProvider.notifier).initialize();
         }
@@ -92,9 +91,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
             _buildTopBar(cameraState, controller),
 
             // ── Viewfinder Area ──────────────────────────────────────────────
-            Expanded(
-              child: _buildViewfinder(cameraState, controller),
-            ),
+            Expanded(child: _buildViewfinder(cameraState, controller)),
 
             // ── Bottom Control Panel ─────────────────────────────────────────
             _buildBottomPanel(cameraState, controller),
@@ -105,6 +102,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   Widget _buildTopBar(CameraState state, CameraController controller) {
+    final isReady =
+        state.isCameraInitialized && state.captureStatus == CaptureStatus.idle;
     IconData flashIcon;
     Color flashColor;
     switch (state.flashMode) {
@@ -126,9 +125,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         children: [
           // Flash Mode Button
           IconButton(
-            onPressed: state.isCameraInitialized
-                ? controller.toggleFlashMode
-                : null,
+            onPressed: isReady ? controller.toggleFlashMode : null,
             icon: Icon(flashIcon, color: flashColor, size: 24),
             tooltip: 'Flash: ${state.flashMode.label}',
           ),
@@ -172,7 +169,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
           // Flip Lens Button
           IconButton(
-            onPressed: state.isCameraInitialized ? controller.toggleLens : null,
+            onPressed: isReady ? controller.toggleLens : null,
             icon: const Icon(
               Icons.flip_camera_android_rounded,
               color: Colors.white70,
@@ -216,76 +213,103 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 // 3x3 Composition Grid Lines
                 const _ViewfinderGrid(),
 
-              // Date/Time Stamp (Classic Huji/Dazz cam orange stamp)
-              Positioned(
-                bottom: 16,
-                right: 16,
-                child: Opacity(
-                  opacity: 0.85,
-                  child: Text(
-                    _getCurrentDateStamp(),
-                    style: const TextStyle(
-                      fontFamily: 'Courier',
-                      color: Color(0xFFF39C12), // Vintage orange stamp color
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black54,
-                          blurRadius: 2,
-                          offset: Offset(1, 1),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              // Capture animation overlay
-              if (state.captureStatus == CaptureStatus.capturing)
-                ColoredBox(
-                  color: Colors.black.withValues(alpha: 0.70),
-                  child: const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Color(0xFFF39C12),
+                // Date/Time Stamp (Classic Huji/Dazz cam orange stamp)
+                Positioned(
+                  bottom: 16,
+                  right: 16,
+                  child: Opacity(
+                    opacity: 0.85,
+                    child: Text(
+                      _getCurrentDateStamp(),
+                      style: const TextStyle(
+                        fontFamily: 'Courier',
+                        color: Color(0xFFF39C12), // Vintage orange stamp color
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black54,
+                            blurRadius: 2,
+                            offset: Offset(1, 1),
                           ),
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          'DEVELOPING FILM...',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 3,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
 
-              // Camera shutter flash screen effect
-              if (state.captureStatus == CaptureStatus.success ||
-                  state.captureStatus == CaptureStatus.error)
-                _FlashScreenEffect(
-                  success: state.captureStatus == CaptureStatus.success,
-                ),
-            ],
+                // Capture animation overlay
+                if (state.captureStatus == CaptureStatus.capturing)
+                  ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.70),
+                    child: const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.camera_alt_rounded,
+                            color: Color(0xFFF39C12),
+                            size: 32,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'CAPTURING...',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                if (state.captureStatus == CaptureStatus.processing)
+                  ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.76),
+                    child: const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Color(0xFFF39C12),
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'DEVELOPING FILM...',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // Camera shutter flash screen effect
+                if (state.captureStatus == CaptureStatus.success ||
+                    state.captureStatus == CaptureStatus.error)
+                  _FlashScreenEffect(
+                    success: state.captureStatus == CaptureStatus.success,
+                  ),
+              ],
+            ),
           ),
         ),
-      ),
-    );
-
-
+      );
 
   Widget _buildBottomPanel(CameraState state, CameraController controller) {
     final presetsAsync = ref.watch(presetsProvider);
+    final isReady =
+        state.isCameraInitialized && state.captureStatus == CaptureStatus.idle;
 
     return Container(
       padding: const EdgeInsets.only(top: 16, bottom: 24),
@@ -357,7 +381,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                               child: PresetChipWidget(
                                 preset: preset,
                                 isSelected: isSelected,
-                                isEnabled: state.isCameraInitialized,
+                                isEnabled: isReady,
                                 onSelected: (selected) {
                                   if (selected) {
                                     controller.selectPreset(preset);
@@ -398,10 +422,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
               // Shutter capture button
               GestureDetector(
-                onTap: state.isCameraInitialized &&
-                        state.captureStatus == CaptureStatus.idle
-                    ? controller.capture
-                    : null,
+                onTap: isReady ? controller.capture : null,
                 child: Container(
                   width: 80,
                   height: 80,
@@ -456,40 +477,36 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   Widget _buildShimmerLoading() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 22, vertical: 6),
-            child: SizedBox(
-              width: 60,
-              height: 10,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.white10,
-                ),
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 22, vertical: 6),
+        child: SizedBox(
+          width: 60,
+          height: 10,
+          child: DecoratedBox(decoration: BoxDecoration(color: Colors.white10)),
+        ),
+      ),
+      SizedBox(
+        height: 48,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: 3,
+          itemBuilder: (context, index) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Chip(
+              backgroundColor: const Color(0xFF1E1E24),
+              label: const SizedBox(width: 50, height: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
               ),
             ),
           ),
-          SizedBox(
-            height: 48,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: 3,
-              itemBuilder: (context, index) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Chip(
-                  backgroundColor: const Color(0xFF1E1E24),
-                  label: const SizedBox(width: 50, height: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
+        ),
+      ),
+    ],
+  );
 }
 
 class _ViewfinderGrid extends StatelessWidget {
@@ -497,27 +514,27 @@ class _ViewfinderGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Stack(
+    children: [
+      Row(
         children: [
-          Row(
-            children: [
-              const Spacer(),
-              Container(width: 1, color: Colors.white12),
-              const Spacer(),
-              Container(width: 1, color: Colors.white12),
-              const Spacer(),
-            ],
-          ),
-          Column(
-            children: [
-              const Spacer(),
-              Container(height: 1, color: Colors.white12),
-              const Spacer(),
-              Container(height: 1, color: Colors.white12),
-              const Spacer(),
-            ],
-          ),
+          const Spacer(),
+          Container(width: 1, color: Colors.white12),
+          const Spacer(),
+          Container(width: 1, color: Colors.white12),
+          const Spacer(),
         ],
-      );
+      ),
+      Column(
+        children: [
+          const Spacer(),
+          Container(height: 1, color: Colors.white12),
+          const Spacer(),
+          Container(height: 1, color: Colors.white12),
+          const Spacer(),
+        ],
+      ),
+    ],
+  );
 }
 
 class _FlashScreenEffect extends StatefulWidget {
@@ -557,13 +574,11 @@ class _FlashScreenEffectState extends State<_FlashScreenEffect>
 
   @override
   Widget build(BuildContext context) => FadeTransition(
-        opacity: _opacityAnim,
-        child: Container(
-          color: widget.success
-              ? Colors.white
-              : Colors.red.withValues(alpha: 0.4),
-        ),
-      );
+    opacity: _opacityAnim,
+    child: Container(
+      color: widget.success ? Colors.white : Colors.red.withValues(alpha: 0.4),
+    ),
+  );
 }
 
 class _AndroidCameraPreview extends StatelessWidget {
@@ -571,9 +586,9 @@ class _AndroidCameraPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const AndroidView(
-        viewType: 'com.rana.app/camera_preview',
-        layoutDirection: TextDirection.ltr,
-        creationParams: <String, dynamic>{},
-        creationParamsCodec: StandardMessageCodec(),
-      );
+    viewType: 'com.rana.app/camera_preview',
+    layoutDirection: TextDirection.ltr,
+    creationParams: <String, dynamic>{},
+    creationParamsCodec: StandardMessageCodec(),
+  );
 }

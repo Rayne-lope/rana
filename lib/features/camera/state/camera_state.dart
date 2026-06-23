@@ -20,12 +20,7 @@ enum CameraLens {
 }
 
 /// States representing the capturing flow animation.
-enum CaptureStatus {
-  idle,
-  capturing,
-  success,
-  error,
-}
+enum CaptureStatus { idle, capturing, processing, success, error }
 
 /// Immutable state model containing the current camera interface configuration.
 @immutable
@@ -44,13 +39,15 @@ class CameraState {
 
   /// Factory constructor for the initial state of the camera.
   factory CameraState.initial() => const CameraState(
-        flashMode: FlashMode.off,
-        activeLens: CameraLens.back,
-        activePresetId: 'normal',
-        captureStatus: CaptureStatus.idle,
-        currentFps: 0,
-        isCameraInitialized: false,
-      );
+    flashMode: FlashMode.off,
+    activeLens: CameraLens.back,
+    activePresetId: 'normal',
+    captureStatus: CaptureStatus.idle,
+    currentFps: 0,
+    isCameraInitialized: false,
+  );
+
+  static const Object _unset = Object();
 
   final FlashMode flashMode;
   final CameraLens activeLens;
@@ -69,19 +66,22 @@ class CameraState {
     CaptureStatus? captureStatus,
     int? currentFps,
     bool? isCameraInitialized,
-    String? lastCapturedPath,
-    String? errorMessage,
-  }) =>
-      CameraState(
-        flashMode: flashMode ?? this.flashMode,
-        activeLens: activeLens ?? this.activeLens,
-        activePresetId: activePresetId ?? this.activePresetId,
-        captureStatus: captureStatus ?? this.captureStatus,
-        currentFps: currentFps ?? this.currentFps,
-        isCameraInitialized: isCameraInitialized ?? this.isCameraInitialized,
-        lastCapturedPath: lastCapturedPath ?? this.lastCapturedPath,
-        errorMessage: errorMessage ?? this.errorMessage,
-      );
+    Object? lastCapturedPath = _unset,
+    Object? errorMessage = _unset,
+  }) => CameraState(
+    flashMode: flashMode ?? this.flashMode,
+    activeLens: activeLens ?? this.activeLens,
+    activePresetId: activePresetId ?? this.activePresetId,
+    captureStatus: captureStatus ?? this.captureStatus,
+    currentFps: currentFps ?? this.currentFps,
+    isCameraInitialized: isCameraInitialized ?? this.isCameraInitialized,
+    lastCapturedPath: identical(lastCapturedPath, _unset)
+        ? this.lastCapturedPath
+        : lastCapturedPath as String?,
+    errorMessage: identical(errorMessage, _unset)
+        ? this.errorMessage
+        : errorMessage as String?,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -99,15 +99,15 @@ class CameraState {
 
   @override
   int get hashCode => Object.hash(
-        flashMode,
-        activeLens,
-        activePresetId,
-        captureStatus,
-        currentFps,
-        isCameraInitialized,
-        lastCapturedPath,
-        errorMessage,
-      );
+    flashMode,
+    activeLens,
+    activePresetId,
+    captureStatus,
+    currentFps,
+    isCameraInitialized,
+    lastCapturedPath,
+    errorMessage,
+  );
 
   @override
   String toString() =>

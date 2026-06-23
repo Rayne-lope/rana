@@ -2,8 +2,13 @@ package com.rana.app.rana
 
 import android.content.ContentValues
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.graphics.SurfaceTexture
+import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.provider.MediaStore
 import android.view.OrientationEventListener
 import android.view.Surface
@@ -13,14 +18,19 @@ import android.view.ViewGroup
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import io.flutter.plugin.platform.PlatformView
+import java.io.File
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 class CameraPreviewView(
     private val context: Context,
@@ -43,6 +53,8 @@ class CameraPreviewView(
     private var currentLensFacing = CameraSelector.LENS_FACING_BACK
     private var currentFlashMode = ImageCapture.FLASH_MODE_OFF
     private var currentRotation: Int = Surface.ROTATION_0
+    private val captureExecutor = Executors.newSingleThreadExecutor()
+    private val isCapturing = AtomicBoolean(false)
 
     private val orientationEventListener = object : OrientationEventListener(context) {
         override fun onOrientationChanged(orientation: Int) {
@@ -110,6 +122,7 @@ class CameraPreviewView(
                 unbindCamera()
                 glRenderer?.release()
                 glRenderer = null
+                captureExecutor.shutdown()
             } catch (e: Exception) {
                 // Ignore
             }
@@ -154,6 +167,7 @@ class CameraPreviewView(
 
                 imageCapture = ImageCapture.Builder()
                     .setFlashMode(currentFlashMode)
+                    .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
                     .build()
 
                 val cameraSelector = CameraSelector.Builder()
@@ -218,51 +232,223 @@ class CameraPreviewView(
         )
     }
 
-    fun takePicture(callback: (success: Boolean, filePathOrUri: String?, errorMsg: String?) -> Unit) {
+    fun takePicture(
+        params: OfflineProcessParams,
+        callback: (
+            success: Boolean,
+            filePathOrUri: String?,
+            errorCode: String?,
+            errorMsg: String?
+        ) -> Unit
+    ) {
+        val finishOnce = AtomicBoolean(false)
+        fun finish(
+            success: Boolean,
+            filePathOrUri: String?,
+            errorCode: String?,
+            errorMsg: String?
+        ) {
+            if (!finishOnce.compareAndSet(false, true)) return
+            ContextCompat.getMainExecutor(context).execute {
+                callback(success, filePathOrUri, errorCode, errorMsg)
+            }
+        }
+
         val capture = imageCapture
         if (capture == null) {
-            callback(false, null, "Camera not initialized")
+            finish(false, null, "CAMERA_NOT_READY", "Camera not initialized")
+            return
+        }
+        if (!isCapturing.compareAndSet(false, true)) {
+            finish(
+                false,
+                null,
+                "CAPTURE_IN_PROGRESS",
+                "Capture already in progress"
+            )
             return
         }
 
         capture.targetRotation = currentRotation
 
-        val name = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
-            .format(System.currentTimeMillis())
-        
-        val contentValues = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, "Rana_$name.jpg")
-            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-            if (android.os.Build.VERSION.SDK_INT > android.os.Build.VERSION_CODES.P) {
-                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Rana")
-            }
-        }
-
-        val metadata = ImageCapture.Metadata().apply {
-            isReversedHorizontal = (currentLensFacing == CameraSelector.LENS_FACING_FRONT)
-        }
-
-        val outputOptions = ImageCapture.OutputFileOptions.Builder(
-            context.contentResolver,
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            contentValues
-        ).setMetadata(metadata)
-         .build()
-
         capture.takePicture(
-            outputOptions,
-            ContextCompat.getMainExecutor(context),
-            object : ImageCapture.OnImageSavedCallback {
-                override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                    val savedUri = outputFileResults.savedUri
-                    callback(true, savedUri?.toString() ?: "", null)
+            captureExecutor,
+            object : ImageCapture.OnImageCapturedCallback() {
+                override fun onCaptureSuccess(image: ImageProxy) {
+                    var decodedBitmap: Bitmap? = null
+                    var inputBitmap: Bitmap? = null
+                    var processedBitmap: Bitmap? = null
+                    var savedUri: Uri? = null
+                    var errorCode: String? = null
+                    var errorMessage: String? = null
+
+                    try {
+                        decodedBitmap = decodeImageProxy(image)
+                        if (decodedBitmap == null) {
+                            errorCode = "DECODE_FAILED"
+                            errorMessage = "Unable to decode captured image"
+                        } else {
+                            inputBitmap = transformCapturedBitmap(
+                                decodedBitmap,
+                                image.imageInfo.rotationDegrees,
+                                currentLensFacing == CameraSelector.LENS_FACING_FRONT
+                            )
+                            if (inputBitmap !== decodedBitmap) {
+                                decodedBitmap.recycle()
+                            }
+                            decodedBitmap = null
+
+                            processedBitmap = OfflineGlProcessor.processImage(
+                                context,
+                                inputBitmap,
+                                params
+                            )
+                            if (processedBitmap == null) {
+                                errorCode = "PROCESS_FAILED"
+                                errorMessage = "OfflineGlProcessor returned null"
+                            } else {
+                                savedUri = saveProcessedBitmap(processedBitmap)
+                                if (savedUri == null) {
+                                    errorCode = "SAVE_FAILED"
+                                    errorMessage = "Unable to save processed image"
+                                }
+                            }
+                        }
+                    } catch (oom: OutOfMemoryError) {
+                        errorCode = "CAPTURE_OOM"
+                        errorMessage = oom.message ?: "Out of memory during capture"
+                    } catch (e: Exception) {
+                        errorCode = "CAPTURE_FAILED"
+                        errorMessage = e.message ?: "Capture failed"
+                    } finally {
+                        image.close()
+                        decodedBitmap?.safeRecycle()
+                        inputBitmap?.safeRecycle()
+                        processedBitmap?.safeRecycle()
+                        isCapturing.set(false)
+                    }
+
+                    if (savedUri != null) {
+                        finish(true, savedUri.toString(), null, null)
+                    } else {
+                        finish(
+                            false,
+                            null,
+                            errorCode ?: "CAPTURE_FAILED",
+                            errorMessage ?: "Unknown capture error"
+                        )
+                    }
                 }
 
                 override fun onError(exception: ImageCaptureException) {
-                    callback(false, null, exception.message)
+                    isCapturing.set(false)
+                    finish(
+                        false,
+                        null,
+                        "CAPTURE_FAILED",
+                        exception.message ?: "CameraX capture failed"
+                    )
                 }
             }
         )
+    }
+
+    private fun decodeImageProxy(image: ImageProxy): Bitmap? {
+        val buffer = image.planes.firstOrNull()?.buffer ?: return null
+        buffer.rewind()
+        val bytes = ByteArray(buffer.remaining())
+        buffer.get(bytes)
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+    }
+
+    private fun transformCapturedBitmap(
+        bitmap: Bitmap,
+        rotationDegrees: Int,
+        mirrorHorizontally: Boolean
+    ): Bitmap {
+        if (rotationDegrees == 0 && !mirrorHorizontally) return bitmap
+
+        val matrix = Matrix().apply {
+            if (rotationDegrees != 0) {
+                postRotate(rotationDegrees.toFloat())
+            }
+            if (mirrorHorizontally) {
+                postScale(-1f, 1f)
+            }
+        }
+        return Bitmap.createBitmap(
+            bitmap,
+            0,
+            0,
+            bitmap.width,
+            bitmap.height,
+            matrix,
+            true
+        )
+    }
+
+    private fun saveProcessedBitmap(bitmap: Bitmap): Uri? {
+        val name = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
+            .format(System.currentTimeMillis())
+        val displayName = "Rana_$name.jpg"
+        val resolver = context.contentResolver
+        val contentValues = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
+            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+            put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Rana")
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+            } else {
+                val directory = File(
+                    Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_PICTURES
+                    ),
+                    "Rana"
+                )
+                if (!directory.exists()) {
+                    directory.mkdirs()
+                }
+                put(
+                    MediaStore.Images.Media.DATA,
+                    File(directory, displayName).absolutePath
+                )
+            }
+        }
+
+        val uri = resolver.insert(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            contentValues
+        ) ?: return null
+
+        var success = false
+        try {
+            resolver.openOutputStream(uri)?.use { stream ->
+                if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)) {
+                    throw IOException("Bitmap compression failed")
+                }
+            } ?: throw IOException("Unable to open MediaStore output stream")
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val publishValues = ContentValues().apply {
+                    put(MediaStore.Images.Media.IS_PENDING, 0)
+                }
+                resolver.update(uri, publishValues, null, null)
+            }
+            success = true
+            return uri
+        } catch (e: Exception) {
+            android.util.Log.e("CameraPreviewView", "Failed to save capture", e)
+            return null
+        } finally {
+            if (!success) {
+                resolver.delete(uri, null, null)
+            }
+        }
+    }
+
+    private fun Bitmap.safeRecycle() {
+        if (!isRecycled) recycle()
     }
 
     fun unbindCamera() {

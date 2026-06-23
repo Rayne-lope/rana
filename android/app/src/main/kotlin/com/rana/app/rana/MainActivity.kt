@@ -54,11 +54,12 @@ class MainActivity : FlutterActivity() {
                 "executeCapture" -> {
                     val preview = activePreviewView
                     if (preview != null) {
-                        preview.takePicture { success, filePathOrUri, errorMsg ->
+                        val params = offlineParamsFromArgs(call.arguments)
+                        preview.takePicture(params) { success, filePathOrUri, errorCode, errorMsg ->
                             if (success) {
                                 result.success(mapOf("status" to "captured", "filePath" to filePathOrUri))
                             } else {
-                                result.error("CAPTURE_FAILED", errorMsg ?: "Unknown error", null)
+                                result.error(errorCode ?: "CAPTURE_FAILED", errorMsg ?: "Unknown error", null)
                             }
                         }
                     } else {
@@ -209,6 +210,23 @@ class MainActivity : FlutterActivity() {
         )
     }
 
+    private fun offlineParamsFromArgs(arguments: Any?): OfflineProcessParams {
+        val args = arguments as? Map<*, *>
+        fun numberArg(key: String): Float {
+            return (args?.get(key) as? Number)?.toFloat() ?: 0f
+        }
+
+        return OfflineProcessParams(
+            temperature = numberArg("temperature"),
+            saturation = numberArg("saturation"),
+            contrast = numberArg("contrast"),
+            grain = numberArg("grain"),
+            vignette = numberArg("vignette"),
+            lutAssetPath = args?.get("lutPath") as? String,
+            lutStrength = numberArg("lutStrength")
+        )
+    }
+
     private fun startFpsStreaming() {
         if (isStreamingFps) return
         isStreamingFps = true
@@ -236,4 +254,3 @@ class MainActivity : FlutterActivity() {
         fpsRunnable = null
     }
 }
-

@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rana/core/providers/preset_provider.dart';
 import 'package:rana/features/camera/controller/camera_controller.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
+import 'package:rana/features/preset/repository/preset_repository.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -11,41 +15,41 @@ void main() {
   group('CameraState & Native Bridge', () {
     const methodChannel = MethodChannel('com.rana.app/camera_control');
     final log = <MethodCall>[];
+    Future<Map<String, dynamic>> Function(MethodCall methodCall)?
+    executeCaptureHandler;
 
     setUp(() {
       log.clear();
+      executeCaptureHandler = null;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(
-        methodChannel,
-        (MethodCall methodCall) async {
-          log.add(methodCall);
-          switch (methodCall.method) {
-            case 'initializeCamera':
-              return {'status': 'initialized', 'lens': 'back'};
-            case 'selectPreset':
-              final args = methodCall.arguments as Map<dynamic, dynamic>;
-              return {
-                'status': 'preset_selected',
-                'presetId': args['presetId'],
-              };
-            case 'setFlashMode':
-              final args = methodCall.arguments as Map<dynamic, dynamic>;
-              return {
-                'status': 'flash_set',
-                'flashMode': args['flashMode'],
-              };
-            case 'toggleLens':
-              final args = methodCall.arguments as Map<dynamic, dynamic>;
-              final currentLens = args['lens'] as String;
-              final nextLens = currentLens == 'back' ? 'front' : 'back';
-              return {'status': 'lens_toggled', 'lens': nextLens};
-            case 'executeCapture':
-              return {'status': 'captured', 'filePath': '/mock/path/photo.jpg'};
-            default:
-              return null;
-          }
-        },
-      );
+          .setMockMethodCallHandler(methodChannel, (
+            MethodCall methodCall,
+          ) async {
+            log.add(methodCall);
+            switch (methodCall.method) {
+              case 'initializeCamera':
+                return {'status': 'initialized', 'lens': 'back'};
+              case 'selectPreset':
+                final args = methodCall.arguments as Map<dynamic, dynamic>;
+                return {
+                  'status': 'preset_selected',
+                  'presetId': args['presetId'],
+                };
+              case 'setFlashMode':
+                final args = methodCall.arguments as Map<dynamic, dynamic>;
+                return {'status': 'flash_set', 'flashMode': args['flashMode']};
+              case 'toggleLens':
+                final args = methodCall.arguments as Map<dynamic, dynamic>;
+                final currentLens = args['lens'] as String;
+                final nextLens = currentLens == 'back' ? 'front' : 'back';
+                return {'status': 'lens_toggled', 'lens': nextLens};
+              case 'executeCapture':
+                return executeCaptureHandler?.call(methodCall) ??
+                    {'status': 'captured', 'filePath': '/mock/path/photo.jpg'};
+              default:
+                return null;
+            }
+          });
     });
 
     tearDown(() {
@@ -80,26 +84,27 @@ void main() {
     });
 
     test(
-        'releaseCamera resets camera initialization and invokes channel',
-        () async {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+      'releaseCamera resets camera initialization and invokes channel',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
 
-      final controller = container.read(cameraControllerProvider.notifier);
-      await controller.initialize();
-      expect(
-        container.read(cameraControllerProvider).isCameraInitialized,
-        isTrue,
-      );
-      log.clear();
+        final controller = container.read(cameraControllerProvider.notifier);
+        await controller.initialize();
+        expect(
+          container.read(cameraControllerProvider).isCameraInitialized,
+          isTrue,
+        );
+        log.clear();
 
-      await controller.releaseCamera();
-      final state = container.read(cameraControllerProvider);
-      expect(state.isCameraInitialized, isFalse);
-      expect(state.currentFps, equals(0));
-      expect(log.length, equals(1));
-      expect(log.first.method, equals('releaseCamera'));
-    });
+        await controller.releaseCamera();
+        final state = container.read(cameraControllerProvider);
+        expect(state.isCameraInitialized, isFalse);
+        expect(state.currentFps, equals(0));
+        expect(log.length, equals(1));
+        expect(log.first.method, equals('releaseCamera'));
+      },
+    );
 
     test('toggleFlashMode updates flash mode and invokes channel', () async {
       final container = ProviderContainer();
@@ -159,11 +164,7 @@ void main() {
         id: 'classic_f1',
         name: 'Classic F1',
         category: 'Classic',
-        color: PresetColor(
-          temperature: 0.1,
-          contrast: 0.2,
-          saturation: 0.3,
-        ),
+        color: PresetColor(temperature: 0.1, contrast: 0.2, saturation: 0.3),
         grain: PresetGrain(intensity: 0.4),
         vignette: PresetVignette(intensity: 0.5),
       );
@@ -181,11 +182,11 @@ void main() {
       expect(params['saturation'], equals(0.3));
       expect(params['grain'], equals(0.4));
       expect(params['vignette'], equals(0.5));
+      expect(params['lutPath'], isNull);
+      expect(params['lutStrength'], equals(0.0));
     });
 
-    test(
-        'capture flow simulates delay and updates captureStatus and file path',
-        () async {
+    test('capture flow enters processing and updates file path', () async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
@@ -205,45 +206,186 @@ void main() {
       // Verify state transitions:
       // 1. Initial/current state is idle
       // 2. Transited to capturing
-      // 3. Transited to success with filePath set
-      // 4. (Optional/Eventually) Transited back to idle
+      // 3. Transited to processing while native work is active
+      // 4. Transited to success with filePath set
       expect(
         states.any((s) => s.captureStatus == CaptureStatus.capturing),
         isTrue,
       );
       expect(
-        states.any((s) =>
-            s.captureStatus == CaptureStatus.success &&
-            s.lastCapturedPath == '/mock/path/photo.jpg'),
+        states.any((s) => s.captureStatus == CaptureStatus.processing),
+        isTrue,
+      );
+      expect(
+        states.any(
+          (s) =>
+              s.captureStatus == CaptureStatus.success &&
+              s.lastCapturedPath == '/mock/path/photo.jpg',
+        ),
         isTrue,
       );
     });
 
-    test('receiving EventChannel FPS updates updates state currentFps',
-        () async {
+    test('capture sends active preset params including LUT', () async {
+      const warmPreset = PresetModel(
+        id: 'rana_warm',
+        name: 'Rana Warm',
+        category: 'Classic',
+        color: PresetColor(temperature: 0.3, contrast: 0, saturation: 0.1),
+        grain: PresetGrain(intensity: 0.1),
+        vignette: PresetVignette(intensity: 0.05),
+        lut: 'assets/luts/rana_warm_v1.png',
+      );
+      final container = ProviderContainer(
+        overrides: [
+          presetRepositoryProvider.overrideWithValue(
+            const _FakePresetRepository([warmPreset]),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await container.read(presetsProvider.future);
+      await controller.initialize();
+      await controller.selectPreset(warmPreset);
+      log.clear();
+
+      await controller.capture();
+
+      final captureCall = log.firstWhere(
+        (call) => call.method == 'executeCapture',
+      );
+      final args = captureCall.arguments as Map<dynamic, dynamic>;
+      expect(args['temperature'], equals(0.3));
+      expect(args['saturation'], equals(0.1));
+      expect(args['contrast'], equals(0.0));
+      expect(args['grain'], equals(0.1));
+      expect(args['vignette'], equals(0.05));
+      expect(args['lutPath'], equals('assets/luts/rana_warm_v1.png'));
+      expect(args['lutStrength'], equals(1.0));
+    });
+
+    test('capture sends neutral params when preset is unavailable', () async {
+      final container = ProviderContainer(
+        overrides: [
+          presetRepositoryProvider.overrideWithValue(
+            const _FakePresetRepository([]),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await container.read(presetsProvider.future);
+      await controller.initialize();
+      log.clear();
+
+      await controller.capture();
+
+      final captureCall = log.firstWhere(
+        (call) => call.method == 'executeCapture',
+      );
+      final args = captureCall.arguments as Map<dynamic, dynamic>;
+      expect(args['temperature'], equals(0.0));
+      expect(args['saturation'], equals(0.0));
+      expect(args['contrast'], equals(0.0));
+      expect(args['grain'], equals(0.0));
+      expect(args['vignette'], equals(0.0));
+      expect(args['lutPath'], isNull);
+      expect(args['lutStrength'], equals(0.0));
+    });
+
+    test('rapid duplicate capture calls invoke native capture once', () async {
+      final captureCompleter = Completer<Map<String, dynamic>>();
+      executeCaptureHandler = (_) => captureCompleter.future;
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
       final controller = container.read(cameraControllerProvider.notifier);
       await controller.initialize();
+      log.clear();
 
-      // Send event to EventChannel
-      const codec = StandardMethodCodec();
-      final data = codec.encodeSuccessEnvelope({
-        'type': 'status_update',
-        'fps': 27,
-        'active': true,
+      final firstCapture = controller.capture();
+      await Future<void>.delayed(const Duration(milliseconds: 180));
+      final secondCapture = controller.capture();
+      captureCompleter.complete({
+        'status': 'captured',
+        'filePath': '/mock/path/photo.jpg',
       });
+      await Future.wait([firstCapture, secondCapture]);
 
-      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .handlePlatformMessage(
-        'com.rana.app/camera_status',
-        data,
-        (ByteData? reply) {},
+      final captureCalls = log
+          .where((call) => call.method == 'executeCapture')
+          .toList();
+      expect(captureCalls.length, equals(1));
+    });
+
+    test('capture error resets status back to idle', () async {
+      executeCaptureHandler = (_) async {
+        throw PlatformException(
+          code: 'CAPTURE_FAILED',
+          message: 'Native capture failed',
+        );
+      };
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await controller.initialize();
+      final states = <CameraState>[];
+      container.listen<CameraState>(
+        cameraControllerProvider,
+        (previous, next) => states.add(next),
+        fireImmediately: true,
       );
 
-      final state = container.read(cameraControllerProvider);
-      expect(state.currentFps, equals(27));
+      await controller.capture();
+      expect(states.any((s) => s.captureStatus == CaptureStatus.error), isTrue);
+
+      await Future<void>.delayed(const Duration(milliseconds: 2200));
+      expect(
+        container.read(cameraControllerProvider).captureStatus,
+        equals(CaptureStatus.idle),
+      );
     });
+
+    test(
+      'receiving EventChannel FPS updates updates state currentFps',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final controller = container.read(cameraControllerProvider.notifier);
+        await controller.initialize();
+
+        // Send event to EventChannel
+        const codec = StandardMethodCodec();
+        final data = codec.encodeSuccessEnvelope({
+          'type': 'status_update',
+          'fps': 27,
+          'active': true,
+        });
+
+        await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .handlePlatformMessage(
+              'com.rana.app/camera_status',
+              data,
+              (ByteData? reply) {},
+            );
+
+        final state = container.read(cameraControllerProvider);
+        expect(state.currentFps, equals(27));
+      },
+    );
   });
+}
+
+class _FakePresetRepository implements PresetRepository {
+  const _FakePresetRepository(this.presets);
+
+  final List<PresetModel> presets;
+
+  @override
+  Future<List<PresetModel>> loadAll() async => presets;
 }

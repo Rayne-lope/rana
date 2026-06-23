@@ -4,10 +4,12 @@ import 'package:rana/core/utils/app_logger.dart';
 /// Service that interfaces with native Android camera code via platform
 /// channels.
 class CameraPlatformService {
-  static const MethodChannel _methodChannel =
-      MethodChannel('com.rana.app/camera_control');
-  static const EventChannel _eventChannel =
-      EventChannel('com.rana.app/camera_status');
+  static const MethodChannel _methodChannel = MethodChannel(
+    'com.rana.app/camera_control',
+  );
+  static const EventChannel _eventChannel = EventChannel(
+    'com.rana.app/camera_status',
+  );
 
   /// Requests native initialization of the camera engine.
   Future<Map<String, dynamic>> initializeCamera() async {
@@ -35,10 +37,7 @@ class CameraPlatformService {
     try {
       final result = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>(
         'selectPreset',
-        {
-          'presetId': presetId,
-          'params': params,
-        },
+        {'presetId': presetId, 'params': params},
       );
       return Map<String, dynamic>.from(result ?? {});
     } on PlatformException catch (e, stack) {
@@ -53,10 +52,13 @@ class CameraPlatformService {
   }
 
   /// Commands the native engine to capture a high-resolution frame.
-  Future<Map<String, dynamic>> executeCapture() async {
+  Future<Map<String, dynamic>> executeCapture(
+    Map<String, dynamic> params,
+  ) async {
     try {
       final result = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>(
         'executeCapture',
+        params,
       );
       return Map<String, dynamic>.from(result ?? {});
     } on PlatformException catch (e, stack) {
@@ -130,8 +132,6 @@ class CameraPlatformService {
   /// (e.g. FPS metrics).
   Stream<Map<String, dynamic>> get statusStream =>
       _eventChannel.receiveBroadcastStream().map(
-            (event) => Map<String, dynamic>.from(
-              event as Map<dynamic, dynamic>,
-            ),
-          );
+        (event) => Map<String, dynamic>.from(event as Map<dynamic, dynamic>),
+      );
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:rana/core/providers/preset_provider.dart';
 import 'package:rana/core/services/camera_platform_service.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
@@ -110,18 +111,21 @@ class CameraController extends _$CameraController {
 
   /// Triggers film capture flow.
   Future<void> capture() async {
-    if (state.captureStatus == CaptureStatus.capturing) return;
+    if (state.captureStatus != CaptureStatus.idle) return;
+
+    final captureParams = _buildCaptureParams();
 
     state = state.copyWith(
       captureStatus: CaptureStatus.capturing,
-      // ignore: avoid_redundant_argument_values
       errorMessage: null,
+      lastCapturedPath: null,
     );
 
     try {
-      // Simulate processing animation delay on UI side (800ms)
-      await Future<void>.delayed(const Duration(milliseconds: 800));
-      final result = await _platformService.executeCapture();
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      state = state.copyWith(captureStatus: CaptureStatus.processing);
+
+      final result = await _platformService.executeCapture(captureParams);
       final filePath = result['filePath'] as String?;
 
       state = state.copyWith(
@@ -130,22 +134,52 @@ class CameraController extends _$CameraController {
       );
 
       // Return state to idle after showing success message for 2 seconds
-      unawaited(Future<void>.delayed(const Duration(seconds: 2)).then((_) {
-        if (state.captureStatus == CaptureStatus.success) {
-          state = state.copyWith(captureStatus: CaptureStatus.idle);
-        }
-      }));
+      unawaited(
+        Future<void>.delayed(const Duration(seconds: 2)).then((_) {
+          if (state.captureStatus == CaptureStatus.success) {
+            state = state.copyWith(captureStatus: CaptureStatus.idle);
+          }
+        }),
+      );
     } on Object catch (e) {
       state = state.copyWith(
         captureStatus: CaptureStatus.error,
         errorMessage: e.toString(),
       );
-      unawaited(Future<void>.delayed(const Duration(seconds: 2)).then((_) {
-        if (state.captureStatus == CaptureStatus.error) {
-          state = state.copyWith(captureStatus: CaptureStatus.idle);
-        }
-      }));
+      unawaited(
+        Future<void>.delayed(const Duration(seconds: 2)).then((_) {
+          if (state.captureStatus == CaptureStatus.error) {
+            state = state.copyWith(captureStatus: CaptureStatus.idle);
+          }
+        }),
+      );
     }
+  }
+
+  Map<String, dynamic> _buildCaptureParams() {
+    PresetModel? activePreset;
+    final presets = ref.read(presetsProvider).valueOrNull;
+    if (presets != null) {
+      for (final preset in presets) {
+        if (preset.id == state.activePresetId) {
+          activePreset = preset;
+          break;
+        }
+      }
+    }
+
+    final lut = activePreset?.lut;
+    final lutPath = lut is String && lut.isNotEmpty ? lut : null;
+
+    return <String, dynamic>{
+      'temperature': activePreset?.color.temperature ?? 0.0,
+      'saturation': activePreset?.color.saturation ?? 0.0,
+      'contrast': activePreset?.color.contrast ?? 0.0,
+      'grain': activePreset?.grain.intensity ?? 0.0,
+      'vignette': activePreset?.vignette.intensity ?? 0.0,
+      'lutPath': lutPath,
+      'lutStrength': lutPath != null ? 1.0 : 0.0,
+    };
   }
 
   /// Releases native camera resources and resets initialization state.
@@ -155,10 +189,7 @@ class CameraController extends _$CameraController {
       unawaited(_statusSubscription?.cancel());
       _statusSubscription = null;
       await _platformService.releaseCamera();
-      state = state.copyWith(
-        isCameraInitialized: false,
-        currentFps: 0,
-      );
+      state = state.copyWith(isCameraInitialized: false, currentFps: 0);
     } on Object catch (e) {
       state = state.copyWith(errorMessage: e.toString());
     }
