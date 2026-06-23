@@ -283,11 +283,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   Widget _buildBottomPanel(CameraState state, CameraController controller) {
     final presets = [
-      {'id': 'placeholder', 'name': 'STUB P0'},
-      {'id': 'classic_f1', 'name': 'CLASSIC F1'},
-      {'id': 'retro_w2', 'name': 'RETRO W2'},
-      {'id': 'cold_c3', 'name': 'COLD C3'},
-      {'id': 'noir_b4', 'name': 'NOIR B&W'},
+      {'id': 'normal', 'name': 'NORMAL'},
+      {'id': 'rana_warm', 'name': 'RANA WARM'},
+      {'id': 'rana_cool', 'name': 'RANA COOL'},
+      {'id': 'rana_mono', 'name': 'RANA MONO'},
     ];
 
     return Container(

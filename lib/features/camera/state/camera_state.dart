@@ -46,7 +46,7 @@ class CameraState {
   factory CameraState.initial() => const CameraState(
         flashMode: FlashMode.off,
         activeLens: CameraLens.back,
-        activePresetId: 'placeholder',
+        activePresetId: 'normal',
         captureStatus: CaptureStatus.idle,
         currentFps: 0,
         isCameraInitialized: false,
