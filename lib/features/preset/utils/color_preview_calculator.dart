@@ -5,8 +5,8 @@ import 'package:rana/features/preset/model/preset_model.dart';
 class ColorPreviewCalculator {
   /// Calculates the shadow and highlight colors.
   static PresetPreviewColors calculate(PresetModel preset) {
-    final shadowColor = _calculateForLightness(preset, 0.35);
-    final highlightColor = _calculateForLightness(preset, 0.65);
+    final shadowColor = _calculateForLightness(preset, 0.25);
+    final highlightColor = _calculateForLightness(preset, 0.75);
     return PresetPreviewColors(
       shadow: shadowColor,
       highlight: highlightColor,
@@ -29,11 +29,11 @@ class ColorPreviewCalculator {
     // 2. Apply temperature
     if (temp > 0) {
       hue = 35; // Warm amber/orange
-      saturation = temp * 0.4;
+      saturation = temp * 0.8;
       lightness += temp * 0.05;
     } else if (temp < 0) {
       hue = 210; // Cool blue/teal
-      saturation = temp.abs() * 0.4;
+      saturation = temp.abs() * 0.8;
       lightness -= temp.abs() * 0.05;
     }
 
