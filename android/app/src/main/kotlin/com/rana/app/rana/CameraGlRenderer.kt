@@ -47,6 +47,7 @@ class CameraGlRenderer(
     private var uVignetteLoc: Int = -1
     private var uLutTextureLoc: Int = -1
     private var uLutStrengthLoc: Int = -1
+    private var sTextureLoc: Int = -1
 
     private var uTemperature = 0.0f
     private var uSaturation = 0.0f
@@ -258,6 +259,7 @@ class CameraGlRenderer(
         uVignetteLoc = GLES20.glGetUniformLocation(programId, "uVignette")
         uLutTextureLoc = GLES20.glGetUniformLocation(programId, "uLutTexture")
         uLutStrengthLoc = GLES20.glGetUniformLocation(programId, "uLutStrength")
+        sTextureLoc = GLES20.glGetUniformLocation(programId, "sTexture")
     }
 
     private fun setupInputSurface() {
@@ -303,6 +305,7 @@ class CameraGlRenderer(
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTextureId)
+        GLES20.glUniform1i(sTextureLoc, 0)
 
         GLES20.glEnableVertexAttribArray(aPositionLoc)
         GLES20.glVertexAttribPointer(aPositionLoc, 3, GLES20.GL_FLOAT, false, 12, vertexBuffer)
@@ -318,11 +321,13 @@ class CameraGlRenderer(
         GLES20.glUniform1f(uVignetteLoc, uVignette)
         GLES20.glUniform1f(uLutStrengthLoc, uLutStrength)
 
-        if (uLutStrength > 0.0f && activeLutTextureId != -1) {
-            GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
-            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, activeLutTextureId)
-            GLES20.glUniform1i(uLutTextureLoc, 1)
-        }
+        // Always bind texture unit 1 to prevent conflicts on different GPU drivers
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
+        GLES20.glBindTexture(
+            GLES20.GL_TEXTURE_2D,
+            if (activeLutTextureId != -1) activeLutTextureId else 0
+        )
+        GLES20.glUniform1i(uLutTextureLoc, 1)
 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 

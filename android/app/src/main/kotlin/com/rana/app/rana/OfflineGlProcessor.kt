@@ -351,10 +351,17 @@ object OfflineGlProcessor {
                         GLUtils.texImage2D(
                             GLES20.GL_TEXTURE_2D, 0, lutBitmap, 0
                         )
-                        GLES20.glUniform1i(uLutTextureLoc, 1)
                     }
                 }
             }
+
+            // Always bind texture unit 1 to prevent conflicts
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
+            GLES20.glBindTexture(
+                GLES20.GL_TEXTURE_2D,
+                if (lutTextureId != -1) lutTextureId else 0
+            )
+            GLES20.glUniform1i(uLutTextureLoc, 1)
 
             // 8. Upload Input Bitmap Texture
             val textures = IntArray(1)
