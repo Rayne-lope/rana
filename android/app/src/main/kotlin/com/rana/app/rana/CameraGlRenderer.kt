@@ -48,6 +48,8 @@ class CameraGlRenderer(
     private var uLutTextureLoc: Int = -1
     private var uLutStrengthLoc: Int = -1
     private var sTextureLoc: Int = -1
+    private var uTimeLoc: Int = -1
+    private val startTime = System.currentTimeMillis()
 
     private var uTemperature = 0.0f
     private var uSaturation = 0.0f
@@ -168,6 +170,7 @@ class CameraGlRenderer(
         uLutTextureLoc = GLES20.glGetUniformLocation(programId, "uLutTexture")
         uLutStrengthLoc = GLES20.glGetUniformLocation(programId, "uLutStrength")
         sTextureLoc = GLES20.glGetUniformLocation(programId, "sTexture")
+        uTimeLoc = GLES20.glGetUniformLocation(programId, "uTime")
     }
 
     private fun setupInputSurface() {
@@ -221,6 +224,8 @@ class CameraGlRenderer(
         GLES20.glEnableVertexAttribArray(aTextureCoordLoc)
         GLES20.glVertexAttribPointer(aTextureCoordLoc, 2, GLES20.GL_FLOAT, false, 8, textureBuffer)
 
+        val uTime = (System.currentTimeMillis() - startTime).toFloat() / 1000f
+
         GLES20.glUniformMatrix4fv(uTexMatrixLoc, 1, false, texMatrix, 0)
         GLES20.glUniform1f(uTemperatureLoc, uTemperature)
         GLES20.glUniform1f(uSaturationLoc, uSaturation)
@@ -228,6 +233,7 @@ class CameraGlRenderer(
         GLES20.glUniform1f(uGrainLoc, uGrain)
         GLES20.glUniform1f(uVignetteLoc, uVignette)
         GLES20.glUniform1f(uLutStrengthLoc, uLutStrength)
+        GLES20.glUniform1f(uTimeLoc, uTime)
 
         // Always bind texture unit 1 to prevent conflicts on different GPU drivers
         GLES20.glActiveTexture(GLES20.GL_TEXTURE1)

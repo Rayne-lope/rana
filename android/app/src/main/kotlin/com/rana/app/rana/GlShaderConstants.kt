@@ -21,6 +21,7 @@ object GlShaderConstants {
         uniform float uContrast;
         uniform float uGrain;
         uniform float uVignette;
+        uniform float uTime;
 
         float rand(vec2 co) {
             return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
@@ -84,8 +85,10 @@ object GlShaderConstants {
             }
 
             if (uGrain > 0.0) {
-                float noise = rand(vTextureCoord) - 0.5;
-                color += vec3(noise * uGrain * 0.25);
+                float noise = rand(vTextureCoord + vec2(uTime * 0.1, uTime * 0.07)) - 0.5;
+                float noise2 = rand(vTextureCoord * 1.5 + vec2(uTime * 0.13)) - 0.5;
+                float filmGrain = mix(noise, noise2, 0.4);
+                color += vec3(filmGrain * uGrain * 0.25);
             }
 
             if (uVignette > 0.0) {

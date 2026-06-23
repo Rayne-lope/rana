@@ -228,6 +228,11 @@ object OfflineGlProcessor {
             GLES20.glUniform1f(uGrainLoc, params.grain)
             GLES20.glUniform1f(uVignetteLoc, params.vignette)
 
+            val uTimeLoc = GLES20.glGetUniformLocation(
+                programId, "uTime"
+            )
+            GLES20.glUniform1f(uTimeLoc, 0f)
+
             val uLutTextureLoc = GLES20.glGetUniformLocation(
                 programId, "uLutTexture"
             )
