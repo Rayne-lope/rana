@@ -95,20 +95,25 @@ object GlShaderConstants {
             return color;
         }
 
+        uniform float uSoftness;
+    """.trimIndent()
+
+    private val STYLE_HELPERS = """
         uniform float uTone;
         uniform float uColor;
         uniform float uTextureVal;
         uniform float uStyleStrength;
         uniform float uUndertoneX;
         uniform float uUndertoneY;
-        uniform float uSoftness;
 
         vec3 applyRanaStyles(vec3 inputColor) {
             vec3 color = inputColor;
+            float styleBlend = clamp(uStyleStrength / 100.0, 0.0, 1.0);
             
             // 1. Tone curve (Luminance power curve)
             float luma = dot(color, vec3(0.299, 0.587, 0.114));
-            float newLuma = clamp(pow(max(luma, 0.0), pow(2.0, uTone / 100.0)), 0.0, 1.0);
+            float toneAmount = clamp(uTone, -100.0, 100.0);
+            float newLuma = clamp(pow(max(luma, 0.0), pow(2.0, toneAmount / 100.0)), 0.0, 1.0);
             if (luma > 0.0001) {
                 color = color * (newLuma / luma);
             } else {
@@ -117,7 +122,8 @@ object GlShaderConstants {
             
             // 2. Color / Saturation
             float postLuma = dot(color, vec3(0.299, 0.587, 0.114));
-            color = mix(vec3(postLuma), color, 1.0 + uColor / 100.0);
+            float colorAmount = clamp(uColor, -100.0, 100.0);
+            color = mix(vec3(postLuma), color, 1.0 + colorAmount / 100.0);
             
             // 3. Undertone Grid (Color Balance Matrix)
             float alpha = -0.15 * uUndertoneX;
@@ -127,7 +133,12 @@ object GlShaderConstants {
             color.b = color.b * (1.0 - alpha + beta);
             
             // 4. Blend Style Strength
-            return mix(inputColor, color, uStyleStrength / 100.0);
+            color = mix(inputColor, color, styleBlend);
+
+            // Keep the texture uniform active in color-pass programs even
+            // when texture is mapped to grain/dust in the final effects pass.
+            color += vec3(uTextureVal * 0.0);
+            return color;
         }
     """.trimIndent()
 
@@ -189,6 +200,7 @@ object GlShaderConstants {
         uniform float uHalationIntensity;
 
         $LUT_HELPERS
+        $STYLE_HELPERS
         $FINAL_EFFECT_HELPERS
 
         void main() {
@@ -249,7 +261,6 @@ object GlShaderConstants {
                 texColor = texture2D(sTexture, sourceUv);
             }
             vec3 color = applyColorGrade(texColor.rgb);
-            color = applyRanaStyles(color);
             gl_FragColor = vec4(clamp(color, 0.0, 1.0), texColor.a);
         }
     """.trimIndent()
@@ -323,11 +334,13 @@ object GlShaderConstants {
         uniform float uBloomIntensity;
         uniform float uHalationIntensity;
 
+        $STYLE_HELPERS
         $FINAL_EFFECT_HELPERS
 
         void main() {
             vec4 baseColor = texture2D(sTexture, vTextureCoord);
             vec3 color = baseColor.rgb;
+            color = applyRanaStyles(color);
 
             if (uBloomIntensity > 0.0) {
                 vec3 bloomColor = texture2D(uBloomTexture, vTextureCoord).rgb;
@@ -368,6 +381,7 @@ object GlShaderConstants {
         $PRECISION_BLOCK
         uniform samplerExternalOES sTexture;
         $LUT_HELPERS
+        $STYLE_HELPERS
 
         void main() {
             vec2 sourceUv = applyLensDistortion(vTextureCoord);
@@ -385,7 +399,6 @@ object GlShaderConstants {
                 texColor = texture2D(sTexture, sourceUv);
             }
             vec3 color = applyColorGrade(texColor.rgb);
-            color = applyRanaStyles(color);
             gl_FragColor = vec4(clamp(color, 0.0, 1.0), texColor.a);
         }
     """.trimIndent()

@@ -57,6 +57,26 @@ class GlShaderConstantsTest {
         assertOrder(shader, "color = applyFilmGrain(color);", "color = applyVignette(color);")
     }
 
+    @Test
+    fun `bloom composite shader applies rana styles before bloom and final effects`() {
+        val shader = GlShaderConstants.FRAGMENT_SHADER_BLOOM_COMPOSITE
+
+        assertTrue(shader.contains("uniform float uTone;"))
+        assertTrue(shader.contains("uniform float uColor;"))
+        assertTrue(shader.contains("uniform float uStyleStrength;"))
+        assertTrue(shader.contains("color += vec3(uTextureVal * 0.0);"))
+        assertOrder(shader, "color = applyRanaStyles(color);", "if (uBloomIntensity > 0.0)")
+        assertOrder(shader, "color = applyRanaStyles(color);", "color = applyLightLeak(color, vTextureCoord);")
+    }
+
+    @Test
+    fun `base color shader leaves rana styles to bloom composite`() {
+        val shader = GlShaderConstants.FRAGMENT_SHADER_BASE_COLOR_EXPORT
+
+        assertTrue(shader.contains("vec3 color = applyColorGrade(texColor.rgb);"))
+        assertTrue(!shader.contains("color = applyRanaStyles(color);"))
+    }
+
     private fun assertOrder(shader: String, first: String, second: String) {
         val firstIndex = shader.indexOf(first)
         val secondIndex = shader.indexOf(second)

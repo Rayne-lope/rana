@@ -97,7 +97,13 @@ object OfflineGlProcessor {
         val grainLoc: Int,
         val vignetteLoc: Int,
         val timeLoc: Int,
-        val grainSizeLoc: Int
+        val grainSizeLoc: Int,
+        val toneLoc: Int,
+        val colorLoc: Int,
+        val textureValLoc: Int,
+        val styleStrengthLoc: Int,
+        val undertoneXLoc: Int,
+        val undertoneYLoc: Int
     )
 
     private data class FramebufferTarget(
@@ -608,6 +614,12 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.dustUvOffsetYLoc, dustUVOffsetY)
         GLES20.glUniform1f(program.grainLoc, params.grain)
         GLES20.glUniform1f(program.vignetteLoc, params.vignette)
+        GLES20.glUniform1f(program.toneLoc, params.tone)
+        GLES20.glUniform1f(program.colorLoc, params.color)
+        GLES20.glUniform1f(program.textureValLoc, params.textureVal)
+        GLES20.glUniform1f(program.styleStrengthLoc, params.styleStrength)
+        GLES20.glUniform1f(program.undertoneXLoc, params.undertoneX)
+        GLES20.glUniform1f(program.undertoneYLoc, params.undertoneY)
         GLES20.glUniform1f(program.timeLoc, 0f)
         GLES20.glUniform1f(program.grainSizeLoc, params.grainSize)
 
@@ -889,7 +901,13 @@ object OfflineGlProcessor {
             grainLoc = GLES20.glGetUniformLocation(programId, "uGrain"),
             vignetteLoc = GLES20.glGetUniformLocation(programId, "uVignette"),
             timeLoc = GLES20.glGetUniformLocation(programId, "uTime"),
-            grainSizeLoc = GLES20.glGetUniformLocation(programId, "uGrainSize")
+            grainSizeLoc = GLES20.glGetUniformLocation(programId, "uGrainSize"),
+            toneLoc = GLES20.glGetUniformLocation(programId, "uTone"),
+            colorLoc = GLES20.glGetUniformLocation(programId, "uColor"),
+            textureValLoc = GLES20.glGetUniformLocation(programId, "uTextureVal"),
+            styleStrengthLoc = GLES20.glGetUniformLocation(programId, "uStyleStrength"),
+            undertoneXLoc = GLES20.glGetUniformLocation(programId, "uUndertoneX"),
+            undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY")
         )
     }
 

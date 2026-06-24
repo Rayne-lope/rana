@@ -102,7 +102,13 @@ class CameraGlRenderer(
         val grainLoc: Int,
         val vignetteLoc: Int,
         val timeLoc: Int,
-        val grainSizeLoc: Int
+        val grainSizeLoc: Int,
+        val toneLoc: Int,
+        val colorLoc: Int,
+        val textureValLoc: Int,
+        val styleStrengthLoc: Int,
+        val undertoneXLoc: Int,
+        val undertoneYLoc: Int
     )
 
     private val renderThread = HandlerThread("CameraGLThread").apply { start() }
@@ -303,7 +309,7 @@ class CameraGlRenderer(
                 releaseBloomTargetsOnly()
             }
 
-            Log.d(
+            Log.i(
                 "GlParams",
                 "[PREVIEW] temp=$temperature sat=$saturation contrast=$contrast " +
                     "grain=$grain vignette=$vignette lut=$lutPath strength=$lutStrength " +
@@ -577,6 +583,14 @@ class CameraGlRenderer(
                     undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY"),
                     softnessLoc = GLES20.glGetUniformLocation(programId, "uSoftness")
                 )
+                Log.i(
+                    "GlParams",
+                    "basePassProgram created styleLocs tone=${basePassProgram?.toneLoc} " +
+                        "color=${basePassProgram?.colorLoc} texture=${basePassProgram?.textureValLoc} " +
+                        "strength=${basePassProgram?.styleStrengthLoc} " +
+                        "undertoneX=${basePassProgram?.undertoneXLoc} " +
+                        "undertoneY=${basePassProgram?.undertoneYLoc}"
+                )
             }
 
             if (compositeProgram == null) {
@@ -605,7 +619,21 @@ class CameraGlRenderer(
                     grainLoc = GLES20.glGetUniformLocation(programId, "uGrain"),
                     vignetteLoc = GLES20.glGetUniformLocation(programId, "uVignette"),
                     timeLoc = GLES20.glGetUniformLocation(programId, "uTime"),
-                    grainSizeLoc = GLES20.glGetUniformLocation(programId, "uGrainSize")
+                    grainSizeLoc = GLES20.glGetUniformLocation(programId, "uGrainSize"),
+                    toneLoc = GLES20.glGetUniformLocation(programId, "uTone"),
+                    colorLoc = GLES20.glGetUniformLocation(programId, "uColor"),
+                    textureValLoc = GLES20.glGetUniformLocation(programId, "uTextureVal"),
+                    styleStrengthLoc = GLES20.glGetUniformLocation(programId, "uStyleStrength"),
+                    undertoneXLoc = GLES20.glGetUniformLocation(programId, "uUndertoneX"),
+                    undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY")
+                )
+                Log.i(
+                    "GlParams",
+                    "compositeProgram created styleLocs tone=${compositeProgram?.toneLoc} " +
+                        "color=${compositeProgram?.colorLoc} texture=${compositeProgram?.textureValLoc} " +
+                        "strength=${compositeProgram?.styleStrengthLoc} " +
+                        "undertoneX=${compositeProgram?.undertoneXLoc} " +
+                        "undertoneY=${compositeProgram?.undertoneYLoc}"
                 )
             }
 
@@ -844,6 +872,12 @@ class CameraGlRenderer(
         GLES20.glUniform1f(composite.dustUvOffsetYLoc, dustUVOffsetY)
         GLES20.glUniform1f(composite.grainLoc, grain)
         GLES20.glUniform1f(composite.vignetteLoc, vignette)
+        GLES20.glUniform1f(composite.toneLoc, tone)
+        GLES20.glUniform1f(composite.colorLoc, color)
+        GLES20.glUniform1f(composite.textureValLoc, textureVal)
+        GLES20.glUniform1f(composite.styleStrengthLoc, styleStrength)
+        GLES20.glUniform1f(composite.undertoneXLoc, undertoneX)
+        GLES20.glUniform1f(composite.undertoneYLoc, undertoneY)
         GLES20.glUniform1f(
             composite.timeLoc,
             (System.currentTimeMillis() - startTimeMs) / 1000f
