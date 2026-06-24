@@ -49,7 +49,7 @@ void main() {
       expect(find.text('RESET'), findsOneWidget);
       expect(find.text('APPLY'), findsOneWidget);
       expect(find.text('SAVE STYLE'), findsOneWidget);
-      expect(find.byType(Slider), findsNWidgets(4));
+      expect(find.byType(RanaInteractiveSlider), findsNWidgets(4));
       expect(find.byKey(const Key('undertone-pad')), findsOneWidget);
     });
 
@@ -78,11 +78,11 @@ void main() {
         ),
       );
 
-      final sliders = tester.widgetList<Slider>(find.byType(Slider)).toList();
-      sliders[0].onChanged!(24);
-      sliders[1].onChanged!(-18);
-      sliders[2].onChanged!(42);
-      sliders[3].onChanged!(88);
+      final sliders = tester.widgetList<RanaInteractiveSlider>(find.byType(RanaInteractiveSlider)).toList();
+      sliders[0].onChanged(24);
+      sliders[1].onChanged(-18);
+      sliders[2].onChanged(42);
+      sliders[3].onChanged(88);
 
       expect(emittedStyles[0].tone, equals(24));
       expect(emittedStyles[0].color, equals(2));
