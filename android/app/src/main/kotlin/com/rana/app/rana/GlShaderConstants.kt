@@ -94,6 +94,40 @@ object GlShaderConstants {
 
             return color;
         }
+
+        uniform float uTone;
+        uniform float uColor;
+        uniform float uTextureVal;
+        uniform float uStyleStrength;
+        uniform float uUndertoneX;
+        uniform float uUndertoneY;
+
+        vec3 applyRanaStyles(vec3 inputColor) {
+            vec3 color = inputColor;
+            
+            // 1. Tone curve (Luminance power curve)
+            float luma = dot(color, vec3(0.299, 0.587, 0.114));
+            float newLuma = clamp(pow(max(luma, 0.0), pow(2.0, uTone / 100.0)), 0.0, 1.0);
+            if (luma > 0.0001) {
+                color = color * (newLuma / luma);
+            } else {
+                color = vec3(0.0);
+            }
+            
+            // 2. Color / Saturation
+            float postLuma = dot(color, vec3(0.299, 0.587, 0.114));
+            color = mix(vec3(postLuma), color, 1.0 + uColor / 100.0);
+            
+            // 3. Undertone Grid (Color Balance Matrix)
+            float alpha = -0.15 * uUndertoneX;
+            float beta = 0.12 * uUndertoneY;
+            color.r = color.r * (1.0 + alpha + beta);
+            color.g = color.g * (1.0 - beta);
+            color.b = color.b * (1.0 - alpha + beta);
+            
+            // 4. Blend Style Strength
+            return mix(inputColor, color, uStyleStrength / 100.0);
+        }
     """.trimIndent()
 
     private val FINAL_EFFECT_HELPERS = """
@@ -158,6 +192,7 @@ object GlShaderConstants {
             vec2 sourceUv = applyLensDistortion(vTextureCoord);
             vec4 texColor = texture2D(sTexture, sourceUv);
             vec3 color = applyColorGrade(texColor.rgb);
+            color = applyRanaStyles(color);
 
             if (uBloomIntensity > 0.0) {
                 vec3 bloomColor = texture2D(uBloomTexture, vTextureCoord).rgb;
@@ -187,6 +222,7 @@ object GlShaderConstants {
             vec2 sourceUv = applyLensDistortion(vTextureCoord);
             vec4 texColor = texture2D(sTexture, sourceUv);
             vec3 color = applyColorGrade(texColor.rgb);
+            color = applyRanaStyles(color);
             gl_FragColor = vec4(clamp(color, 0.0, 1.0), texColor.a);
         }
     """.trimIndent()
@@ -310,6 +346,7 @@ object GlShaderConstants {
             vec2 sourceUv = applyLensDistortion(vTextureCoord);
             vec4 texColor = texture2D(sTexture, sourceUv);
             vec3 color = applyColorGrade(texColor.rgb);
+            color = applyRanaStyles(color);
             gl_FragColor = vec4(clamp(color, 0.0, 1.0), texColor.a);
         }
     """.trimIndent()
