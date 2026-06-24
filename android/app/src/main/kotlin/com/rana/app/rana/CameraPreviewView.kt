@@ -49,6 +49,7 @@ class CameraPreviewView(
     private var imageCapture: ImageCapture? = null
     private var previewUseCase: Preview? = null
     private var glRenderer: CameraGlRenderer? = null
+    private var lastPresetParams: Map<String, Any>? = null
 
     private var currentLensFacing = CameraSelector.LENS_FACING_BACK
     private var currentFlashMode = ImageCapture.FLASH_MODE_OFF
@@ -75,7 +76,7 @@ class CameraPreviewView(
             override fun onSurfaceTextureAvailable(
                 surfaceTexture: SurfaceTexture, width: Int, height: Int
             ) {
-                glRenderer = CameraGlRenderer(
+                val renderer = CameraGlRenderer(
                     context,
                     surfaceTexture,
                     width,
@@ -91,6 +92,8 @@ class CameraPreviewView(
                         )
                     }
                 )
+                glRenderer = renderer
+                lastPresetParams?.let { applyPresetParamsToRenderer(renderer, it) }
             }
 
             override fun onSurfaceTextureSizeChanged(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
@@ -217,6 +220,15 @@ class CameraPreviewView(
     }
 
     fun setPresetParams(params: Map<String, Any>) {
+        lastPresetParams = params
+        val renderer = glRenderer ?: return
+        applyPresetParamsToRenderer(renderer, params)
+    }
+
+    private fun applyPresetParamsToRenderer(
+        renderer: CameraGlRenderer,
+        params: Map<String, Any>
+    ) {
         val temp = (params["temperature"] as? Number)?.toFloat() ?: 0.0f
         val sat = (params["saturation"] as? Number)?.toFloat() ?: 0.0f
         val cont = (params["contrast"] as? Number)?.toFloat() ?: 0.0f
@@ -243,7 +255,7 @@ class CameraPreviewView(
         val grainSize = (params["grainSize"] as? Number)?.toFloat() ?: 1.0f
         val softness = (params["softness"] as? Number)?.toFloat() ?: 0.0f
 
-        glRenderer?.applyPresetParams(
+        renderer.applyPresetParams(
             temperature = temp,
             saturation = sat,
             contrast = cont,

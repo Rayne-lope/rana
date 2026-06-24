@@ -299,6 +299,110 @@ void main() {
       expect(params['undertoneY'], equals(-1.0));
     });
 
+    test(
+      'initialize reapplies edited active style after camera release',
+      () async {
+        const preset = PresetModel(
+          id: 'rana_warm',
+          name: 'Rana Warm',
+          category: 'Classic',
+          color: PresetColor(temperature: 0.3, contrast: 0, saturation: 0.1),
+          grain: PresetGrain(intensity: 0.1),
+          vignette: PresetVignette(intensity: 0.05),
+        );
+        const editedStyle = RanaStyle(
+          tone: -72,
+          color: 33,
+          texture: 64,
+          styleStrength: 85,
+          undertoneX: -0.4,
+          undertoneY: 0.6,
+        );
+        final container = ProviderContainer(
+          overrides: [
+            presetRepositoryProvider.overrideWithValue(
+              const _FakePresetRepository([preset]),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final controller = container.read(cameraControllerProvider.notifier);
+        await container.read(presetsProvider.future);
+        await controller.initialize();
+        await controller.selectPreset(preset);
+        await controller.updateActiveStyle(editedStyle);
+        await controller.releaseCamera();
+        log.clear();
+
+        await controller.initialize();
+
+        final replayCall = log.singleWhere(
+          (call) => call.method == 'selectPreset',
+        );
+        final replayArgs = replayCall.arguments as Map<dynamic, dynamic>;
+        final params = replayArgs['params'] as Map<dynamic, dynamic>;
+        expect(replayArgs['presetId'], equals('rana_warm'));
+        expect(params['tone'], equals(-72.0));
+        expect(params['color'], equals(33.0));
+        expect(params['textureVal'], equals(64.0));
+        expect(params['styleStrength'], equals(85.0));
+        expect(params['undertoneX'], equals(-0.4));
+        expect(params['undertoneY'], equals(0.6));
+        expect(
+          container.read(cameraControllerProvider).activeStyle,
+          equals(editedStyle),
+        );
+      },
+    );
+
+    test(
+      'reapplyActivePreviewParams no-ops when camera or preset is unavailable',
+      () async {
+        const preset = PresetModel(
+          id: 'normal',
+          name: 'Normal',
+          category: 'Classic',
+          color: PresetColor(temperature: 0, contrast: 0, saturation: 0),
+          grain: PresetGrain(intensity: 0),
+          vignette: PresetVignette(intensity: 0),
+        );
+        final uninitializedContainer = ProviderContainer(
+          overrides: [
+            presetRepositoryProvider.overrideWithValue(
+              const _FakePresetRepository([preset]),
+            ),
+          ],
+        );
+        addTearDown(uninitializedContainer.dispose);
+        await uninitializedContainer.read(presetsProvider.future);
+        log.clear();
+
+        await uninitializedContainer
+            .read(cameraControllerProvider.notifier)
+            .reapplyActivePreviewParams();
+        expect(log, isEmpty);
+
+        final missingPresetContainer = ProviderContainer(
+          overrides: [
+            presetRepositoryProvider.overrideWithValue(
+              const _FakePresetRepository([]),
+            ),
+          ],
+        );
+        addTearDown(missingPresetContainer.dispose);
+        final missingPresetController = missingPresetContainer.read(
+          cameraControllerProvider.notifier,
+        );
+        await missingPresetContainer.read(presetsProvider.future);
+        await missingPresetController.initialize();
+        log.clear();
+
+        await missingPresetController.reapplyActivePreviewParams();
+        expect(log, isEmpty);
+      },
+    );
+
     test('capture uses the currently edited active style params', () async {
       const preset = PresetModel(
         id: 'rana_warm',

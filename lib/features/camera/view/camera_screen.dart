@@ -35,6 +35,7 @@ class CameraScreen extends ConsumerStatefulWidget {
 class _CameraScreenState extends ConsumerState<CameraScreen>
     with WidgetsBindingObserver {
   late final ProviderSubscription<CameraState> _cameraStateSubscription;
+  final GlobalKey _previewKey = GlobalKey(debugLabel: 'camera-preview');
 
   bool _isEditingStyle = false;
   bool _isEditingUndertone = false;
@@ -122,146 +123,144 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     }
 
     final isEditing = _isEditingStyle || _isEditingUndertone;
+    final editingTitle = _isEditingUndertone ? 'Undertone' : 'Rana Styles';
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F11), // Premium deep dark slate
       body: SafeArea(
-        child: isEditing
-            ? _buildStylesEditingLayout(cameraState, controller)
-            : Column(
-                children: [
-                  // ── Viewfinder Area ───────────────────────────────────────
-                  Expanded(child: _buildViewfinder(cameraState, controller)),
+        child: Column(
+          children: [
+            if (isEditing)
+              _buildStylesEditingHeader(editingTitle, cameraState, controller)
+            else
+              const SizedBox.shrink(),
 
-                  // ── Bottom Control Panel ──────────────────────────────────
-                  _buildBottomPanel(cameraState, controller),
-                ],
+            Flexible(
+              fit: isEditing ? FlexFit.loose : FlexFit.tight,
+              child: SizedBox(
+                height: isEditing
+                    ? MediaQuery.sizeOf(context).height * 0.58
+                    : null,
+                child: _buildViewfinder(cameraState, controller),
               ),
+            ),
+
+            if (isEditing)
+              Expanded(
+                child: _buildStylesEditingContent(cameraState, controller),
+              )
+            else
+              _buildBottomPanel(cameraState, controller),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildStylesEditingLayout(
+  Widget _buildStylesEditingContent(
     CameraState state,
     CameraController controller,
-  ) {
-    final title = _isEditingUndertone ? 'Undertone' : 'Rana Styles';
+  ) => Column(
+    children: [
+      _buildCompactValuesRow(state.activeStyle),
 
-    return Column(
-      children: [
-        // 1. Header Row
-        _buildStylesEditingHeader(title, state, controller),
-
-        // 2. Large Live Preview (58% of screen height)
-        SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.58,
-          child: _buildViewfinder(state, controller),
-        ),
-
-        // 3. Compact Values Row (TONE, COLOR, TEXTURE)
-        _buildCompactValuesRow(state.activeStyle),
-
-        // 4. Active Control Area (Slider or 2D Pad)
-        Expanded(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: _buildActiveStyleControl(state, controller),
-            ),
+      Expanded(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _buildActiveStyleControl(state, controller),
           ),
         ),
+      ),
 
-        // 5. Bottom Navigation / Actions Row
-        if (_isEditingUndertone)
-          _buildUndertoneActionsRow(state, controller)
-        else
-          _buildStylesSelectorTabBar(),
-      ],
-    );
-  }
+      if (_isEditingUndertone)
+        _buildUndertoneActionsRow(state, controller)
+      else
+        _buildStylesSelectorTabBar(),
+    ],
+  );
 
   Widget _buildStylesEditingHeader(
     String title,
     CameraState state,
     CameraController controller,
-  ) =>
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Cancel / Back Button (<-)
-            IconButton(
-              onPressed: () {
-                if (_isEditingUndertone) {
-                  // Revert only undertone changes from this session
-                  controller.updateActiveStyle(
-                    state.activeStyle.copyWith(
-                      undertoneX: _originalUndertoneX,
-                      undertoneY: _originalUndertoneY,
-                    ),
-                  );
-                  setState(() {
-                    _isEditingUndertone = false;
-                    _isEditingStyle = true;
-                  });
-                } else {
-                  // Revert all style changes
-                  if (_originalStyle != null) {
-                    controller.updateActiveStyle(_originalStyle!);
-                  }
-                  setState(() {
-                    _isEditingStyle = false;
-                  });
-                }
-              },
-              icon: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-
-            // Title text
-            Text(
-              title.toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.5,
-              ),
-            ),
-
-            // Done Button
-            TextButton(
-              onPressed: () {
-                if (_isEditingUndertone) {
-                  // Save undertone coordinate (by returning to sliders view)
-                  setState(() {
-                    _isEditingUndertone = false;
-                    _isEditingStyle = true;
-                  });
-                } else {
-                  // Commit all changes
-                  setState(() {
-                    _isEditingStyle = false;
-                  });
-                }
-              },
-              child: Text(
-                _isEditingUndertone ? 'APPLY' : 'DONE',
-                style: const TextStyle(
-                  color: Color(0xFFF39C12),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1,
+  ) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // Cancel / Back Button (<-)
+        IconButton(
+          onPressed: () {
+            if (_isEditingUndertone) {
+              // Revert only undertone changes from this session
+              controller.updateActiveStyle(
+                state.activeStyle.copyWith(
+                  undertoneX: _originalUndertoneX,
+                  undertoneY: _originalUndertoneY,
                 ),
-              ),
-            ),
-          ],
+              );
+              setState(() {
+                _isEditingUndertone = false;
+                _isEditingStyle = true;
+              });
+            } else {
+              // Revert all style changes
+              if (_originalStyle != null) {
+                controller.updateActiveStyle(_originalStyle!);
+              }
+              setState(() {
+                _isEditingStyle = false;
+              });
+            }
+          },
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.white,
+            size: 20,
+          ),
         ),
-      );
+
+        // Title text
+        Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.5,
+          ),
+        ),
+
+        // Done Button
+        TextButton(
+          onPressed: () {
+            if (_isEditingUndertone) {
+              // Save undertone coordinate (by returning to sliders view)
+              setState(() {
+                _isEditingUndertone = false;
+                _isEditingStyle = true;
+              });
+            } else {
+              // Commit all changes
+              setState(() {
+                _isEditingStyle = false;
+              });
+            }
+          },
+          child: Text(
+            _isEditingUndertone ? 'APPLY' : 'DONE',
+            style: const TextStyle(
+              color: Color(0xFFF39C12),
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _buildCompactValuesRow(RanaStyle style) {
     final toneVal = style.tone.round();
@@ -284,30 +283,30 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   Widget _buildCompactValueLabel(String label, int value) => RichText(
-        text: TextSpan(
+    text: TextSpan(
+      style: const TextStyle(
+        fontSize: 11,
+        fontFamily: 'monospace',
+        letterSpacing: 0.5,
+      ),
+      children: [
+        TextSpan(
+          text: '$label ',
           style: const TextStyle(
-            fontSize: 11,
-            fontFamily: 'monospace',
-            letterSpacing: 0.5,
+            color: Colors.white54,
+            fontWeight: FontWeight.bold,
           ),
-          children: [
-            TextSpan(
-              text: '$label ',
-              style: const TextStyle(
-                color: Colors.white54,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            TextSpan(
-              text: '$value',
-              style: const TextStyle(
-                color: Color(0xFFF39C12),
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
         ),
-      );
+        TextSpan(
+          text: '$value',
+          style: const TextStyle(
+            color: Color(0xFFF39C12),
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _buildActiveStyleControl(
     CameraState state,
@@ -336,9 +335,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           min: -100,
           max: 100,
           onChanged: (val) {
-            controller.updateActiveStyle(
-              state.activeStyle.copyWith(tone: val),
-            );
+            controller.updateActiveStyle(state.activeStyle.copyWith(tone: val));
           },
         );
       case 1:
@@ -380,21 +377,21 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   Widget _buildStylesSelectorTabBar() => Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Colors.white10)),
-          color: Colors.black26,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildTabButton('Tone', 0),
-            _buildTabButton('Color', 1),
-            _buildTabButton('Texture', 2),
-            _buildTabButton('Undertone', 3),
-          ],
-        ),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 16),
+    decoration: const BoxDecoration(
+      border: Border(top: BorderSide(color: Colors.white10)),
+      color: Colors.black26,
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _buildTabButton('Tone', 0),
+        _buildTabButton('Color', 1),
+        _buildTabButton('Texture', 2),
+        _buildTabButton('Undertone', 3),
+      ],
+    ),
+  );
 
   Widget _buildTabButton(String label, int index) {
     final isSelected = index == 3
@@ -436,106 +433,103 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   Widget _buildUndertoneActionsRow(
     CameraState state,
     CameraController controller,
-  ) =>
-      Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Colors.white10)),
-          color: Colors.black26,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            TextButton(
-              onPressed: () {
-                controller.updateActiveStyle(
-                  state.activeStyle.copyWith(undertoneX: 0, undertoneY: 0),
-                );
-              },
-              child: const Text(
-                'RESET',
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
-                ),
-              ),
+  ) => Container(
+    padding: const EdgeInsets.symmetric(vertical: 16),
+    decoration: const BoxDecoration(
+      border: Border(top: BorderSide(color: Colors.white10)),
+      color: Colors.black26,
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        TextButton(
+          onPressed: () {
+            controller.updateActiveStyle(
+              state.activeStyle.copyWith(undertoneX: 0, undertoneY: 0),
+            );
+          },
+          child: const Text(
+            'RESET',
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1,
             ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _isEditingUndertone = false;
-                  _isEditingStyle = true;
-                });
-              },
-              child: const Text(
-                'APPLY',
-                style: TextStyle(
-                  color: Color(0xFFF39C12),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
-      );
+        TextButton(
+          onPressed: () {
+            setState(() {
+              _isEditingUndertone = false;
+              _isEditingStyle = true;
+            });
+          },
+          child: const Text(
+            'APPLY',
+            style: TextStyle(
+              color: Color(0xFFF39C12),
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _buildGlassIconButton({
     required IconData icon,
     required VoidCallback? onPressed,
     Color iconColor = Colors.white70,
     String? tooltip,
-  }) =>
-      Tooltip(
-        message: tooltip ?? '',
-        child: ClipOval(
-          child: Material(
-            color: Colors.black.withValues(alpha: 0.4),
-            child: InkWell(
-              onTap: onPressed,
-              child: SizedBox(
-                width: 40,
-                height: 40,
-                child: Icon(icon, color: iconColor, size: 20),
-              ),
-            ),
+  }) => Tooltip(
+    message: tooltip ?? '',
+    child: ClipOval(
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.4),
+        child: InkWell(
+          onTap: onPressed,
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: Icon(icon, color: iconColor, size: 20),
           ),
         ),
-      );
+      ),
+    ),
+  );
 
   Widget _buildGlassTextButton({
     required String text,
     required VoidCallback? onPressed,
     String? tooltip,
-  }) =>
-      Tooltip(
-        message: tooltip ?? '',
-        child: ClipOval(
-          child: Material(
-            color: Colors.black.withValues(alpha: 0.4),
-            child: InkWell(
-              onTap: onPressed,
-              child: SizedBox(
-                width: 40,
-                height: 40,
-                child: Center(
-                  child: Text(
-                    text,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+  }) => Tooltip(
+    message: tooltip ?? '',
+    child: ClipOval(
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.4),
+        child: InkWell(
+          onTap: onPressed,
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: Center(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
           ),
         ),
-      );
+      ),
+    ),
+  );
 
   Widget _buildTopOverlayControls(
     CameraState state,
@@ -643,9 +637,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.15),
-            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
             boxShadow: const [
               BoxShadow(
                 color: Colors.black26,
@@ -701,10 +693,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         height: 54,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.white24,
-            width: 2,
-          ),
+          border: Border.all(color: Colors.white24, width: 2),
           boxShadow: const [
             BoxShadow(
               color: Colors.black38,
@@ -715,12 +704,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         ),
         child: ClipOval(
           child: fileExists
-              ? Image.file(
-                  File(path),
-                  fit: BoxFit.cover,
-                  width: 54,
-                  height: 54,
-                )
+              ? Image.file(File(path), fit: BoxFit.cover, width: 54, height: 54)
               : const ColoredBox(
                   color: Color(0xFF1E1E24),
                   child: Icon(
@@ -760,7 +744,12 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               fit: StackFit.expand,
               children: [
                 // Live Camera Viewfinder Preview
-                const _AndroidCameraPreview(),
+                _AndroidCameraPreview(
+                  key: _previewKey,
+                  onPlatformViewCreated: (_) {
+                    unawaited(controller.reapplyActivePreviewParams());
+                  },
+                ),
 
                 // 3x3 Composition Grid Lines
                 if (ref.watch(gridLinesProvider)) const _ViewfinderGrid(),
@@ -926,9 +915,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                         preset: preset,
                         isSelected: isSelected,
                         isEnabled: isReady,
-                        onDeleted: SavedRanaStyle.isSavedStylePresetId(
-                          preset.id,
-                        )
+                        onDeleted:
+                            SavedRanaStyle.isSavedStylePresetId(preset.id)
                             ? () => _confirmDeleteStyle(preset)
                             : null,
                         onSelected: (selected) {
@@ -964,9 +952,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               // Circular thumbnail (left) - tapping opens gallery
               SizedBox(
                 width: 72,
-                child: Center(
-                  child: _buildThumbnailButton(state),
-                ),
+                child: Center(child: _buildThumbnailButton(state)),
               ),
 
               // Shutter capture button (center)
@@ -1000,8 +986,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     IconButton(
-                      onPressed: isReady &&
-                              state.activeStyle != const RanaStyle()
+                      onPressed:
+                          isReady && state.activeStyle != const RanaStyle()
                           ? controller.resetActiveStyle
                           : null,
                       icon: Icon(
@@ -1085,7 +1071,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       );
     }
   }
-
 
   String _getCurrentDateStamp() {
     final now = DateTime.now();
@@ -1238,13 +1223,16 @@ class _FlashScreenEffectState extends State<_FlashScreenEffect>
 }
 
 class _AndroidCameraPreview extends StatelessWidget {
-  const _AndroidCameraPreview();
+  const _AndroidCameraPreview({super.key, this.onPlatformViewCreated});
+
+  final PlatformViewCreatedCallback? onPlatformViewCreated;
 
   @override
-  Widget build(BuildContext context) => const AndroidView(
+  Widget build(BuildContext context) => AndroidView(
     viewType: 'com.rana.app/camera_preview',
     layoutDirection: TextDirection.ltr,
-    creationParams: <String, dynamic>{},
-    creationParamsCodec: StandardMessageCodec(),
+    creationParams: const <String, dynamic>{},
+    creationParamsCodec: const StandardMessageCodec(),
+    onPlatformViewCreated: onPlatformViewCreated,
   );
 }

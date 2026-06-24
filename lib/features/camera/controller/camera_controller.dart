@@ -64,6 +64,8 @@ class CameraController extends _$CameraController {
           state = state.copyWith(errorMessage: err.toString());
         },
       );
+
+      await reapplyActivePreviewParams();
     } on Object catch (e) {
       state = state.copyWith(
         isCameraInitialized: false,
@@ -142,6 +144,32 @@ class CameraController extends _$CameraController {
     try {
       final paramsMap = _buildPreviewParams(activePreset, style: clampedStyle);
       AppLogger.glParams('PREVIEW_STYLE_UPDATE', paramsMap);
+      ref
+          .read(consistencyDebugProvider.notifier)
+          .update((state) => state.copyWith(lastPreviewParams: paramsMap));
+      await _platformService.selectPreset(activePreset.id, paramsMap);
+    } on Object catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  /// Re-sends the current active preset/style to the native preview renderer.
+  Future<void> reapplyActivePreviewParams() async {
+    if (!state.isCameraInitialized) {
+      return;
+    }
+
+    final activePreset = _activePreset();
+    if (activePreset == null) {
+      return;
+    }
+
+    try {
+      final paramsMap = _buildPreviewParams(
+        activePreset,
+        style: state.activeStyle,
+      );
+      AppLogger.glParams('PREVIEW_REAPPLY', paramsMap);
       ref
           .read(consistencyDebugProvider.notifier)
           .update((state) => state.copyWith(lastPreviewParams: paramsMap));
