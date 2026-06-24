@@ -47,7 +47,13 @@ object OfflineGlProcessor {
         val bloomIntensityLoc: Int,
         val halationIntensityLoc: Int,
         val textureLoc: Int,
-        val timeLoc: Int
+        val timeLoc: Int,
+        val toneLoc: Int,
+        val colorLoc: Int,
+        val textureValLoc: Int,
+        val styleStrengthLoc: Int,
+        val undertoneXLoc: Int,
+        val undertoneYLoc: Int
     )
 
     private data class BasePassProgram(
@@ -61,7 +67,13 @@ object OfflineGlProcessor {
         val contrastLoc: Int,
         val lutTextureLoc: Int,
         val lutStrengthLoc: Int,
-        val textureLoc: Int
+        val textureLoc: Int,
+        val toneLoc: Int,
+        val colorLoc: Int,
+        val textureValLoc: Int,
+        val styleStrengthLoc: Int,
+        val undertoneXLoc: Int,
+        val undertoneYLoc: Int
     )
 
     private data class CompositeProgram(
@@ -464,6 +476,12 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.bloomIntensityLoc, 0f)
         GLES20.glUniform1f(program.halationIntensityLoc, 0f)
         GLES20.glUniform1f(program.timeLoc, 0f)
+        GLES20.glUniform1f(program.toneLoc, params.tone)
+        GLES20.glUniform1f(program.colorLoc, params.color)
+        GLES20.glUniform1f(program.textureValLoc, params.textureVal)
+        GLES20.glUniform1f(program.styleStrengthLoc, params.styleStrength)
+        GLES20.glUniform1f(program.undertoneXLoc, params.undertoneX)
+        GLES20.glUniform1f(program.undertoneYLoc, params.undertoneY)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, inputTextureId)
@@ -528,6 +546,12 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.saturationLoc, params.saturation)
         GLES20.glUniform1f(program.contrastLoc, params.contrast)
         GLES20.glUniform1f(program.lutStrengthLoc, params.lutStrength)
+        GLES20.glUniform1f(program.toneLoc, params.tone)
+        GLES20.glUniform1f(program.colorLoc, params.color)
+        GLES20.glUniform1f(program.textureValLoc, params.textureVal)
+        GLES20.glUniform1f(program.styleStrengthLoc, params.styleStrength)
+        GLES20.glUniform1f(program.undertoneXLoc, params.undertoneX)
+        GLES20.glUniform1f(program.undertoneYLoc, params.undertoneY)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, inputTextureId)
@@ -781,7 +805,13 @@ object OfflineGlProcessor {
             bloomIntensityLoc = GLES20.glGetUniformLocation(programId, "uBloomIntensity"),
             halationIntensityLoc = GLES20.glGetUniformLocation(programId, "uHalationIntensity"),
             textureLoc = GLES20.glGetUniformLocation(programId, "sTexture"),
-            timeLoc = GLES20.glGetUniformLocation(programId, "uTime")
+            timeLoc = GLES20.glGetUniformLocation(programId, "uTime"),
+            toneLoc = GLES20.glGetUniformLocation(programId, "uTone"),
+            colorLoc = GLES20.glGetUniformLocation(programId, "uColor"),
+            textureValLoc = GLES20.glGetUniformLocation(programId, "uTextureVal"),
+            styleStrengthLoc = GLES20.glGetUniformLocation(programId, "uStyleStrength"),
+            undertoneXLoc = GLES20.glGetUniformLocation(programId, "uUndertoneX"),
+            undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY")
         )
     }
 
@@ -808,7 +838,13 @@ object OfflineGlProcessor {
             contrastLoc = GLES20.glGetUniformLocation(programId, "uContrast"),
             lutTextureLoc = GLES20.glGetUniformLocation(programId, "uLutTexture"),
             lutStrengthLoc = GLES20.glGetUniformLocation(programId, "uLutStrength"),
-            textureLoc = GLES20.glGetUniformLocation(programId, "sTexture")
+            textureLoc = GLES20.glGetUniformLocation(programId, "sTexture"),
+            toneLoc = GLES20.glGetUniformLocation(programId, "uTone"),
+            colorLoc = GLES20.glGetUniformLocation(programId, "uColor"),
+            textureValLoc = GLES20.glGetUniformLocation(programId, "uTextureVal"),
+            styleStrengthLoc = GLES20.glGetUniformLocation(programId, "uStyleStrength"),
+            undertoneXLoc = GLES20.glGetUniformLocation(programId, "uUndertoneX"),
+            undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY")
         )
     }
 

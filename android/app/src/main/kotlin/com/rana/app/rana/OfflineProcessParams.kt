@@ -17,5 +17,11 @@ data class OfflineProcessParams(
     val bloomThreshold: Float = 0.8f,
     val bloomIntensity: Float = 0f,
     val halationIntensity: Float = 0f,
-    val lensDistortionStrength: Float = 0f
+    val lensDistortionStrength: Float = 0f,
+    val tone: Float = 0f,
+    val color: Float = 0f,
+    val textureVal: Float = 0f,
+    val styleStrength: Float = 100f,
+    val undertoneX: Float = 0f,
+    val undertoneY: Float = 0f
 )

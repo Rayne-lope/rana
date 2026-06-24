@@ -169,6 +169,18 @@ class MainActivity : FlutterActivity() {
                     val lensDistortionStrength = (
                         call.argument<Number>("lensDistortionStrength")
                     )?.toFloat() ?: 0f
+                    val tone = (call.argument<Number>("tone"))
+                        ?.toFloat() ?: 0f
+                    val color = (call.argument<Number>("color"))
+                        ?.toFloat() ?: 0f
+                    val textureVal = (call.argument<Number>("textureVal"))
+                        ?.toFloat() ?: 0f
+                    val styleStrength = (call.argument<Number>("styleStrength"))
+                        ?.toFloat() ?: 100f
+                    val undertoneX = (call.argument<Number>("undertoneX"))
+                        ?.toFloat() ?: 0f
+                    val undertoneY = (call.argument<Number>("undertoneY"))
+                        ?.toFloat() ?: 0f
 
                     val bitmap = android.graphics.Bitmap.createBitmap(
                         512, 512, android.graphics.Bitmap.Config.ARGB_8888
@@ -201,7 +213,13 @@ class MainActivity : FlutterActivity() {
                                 bloomThreshold = bloomThreshold,
                                 bloomIntensity = bloomIntensity,
                                 halationIntensity = halationIntensity,
-                                lensDistortionStrength = lensDistortionStrength
+                                lensDistortionStrength = lensDistortionStrength,
+                                tone = tone,
+                                color = color,
+                                textureVal = textureVal,
+                                styleStrength = styleStrength,
+                                undertoneX = undertoneX,
+                                undertoneY = undertoneY
                             )
                             val out = OfflineGlProcessor.processImage(
                                 context, bitmap, params
@@ -286,7 +304,13 @@ class MainActivity : FlutterActivity() {
             bloomThreshold = (args?.get("bloomThreshold") as? Number)?.toFloat() ?: 0.8f,
             bloomIntensity = numberArg("bloomIntensity"),
             halationIntensity = numberArg("halationIntensity"),
-            lensDistortionStrength = numberArg("lensDistortionStrength")
+            lensDistortionStrength = numberArg("lensDistortionStrength"),
+            tone = numberArg("tone"),
+            color = numberArg("color"),
+            textureVal = numberArg("textureVal"),
+            styleStrength = (args?.get("styleStrength") as? Number)?.toFloat() ?: 100f,
+            undertoneX = numberArg("undertoneX"),
+            undertoneY = numberArg("undertoneY")
         )
     }
 
