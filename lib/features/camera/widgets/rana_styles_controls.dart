@@ -64,17 +64,16 @@ class _RanaInteractiveUndertonePadState
   }
 
   static const double _padLayoutSize = 220;
+  static const double _padEdgeRatio = 28 / _padLayoutSize;
 
   double _mapXToNormalized(double ux) {
-    const edge = 28.0;
     final ratio = ((ux + 1) / 2).clamp(0, 1);
-    return (edge + ratio * (_padLayoutSize - edge * 2)) / _padLayoutSize;
+    return _padEdgeRatio + ratio * (1 - _padEdgeRatio * 2);
   }
 
   double _mapYToNormalized(double uy) {
-    const edge = 28.0;
     final ratio = ((1 - uy) / 2).clamp(0, 1);
-    return (edge + ratio * (_padLayoutSize - edge * 2)) / _padLayoutSize;
+    return _padEdgeRatio + ratio * (1 - _padEdgeRatio * 2);
   }
 
   double _lerp(double a, double b, double t) => a + (b - a) * t;
@@ -104,18 +103,15 @@ class _RanaInteractiveUndertonePadState
       _motionTarget = 0;
     }
 
-    _motion = _lerp(
-      _motion,
-      _motionTarget,
-      _dragging ? 0.18 : 0.075,
-    );
+    _motion = _lerp(_motion, _motionTarget, _dragging ? 0.18 : 0.075);
 
     for (final point in _trail) {
       point.life -= 0.035;
     }
     _trail.removeWhere((point) => point.life <= 0);
 
-    final stillMoving = _dragging ||
+    final stillMoving =
+        _dragging ||
         _motion > 0.008 ||
         _trail.isNotEmpty ||
         (_x - _targetX).abs() > 0.002 ||
@@ -142,7 +138,7 @@ class _RanaInteractiveUndertonePadState
   }
 
   void _setPadFromLocal(Offset localPosition, double size) {
-    const edge = 28.0;
+    final edge = size * _padEdgeRatio;
     final dx = localPosition.dx.clamp(edge, size - edge);
     final dy = localPosition.dy.clamp(edge, size - edge);
 
@@ -172,7 +168,7 @@ class _RanaInteractiveUndertonePadState
     final normStyleStrength = widget.styleStrength / 100.0;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -199,17 +195,19 @@ class _RanaInteractiveUndertonePadState
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 220),
-              child: AspectRatio(
-                aspectRatio: 1,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final size = constraints.biggest.shortestSide;
+          const SizedBox(height: 8),
+          Flexible(
+            child: Center(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final size = math.min(
+                    _padLayoutSize,
+                    constraints.biggest.shortestSide,
+                  );
 
-                    return GestureDetector(
+                  return SizedBox.square(
+                    dimension: size,
+                    child: GestureDetector(
                       key: const Key('undertone-pad'),
                       behavior: HitTestBehavior.opaque,
                       onTapDown: (details) {
@@ -288,9 +286,9 @@ class _RanaInteractiveUndertonePadState
                           ),
                         ],
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -347,10 +345,7 @@ class _ToneFieldPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final rrect = RRect.fromRectAndRadius(
-      rect,
-      const Radius.circular(42),
-    );
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(42));
 
     final orb = Offset(size.width * x, size.height * y);
 
@@ -408,15 +403,13 @@ class _ToneFieldPainter extends CustomPainter {
     canvas.drawRect(
       rect,
       Paint()
-        ..shader = ui.Gradient.radial(
-          orb + const Offset(-18, 10),
-          size.width * 0.55,
-          [
-            const Color(0xFFFF8BAE)
-                .withValues(alpha: 0.10 + motion * 0.14 + slider * 0.10),
-            Colors.transparent,
-          ],
-        ),
+        ..shader =
+            ui.Gradient.radial(orb + const Offset(-18, 10), size.width * 0.55, [
+              const Color(
+                0xFFFF8BAE,
+              ).withValues(alpha: 0.10 + motion * 0.14 + slider * 0.10),
+              Colors.transparent,
+            ]),
     );
   }
 
@@ -430,8 +423,9 @@ class _ToneFieldPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.1
-          ..color = const Color(0xFFFFD2E2)
-              .withValues(alpha: 0.12 * point.life),
+          ..color = const Color(
+            0xFFFFD2E2,
+          ).withValues(alpha: 0.12 * point.life),
       );
     }
   }
@@ -460,30 +454,28 @@ class _ToneFieldPainter extends CustomPainter {
 
         final ny = row / (rows - 1);
 
-        final dot = Offset(
-          left + nx * gridW,
-          top + ny * gridH,
-        );
+        final dot = Offset(left + nx * gridW, top + ny * gridH);
 
         final distance = (dot - orb).distance;
 
         final near = (1 - distance / activeRadius).clamp(0.0, 1.0);
         final ring =
-            (1 - (distance - ringRadius).abs() / 19).clamp(0.0, 1.0) *
-                motion;
+            (1 - (distance - ringRadius).abs() / 19).clamp(0.0, 1.0) * motion;
 
         final shimmer =
             (math.sin(time * 2.4 + row * 0.8 + col * 0.35) * 0.5 + 0.5) *
-                0.12 *
-                motion;
+            0.12 *
+            motion;
 
         final energy = near + ring * 0.72 + shimmer;
 
         const baseSize = 2.0;
         final dotSize = baseSize + near * 3.1 + ring * 1.6;
 
-        final opacity =
-            (0.28 + near * 0.55 + ring * 0.26 + shimmer).clamp(0.22, 1.0);
+        final opacity = (0.28 + near * 0.55 + ring * 0.26 + shimmer).clamp(
+          0.22,
+          1.0,
+        );
 
         if (energy > 0.05) {
           canvas.save();
@@ -496,8 +488,9 @@ class _ToneFieldPainter extends CustomPainter {
               height: dotSize * 5.4,
             ),
             Paint()
-              ..color =
-                  const Color(0xFFFFC0DA).withValues(alpha: 0.10 * energy),
+              ..color = const Color(
+                0xFFFFC0DA,
+              ).withValues(alpha: 0.10 * energy),
           );
           canvas.restore();
         }
@@ -546,10 +539,7 @@ class _ToneFieldPainter extends CustomPainter {
 
         final ny = row / (rows - 1);
 
-        final dot = Offset(
-          left + nx * gridW,
-          top + ny * gridH,
-        );
+        final dot = Offset(left + nx * gridW, top + ny * gridH);
 
         final distance = (dot - orb).distance;
 
@@ -565,8 +555,7 @@ class _ToneFieldPainter extends CustomPainter {
 
     for (var i = 0; i < selectedNodes.length; i++) {
       final node = selectedNodes[i];
-      final alpha =
-          (1 - node.distance / activeRadius) * (0.13 + motion * 0.18);
+      final alpha = (1 - node.distance / activeRadius) * (0.13 + motion * 0.18);
 
       final control = Offset(
         (orb.dx + node.offset.dx) / 2 + math.sin(time * 2 + i) * 5,
@@ -624,10 +613,7 @@ class _ToneFieldPainter extends CustomPainter {
       25 + slider * 6,
       Paint()
         ..color = Colors.white
-        ..maskFilter = const ui.MaskFilter.blur(
-          ui.BlurStyle.normal,
-          0.2,
-        ),
+        ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 0.2),
     );
 
     canvas.drawCircle(
@@ -747,15 +733,10 @@ class _RanaInteractiveSliderState extends State<RanaInteractiveSlider>
       _motionTarget = 0;
     }
 
-    _motion = _lerp(
-      _motion,
-      _motionTarget,
-      _dragging ? 0.18 : 0.075,
-    );
+    _motion = _lerp(_motion, _motionTarget, _dragging ? 0.18 : 0.075);
 
-    final stillMoving = _dragging ||
-        _motion > 0.008 ||
-        (_x - _targetX).abs() > 0.002;
+    final stillMoving =
+        _dragging || _motion > 0.008 || (_x - _targetX).abs() > 0.002;
 
     setState(() {});
 
@@ -788,84 +769,78 @@ class _RanaInteractiveSliderState extends State<RanaInteractiveSlider>
 
   @override
   Widget build(BuildContext context) => Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                widget.label.toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                ),
+    padding: const EdgeInsets.only(bottom: 14),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              widget.label.toUpperCase(),
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
               ),
-              const Spacer(),
-              Text(
-                widget.valueLabel,
-                style: const TextStyle(
-                  color: Color(0xFFF39C12),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'monospace',
-                ),
+            ),
+            const Spacer(),
+            Text(
+              widget.valueLabel,
+              style: const TextStyle(
+                color: Color(0xFFF39C12),
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                fontFamily: 'monospace',
               ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final width = constraints.maxWidth;
-              const height = 40.0;
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            const height = 40.0;
 
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTapDown: (details) {
-                  _setSliderFromLocal(details.localPosition, width);
-                },
-                onPanStart: (details) {
-                  _dragging = true;
-                  _setSliderFromLocal(details.localPosition, width);
-                },
-                onPanUpdate: (details) {
-                  _setSliderFromLocal(details.localPosition, width);
-                },
-                onPanEnd: (_) {
-                  _dragging = false;
-                  _wakeMotion(1200);
-                },
-                onPanCancel: () {
-                  _dragging = false;
-                  _wakeMotion(1200);
-                },
-                child: SizedBox(
-                  width: width,
-                  height: height,
-                  child: RepaintBoundary(
-                    child: CustomPaint(
-                      painter: _ToneSliderPainter(
-                        value: _x,
-                        motion: _motion,
-                      ),
-                    ),
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (details) {
+                _setSliderFromLocal(details.localPosition, width);
+              },
+              onPanStart: (details) {
+                _dragging = true;
+                _setSliderFromLocal(details.localPosition, width);
+              },
+              onPanUpdate: (details) {
+                _setSliderFromLocal(details.localPosition, width);
+              },
+              onPanEnd: (_) {
+                _dragging = false;
+                _wakeMotion(1200);
+              },
+              onPanCancel: () {
+                _dragging = false;
+                _wakeMotion(1200);
+              },
+              child: SizedBox(
+                width: width,
+                height: height,
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    painter: _ToneSliderPainter(value: _x, motion: _motion),
                   ),
                 ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
+              ),
+            );
+          },
+        ),
+      ],
+    ),
+  );
 }
 
 class _ToneSliderPainter extends CustomPainter {
-  const _ToneSliderPainter({
-    required this.value,
-    required this.motion,
-  });
+  const _ToneSliderPainter({required this.value, required this.motion});
 
   final double value;
   final double motion;
@@ -873,10 +848,7 @@ class _ToneSliderPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final rrect = RRect.fromRectAndRadius(
-      rect,
-      const Radius.circular(999),
-    );
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(999));
 
     canvas.save();
     canvas.clipRRect(rrect);
@@ -927,19 +899,16 @@ class _ToneSliderPainter extends CustomPainter {
       knobCenter,
       25,
       Paint()
-        ..color = const Color(0xFFFFD2E2)
-            .withValues(alpha: 0.15 + motion * 0.16)
+        ..color = const Color(
+          0xFFFFD2E2,
+        ).withValues(alpha: 0.15 + motion * 0.16)
         ..maskFilter = ui.MaskFilter.blur(
           ui.BlurStyle.normal,
           10 + motion * 10,
         ),
     );
 
-    canvas.drawCircle(
-      knobCenter,
-      16,
-      Paint()..color = Colors.white,
-    );
+    canvas.drawCircle(knobCenter, 16, Paint()..color = Colors.white);
 
     canvas.drawCircle(
       knobCenter,
@@ -970,24 +939,17 @@ class StylesPanelBackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final rrect = RRect.fromRectAndRadius(
-      rect,
-      const Radius.circular(24),
-    );
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(24));
 
     canvas.save();
     canvas.clipRRect(rrect);
 
     // Base background gradient
     final base = Paint()
-      ..shader = ui.Gradient.linear(
-        Offset.zero,
-        Offset(0, size.height),
-        [
-          const Color(0xFF111C18),
-          const Color(0xFF0C0E0D),
-        ],
-      );
+      ..shader = ui.Gradient.linear(Offset.zero, Offset(0, size.height), [
+        const Color(0xFF111C18),
+        const Color(0xFF0C0E0D),
+      ]);
     canvas.drawRect(rect, base);
 
     // Green glow top-center
@@ -998,10 +960,7 @@ class StylesPanelBackgroundPainter extends CustomPainter {
         ..shader = ui.Gradient.radial(
           Offset(size.width * 0.50, -8),
           size.width * 0.44,
-          [
-            const Color(0xFF43FFB2).withValues(alpha: 0.12),
-            Colors.transparent,
-          ],
+          [const Color(0xFF43FFB2).withValues(alpha: 0.12), Colors.transparent],
         ),
     );
 
@@ -1013,10 +972,7 @@ class StylesPanelBackgroundPainter extends CustomPainter {
         ..shader = ui.Gradient.radial(
           Offset(size.width * 0.16, size.height * 0.48),
           size.width * 0.48,
-          [
-            const Color(0xFF7F244C).withValues(alpha: 0.16),
-            Colors.transparent,
-          ],
+          [const Color(0xFF7F244C).withValues(alpha: 0.16), Colors.transparent],
         ),
     );
 

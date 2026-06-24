@@ -138,9 +138,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
             Flexible(
               fit: isEditing ? FlexFit.loose : FlexFit.tight,
               child: SizedBox(
-                height: isEditing
-                    ? MediaQuery.sizeOf(context).height * 0.58
-                    : null,
+                height: isEditing ? _editingPreviewHeight(context) : null,
                 child: _buildViewfinder(cameraState, controller),
               ),
             ),
@@ -155,6 +153,12 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         ),
       ),
     );
+  }
+
+  double _editingPreviewHeight(BuildContext context) {
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final factor = _isEditingUndertone ? 0.50 : 0.58;
+    return screenHeight * factor;
   }
 
   Widget _buildStylesEditingContent(

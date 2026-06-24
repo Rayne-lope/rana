@@ -74,5 +74,35 @@ void main() {
       expect(changedX, isNot(0));
       expect(changedY, isNot(0));
     });
+
+    testWidgets('RanaInteractiveUndertonePad shrinks in tight vertical space', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 240,
+                height: 180,
+                child: RanaInteractiveUndertonePad(
+                  undertoneX: -0.91,
+                  undertoneY: 0.53,
+                  styleStrength: 80,
+                  onChanged: (_, _) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('UNDERTONE'), findsOneWidget);
+      expect(find.text('-91 / +53'), findsOneWidget);
+
+      final padRect = tester.getRect(find.byKey(const Key('undertone-pad')));
+      expect(padRect.height, lessThanOrEqualTo(150));
+    });
   });
 }
