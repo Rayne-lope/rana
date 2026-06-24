@@ -23,5 +23,7 @@ data class OfflineProcessParams(
     val textureVal: Float = 0f,
     val styleStrength: Float = 100f,
     val undertoneX: Float = 0f,
-    val undertoneY: Float = 0f
+    val undertoneY: Float = 0f,
+    val grainSize: Float = 1f,
+    val softness: Float = 0f
 )

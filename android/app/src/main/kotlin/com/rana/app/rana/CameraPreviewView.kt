@@ -240,6 +240,8 @@ class CameraPreviewView(
         val styleStrength = (params["styleStrength"] as? Number)?.toFloat() ?: 100.0f
         val undertoneX = (params["undertoneX"] as? Number)?.toFloat() ?: 0.0f
         val undertoneY = (params["undertoneY"] as? Number)?.toFloat() ?: 0.0f
+        val grainSize = (params["grainSize"] as? Number)?.toFloat() ?: 1.0f
+        val softness = (params["softness"] as? Number)?.toFloat() ?: 0.0f
 
         glRenderer?.applyPresetParams(
             temperature = temp,
@@ -261,7 +263,9 @@ class CameraPreviewView(
             textureVal = textureVal,
             styleStrength = styleStrength,
             undertoneX = undertoneX,
-            undertoneY = undertoneY
+            undertoneY = undertoneY,
+            grainSize = grainSize,
+            softness = softness
         )
     }
 

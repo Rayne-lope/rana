@@ -58,7 +58,9 @@ class CameraGlRenderer(
         val textureValLoc: Int,
         val styleStrengthLoc: Int,
         val undertoneXLoc: Int,
-        val undertoneYLoc: Int
+        val undertoneYLoc: Int,
+        val grainSizeLoc: Int,
+        val softnessLoc: Int
     )
 
     private data class BasePassProgram(
@@ -78,7 +80,8 @@ class CameraGlRenderer(
         val textureValLoc: Int,
         val styleStrengthLoc: Int,
         val undertoneXLoc: Int,
-        val undertoneYLoc: Int
+        val undertoneYLoc: Int,
+        val softnessLoc: Int
     )
 
     private data class CompositeProgram(
@@ -98,7 +101,8 @@ class CameraGlRenderer(
         val dustUvOffsetYLoc: Int,
         val grainLoc: Int,
         val vignetteLoc: Int,
-        val timeLoc: Int
+        val timeLoc: Int,
+        val grainSizeLoc: Int
     )
 
     private val renderThread = HandlerThread("CameraGLThread").apply { start() }
@@ -143,6 +147,8 @@ class CameraGlRenderer(
     private var styleStrength = 100f
     private var undertoneX = 0f
     private var undertoneY = 0f
+    private var grainSize = 1f
+    private var softness = 0f
 
     private var activeLutTextureId = -1
     private var activeLutPath: String? = null
@@ -256,7 +262,9 @@ class CameraGlRenderer(
         textureVal: Float,
         styleStrength: Float,
         undertoneX: Float,
-        undertoneY: Float
+        undertoneY: Float,
+        grainSize: Float,
+        softness: Float
     ) {
         renderHandler.post {
             this.temperature = temperature
@@ -278,6 +286,8 @@ class CameraGlRenderer(
             this.styleStrength = styleStrength
             this.undertoneX = undertoneX
             this.undertoneY = undertoneY
+            this.grainSize = grainSize
+            this.softness = softness
 
             if (lutPath != activeLutPath) {
                 activeLutPath = lutPath
@@ -302,7 +312,8 @@ class CameraGlRenderer(
                     "bloomIntensity=$bloomIntensity halationIntensity=$halationIntensity " +
                     "lensDistortionStrength=$lensDistortionStrength " +
                     "tone=$tone color=$color textureVal=$textureVal styleStrength=$styleStrength " +
-                    "undertoneX=$undertoneX undertoneY=$undertoneY"
+                    "undertoneX=$undertoneX undertoneY=$undertoneY " +
+                    "grainSize=$grainSize softness=$softness"
             )
         }
     }
@@ -523,7 +534,9 @@ class CameraGlRenderer(
             textureValLoc = GLES20.glGetUniformLocation(programId, "uTextureVal"),
             styleStrengthLoc = GLES20.glGetUniformLocation(programId, "uStyleStrength"),
             undertoneXLoc = GLES20.glGetUniformLocation(programId, "uUndertoneX"),
-            undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY")
+            undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY"),
+            grainSizeLoc = GLES20.glGetUniformLocation(programId, "uGrainSize"),
+            softnessLoc = GLES20.glGetUniformLocation(programId, "uSoftness")
         )
     }
 
@@ -561,7 +574,8 @@ class CameraGlRenderer(
                     textureValLoc = GLES20.glGetUniformLocation(programId, "uTextureVal"),
                     styleStrengthLoc = GLES20.glGetUniformLocation(programId, "uStyleStrength"),
                     undertoneXLoc = GLES20.glGetUniformLocation(programId, "uUndertoneX"),
-                    undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY")
+                    undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY"),
+                    softnessLoc = GLES20.glGetUniformLocation(programId, "uSoftness")
                 )
             }
 
@@ -590,7 +604,8 @@ class CameraGlRenderer(
                     dustUvOffsetYLoc = GLES20.glGetUniformLocation(programId, "uDustUVOffsetY"),
                     grainLoc = GLES20.glGetUniformLocation(programId, "uGrain"),
                     vignetteLoc = GLES20.glGetUniformLocation(programId, "uVignette"),
-                    timeLoc = GLES20.glGetUniformLocation(programId, "uTime")
+                    timeLoc = GLES20.glGetUniformLocation(programId, "uTime"),
+                    grainSizeLoc = GLES20.glGetUniformLocation(programId, "uGrainSize")
                 )
             }
 
@@ -720,6 +735,8 @@ class CameraGlRenderer(
         GLES20.glUniform1f(singlePassProgram.styleStrengthLoc, styleStrength)
         GLES20.glUniform1f(singlePassProgram.undertoneXLoc, undertoneX)
         GLES20.glUniform1f(singlePassProgram.undertoneYLoc, undertoneY)
+        GLES20.glUniform1f(singlePassProgram.grainSizeLoc, grainSize)
+        GLES20.glUniform1f(singlePassProgram.softnessLoc, softness)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTextureId)
@@ -787,6 +804,7 @@ class CameraGlRenderer(
         GLES20.glUniform1f(baseProgram.styleStrengthLoc, styleStrength)
         GLES20.glUniform1f(baseProgram.undertoneXLoc, undertoneX)
         GLES20.glUniform1f(baseProgram.undertoneYLoc, undertoneY)
+        GLES20.glUniform1f(baseProgram.softnessLoc, softness)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTextureId)
@@ -830,6 +848,7 @@ class CameraGlRenderer(
             composite.timeLoc,
             (System.currentTimeMillis() - startTimeMs) / 1000f
         )
+        GLES20.glUniform1f(composite.grainSizeLoc, grainSize)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, baseTextureId)

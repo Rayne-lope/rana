@@ -53,7 +53,9 @@ object OfflineGlProcessor {
         val textureValLoc: Int,
         val styleStrengthLoc: Int,
         val undertoneXLoc: Int,
-        val undertoneYLoc: Int
+        val undertoneYLoc: Int,
+        val grainSizeLoc: Int,
+        val softnessLoc: Int
     )
 
     private data class BasePassProgram(
@@ -73,7 +75,8 @@ object OfflineGlProcessor {
         val textureValLoc: Int,
         val styleStrengthLoc: Int,
         val undertoneXLoc: Int,
-        val undertoneYLoc: Int
+        val undertoneYLoc: Int,
+        val softnessLoc: Int
     )
 
     private data class CompositeProgram(
@@ -93,7 +96,8 @@ object OfflineGlProcessor {
         val dustUvOffsetYLoc: Int,
         val grainLoc: Int,
         val vignetteLoc: Int,
-        val timeLoc: Int
+        val timeLoc: Int,
+        val grainSizeLoc: Int
     )
 
     private data class FramebufferTarget(
@@ -147,7 +151,10 @@ object OfflineGlProcessor {
                 "leakVariant=${params.lightLeakVariant} dustIntensity=${params.dustIntensity} " +
                 "bloomThreshold=${params.bloomThreshold} bloomIntensity=${params.bloomIntensity} " +
                 "halationIntensity=${params.halationIntensity} " +
-                "lensDistortionStrength=${params.lensDistortionStrength}"
+                "lensDistortionStrength=${params.lensDistortionStrength} " +
+                "tone=${params.tone} color=${params.color} textureVal=${params.textureVal} styleStrength=${params.styleStrength} " +
+                "undertoneX=${params.undertoneX} undertoneY=${params.undertoneY} " +
+                "grainSize=${params.grainSize} softness=${params.softness}"
         )
 
         var eglDisplay = EGL14.EGL_NO_DISPLAY
@@ -482,6 +489,8 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.styleStrengthLoc, params.styleStrength)
         GLES20.glUniform1f(program.undertoneXLoc, params.undertoneX)
         GLES20.glUniform1f(program.undertoneYLoc, params.undertoneY)
+        GLES20.glUniform1f(program.grainSizeLoc, params.grainSize)
+        GLES20.glUniform1f(program.softnessLoc, params.softness)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, inputTextureId)
@@ -552,6 +561,7 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.styleStrengthLoc, params.styleStrength)
         GLES20.glUniform1f(program.undertoneXLoc, params.undertoneX)
         GLES20.glUniform1f(program.undertoneYLoc, params.undertoneY)
+        GLES20.glUniform1f(program.softnessLoc, params.softness)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, inputTextureId)
@@ -599,6 +609,7 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.grainLoc, params.grain)
         GLES20.glUniform1f(program.vignetteLoc, params.vignette)
         GLES20.glUniform1f(program.timeLoc, 0f)
+        GLES20.glUniform1f(program.grainSizeLoc, params.grainSize)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, baseTextureId)
@@ -811,7 +822,9 @@ object OfflineGlProcessor {
             textureValLoc = GLES20.glGetUniformLocation(programId, "uTextureVal"),
             styleStrengthLoc = GLES20.glGetUniformLocation(programId, "uStyleStrength"),
             undertoneXLoc = GLES20.glGetUniformLocation(programId, "uUndertoneX"),
-            undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY")
+            undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY"),
+            grainSizeLoc = GLES20.glGetUniformLocation(programId, "uGrainSize"),
+            softnessLoc = GLES20.glGetUniformLocation(programId, "uSoftness")
         )
     }
 
@@ -844,7 +857,8 @@ object OfflineGlProcessor {
             textureValLoc = GLES20.glGetUniformLocation(programId, "uTextureVal"),
             styleStrengthLoc = GLES20.glGetUniformLocation(programId, "uStyleStrength"),
             undertoneXLoc = GLES20.glGetUniformLocation(programId, "uUndertoneX"),
-            undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY")
+            undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY"),
+            softnessLoc = GLES20.glGetUniformLocation(programId, "uSoftness")
         )
     }
 
@@ -874,7 +888,8 @@ object OfflineGlProcessor {
             dustUvOffsetYLoc = GLES20.glGetUniformLocation(programId, "uDustUVOffsetY"),
             grainLoc = GLES20.glGetUniformLocation(programId, "uGrain"),
             vignetteLoc = GLES20.glGetUniformLocation(programId, "uVignette"),
-            timeLoc = GLES20.glGetUniformLocation(programId, "uTime")
+            timeLoc = GLES20.glGetUniformLocation(programId, "uTime"),
+            grainSizeLoc = GLES20.glGetUniformLocation(programId, "uGrainSize")
         )
     }
 

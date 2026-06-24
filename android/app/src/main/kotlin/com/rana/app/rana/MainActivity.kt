@@ -181,6 +181,10 @@ class MainActivity : FlutterActivity() {
                         ?.toFloat() ?: 0f
                     val undertoneY = (call.argument<Number>("undertoneY"))
                         ?.toFloat() ?: 0f
+                    val grainSize = (call.argument<Number>("grainSize"))
+                        ?.toFloat() ?: 1f
+                    val softness = (call.argument<Number>("softness"))
+                        ?.toFloat() ?: 0f
 
                     val bitmap = android.graphics.Bitmap.createBitmap(
                         512, 512, android.graphics.Bitmap.Config.ARGB_8888
@@ -219,7 +223,9 @@ class MainActivity : FlutterActivity() {
                                 textureVal = textureVal,
                                 styleStrength = styleStrength,
                                 undertoneX = undertoneX,
-                                undertoneY = undertoneY
+                                undertoneY = undertoneY,
+                                grainSize = grainSize,
+                                softness = softness
                             )
                             val out = OfflineGlProcessor.processImage(
                                 context, bitmap, params
@@ -310,7 +316,9 @@ class MainActivity : FlutterActivity() {
             textureVal = numberArg("textureVal"),
             styleStrength = (args?.get("styleStrength") as? Number)?.toFloat() ?: 100f,
             undertoneX = numberArg("undertoneX"),
-            undertoneY = numberArg("undertoneY")
+            undertoneY = numberArg("undertoneY"),
+            grainSize = (args?.get("grainSize") as? Number)?.toFloat() ?: 1f,
+            softness = numberArg("softness")
         )
     }
 

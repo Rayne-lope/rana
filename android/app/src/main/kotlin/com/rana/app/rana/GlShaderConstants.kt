@@ -101,6 +101,7 @@ object GlShaderConstants {
         uniform float uStyleStrength;
         uniform float uUndertoneX;
         uniform float uUndertoneY;
+        uniform float uSoftness;
 
         vec3 applyRanaStyles(vec3 inputColor) {
             vec3 color = inputColor;
@@ -140,6 +141,7 @@ object GlShaderConstants {
         uniform float uGrain;
         uniform float uVignette;
         uniform float uTime;
+        uniform float uGrainSize;
 
         float rand(vec2 co) {
             return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
@@ -161,11 +163,12 @@ object GlShaderConstants {
 
         vec3 applyFilmGrain(vec3 color) {
             if (uGrain <= 0.0) return color;
+            vec2 grainUv = vTextureCoord / max(uGrainSize, 0.1);
             float noise = rand(
-                vTextureCoord + vec2(uTime * 0.1, uTime * 0.07)
+                grainUv + vec2(uTime * 0.1, uTime * 0.07)
             ) - 0.5;
             float noise2 = rand(
-                vTextureCoord * 1.5 + vec2(uTime * 0.13)
+                grainUv * 1.5 + vec2(uTime * 0.13)
             ) - 0.5;
             float filmGrain = mix(noise, noise2, 0.4);
             return color + vec3(filmGrain * uGrain * 0.25);
@@ -190,7 +193,19 @@ object GlShaderConstants {
 
         void main() {
             vec2 sourceUv = applyLensDistortion(vTextureCoord);
-            vec4 texColor = texture2D(sTexture, sourceUv);
+            vec4 texColor;
+            if (uSoftness > 0.0) {
+                float offset = 0.005 * uSoftness;
+                texColor = (
+                    texture2D(sTexture, sourceUv) +
+                    texture2D(sTexture, sourceUv + vec2(offset, 0.0)) +
+                    texture2D(sTexture, sourceUv + vec2(-offset, 0.0)) +
+                    texture2D(sTexture, sourceUv + vec2(0.0, offset)) +
+                    texture2D(sTexture, sourceUv + vec2(0.0, -offset))
+                ) / 5.0;
+            } else {
+                texColor = texture2D(sTexture, sourceUv);
+            }
             vec3 color = applyColorGrade(texColor.rgb);
             color = applyRanaStyles(color);
 
@@ -220,7 +235,19 @@ object GlShaderConstants {
 
         void main() {
             vec2 sourceUv = applyLensDistortion(vTextureCoord);
-            vec4 texColor = texture2D(sTexture, sourceUv);
+            vec4 texColor;
+            if (uSoftness > 0.0) {
+                float offset = 0.005 * uSoftness;
+                texColor = (
+                    texture2D(sTexture, sourceUv) +
+                    texture2D(sTexture, sourceUv + vec2(offset, 0.0)) +
+                    texture2D(sTexture, sourceUv + vec2(-offset, 0.0)) +
+                    texture2D(sTexture, sourceUv + vec2(0.0, offset)) +
+                    texture2D(sTexture, sourceUv + vec2(0.0, -offset))
+                ) / 5.0;
+            } else {
+                texColor = texture2D(sTexture, sourceUv);
+            }
             vec3 color = applyColorGrade(texColor.rgb);
             color = applyRanaStyles(color);
             gl_FragColor = vec4(clamp(color, 0.0, 1.0), texColor.a);
@@ -344,7 +371,19 @@ object GlShaderConstants {
 
         void main() {
             vec2 sourceUv = applyLensDistortion(vTextureCoord);
-            vec4 texColor = texture2D(sTexture, sourceUv);
+            vec4 texColor;
+            if (uSoftness > 0.0) {
+                float offset = 0.005 * uSoftness;
+                texColor = (
+                    texture2D(sTexture, sourceUv) +
+                    texture2D(sTexture, sourceUv + vec2(offset, 0.0)) +
+                    texture2D(sTexture, sourceUv + vec2(-offset, 0.0)) +
+                    texture2D(sTexture, sourceUv + vec2(0.0, offset)) +
+                    texture2D(sTexture, sourceUv + vec2(0.0, -offset))
+                ) / 5.0;
+            } else {
+                texColor = texture2D(sTexture, sourceUv);
+            }
             vec3 color = applyColorGrade(texColor.rgb);
             color = applyRanaStyles(color);
             gl_FragColor = vec4(clamp(color, 0.0, 1.0), texColor.a);

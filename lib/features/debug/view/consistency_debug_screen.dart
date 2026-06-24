@@ -72,6 +72,8 @@ class _ConsistencyDebugScreenState
       'styleStrength',
       'undertoneX',
       'undertoneY',
+      'grainSize',
+      'softness',
     };
 
     var hasMismatch = false;

@@ -7,6 +7,7 @@ import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/debug/provider/consistency_debug_provider.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
+import 'package:rana/features/preset/utils/rana_texture_mapper.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'camera_controller.g.dart';
@@ -187,17 +188,38 @@ class CameraController extends _$CameraController {
     final lut = activePreset?.lut;
     final lutPath = lut is String && lut.isNotEmpty ? lut : null;
 
+    final presetGrain = activePreset?.grain.intensity ?? 0.0;
+    final presetDust = activePreset?.effects.dust.intensity ?? 0.0;
+    final textureVal = activePreset?.style?.texture ?? 0.0;
+    final styleStrength = activePreset?.style?.styleStrength ?? 100.0;
+    
+    final mapped = RanaTextureMapper.mapTexture(
+      textureVal,
+      presetGrain: presetGrain,
+      presetDust: presetDust,
+    );
+
+    final blend = styleStrength / 100.0;
+    final finalGrain =
+        presetGrain * (1.0 - blend) + (mapped['grain'] ?? 0.0) * blend;
+    final finalDust =
+        presetDust * (1.0 - blend) + (mapped['dust'] ?? 0.0) * blend;
+    final finalGrainSize =
+        1.0 * (1.0 - blend) + (mapped['grainSize'] ?? 1.0) * blend;
+    final finalSoftness =
+        0.0 * (1.0 - blend) + (mapped['softness'] ?? 0.0) * blend;
+
     return <String, dynamic>{
       'temperature': activePreset?.color.temperature ?? 0.0,
       'saturation': activePreset?.color.saturation ?? 0.0,
       'contrast': activePreset?.color.contrast ?? 0.0,
-      'grain': activePreset?.grain.intensity ?? 0.0,
+      'grain': finalGrain,
       'vignette': activePreset?.vignette.intensity ?? 0.0,
       'lutPath': lutPath,
       'lutStrength': lutPath != null ? 1.0 : 0.0,
       'lightLeakIntensity': activePreset?.effects.lightLeak.intensity ?? 0.0,
       'lightLeakVariant': _currentPreviewVariant ?? -1,
-      'dustIntensity': activePreset?.effects.dust.intensity ?? 0.0,
+      'dustIntensity': finalDust,
       'bloomThreshold': activePreset?.effects.bloom.threshold ?? 0.8,
       'bloomIntensity': activePreset?.effects.bloom.intensity ?? 0.0,
       'halationIntensity': activePreset?.effects.halation.intensity ?? 0.0,
@@ -205,10 +227,12 @@ class CameraController extends _$CameraController {
           activePreset?.effects.lensDistortion.strength ?? 0.0,
       'tone': activePreset?.style?.tone ?? 0.0,
       'color': activePreset?.style?.color ?? 0.0,
-      'textureVal': activePreset?.style?.texture ?? 0.0,
-      'styleStrength': activePreset?.style?.styleStrength ?? 100.0,
+      'textureVal': textureVal,
+      'styleStrength': styleStrength,
       'undertoneX': activePreset?.style?.undertoneX ?? 0.0,
       'undertoneY': activePreset?.style?.undertoneY ?? 0.0,
+      'grainSize': finalGrainSize,
+      'softness': finalSoftness,
     };
   }
 
@@ -242,27 +266,50 @@ class CameraController extends _$CameraController {
         ? preset.lut as String
         : null;
 
+    final presetGrain = preset.grain.intensity;
+    final presetDust = preset.effects.dust.intensity;
+    final textureVal = preset.style?.texture ?? 0.0;
+    final styleStrength = preset.style?.styleStrength ?? 100.0;
+
+    final mapped = RanaTextureMapper.mapTexture(
+      textureVal,
+      presetGrain: presetGrain,
+      presetDust: presetDust,
+    );
+
+    final blend = styleStrength / 100.0;
+    final finalGrain =
+        presetGrain * (1.0 - blend) + (mapped['grain'] ?? 0.0) * blend;
+    final finalDust =
+        presetDust * (1.0 - blend) + (mapped['dust'] ?? 0.0) * blend;
+    final finalGrainSize =
+        1.0 * (1.0 - blend) + (mapped['grainSize'] ?? 1.0) * blend;
+    final finalSoftness =
+        0.0 * (1.0 - blend) + (mapped['softness'] ?? 0.0) * blend;
+
     return <String, dynamic>{
       'temperature': preset.color.temperature,
       'contrast': preset.color.contrast,
       'saturation': preset.color.saturation,
-      'grain': preset.grain.intensity,
+      'grain': finalGrain,
       'vignette': preset.vignette.intensity,
       'lutPath': lutPath,
       'lutStrength': lutPath != null ? 1.0 : 0.0,
       'lightLeakIntensity': preset.effects.lightLeak.intensity,
       'lightLeakVariant': _currentPreviewVariant ?? -1,
-      'dustIntensity': preset.effects.dust.intensity,
+      'dustIntensity': finalDust,
       'bloomThreshold': preset.effects.bloom.threshold,
       'bloomIntensity': preset.effects.bloom.intensity,
       'halationIntensity': preset.effects.halation.intensity,
       'lensDistortionStrength': preset.effects.lensDistortion.strength,
       'tone': preset.style?.tone ?? 0.0,
       'color': preset.style?.color ?? 0.0,
-      'textureVal': preset.style?.texture ?? 0.0,
-      'styleStrength': preset.style?.styleStrength ?? 100.0,
+      'textureVal': textureVal,
+      'styleStrength': styleStrength,
       'undertoneX': preset.style?.undertoneX ?? 0.0,
       'undertoneY': preset.style?.undertoneY ?? 0.0,
+      'grainSize': finalGrainSize,
+      'softness': finalSoftness,
     };
   }
 
