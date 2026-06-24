@@ -15,6 +15,9 @@ import 'package:rana/features/camera/widgets/compact_style_strip_widget.dart';
 import 'package:rana/features/camera/widgets/preset_chip_widget.dart';
 import 'package:rana/features/camera/widgets/rana_styles_panel_widget.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
+import 'package:rana/features/preset/model/rana_style.dart';
+import 'package:rana/features/preset/model/saved_rana_style.dart';
+import 'package:rana/features/preset/repository/saved_rana_style_repository.dart';
 import 'package:rana/features/settings/provider/settings_provider.dart';
 
 /// Interactive Camera Screen — Phase 0.4 & 0.5 Implementation.
@@ -427,6 +430,12 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                                 preset: preset,
                                 isSelected: isSelected,
                                 isEnabled: isReady,
+                                onDeleted:
+                                    SavedRanaStyle.isSavedStylePresetId(
+                                      preset.id,
+                                    )
+                                    ? () => _confirmDeleteStyle(preset)
+                                    : null,
                                 onSelected: (selected) {
                                   if (selected) {
                                     controller.selectPreset(preset);
@@ -531,10 +540,12 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 Navigator.of(sheetContext).pop();
               },
               onSaveAsStyle: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('SAVE AS STYLE COMING SOON'),
-                    behavior: SnackBarBehavior.floating,
+                unawaited(
+                  _showSaveStyleDialog(
+                    sheetContext,
+                    ref,
+                    activePreset,
+                    state.activeStyle,
                   ),
                 );
               },
@@ -543,6 +554,156 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _showSaveStyleDialog(
+    BuildContext sheetContext,
+    WidgetRef ref,
+    PresetModel? activePreset,
+    RanaStyle style,
+  ) async {
+    if (activePreset == null) {
+      return;
+    }
+
+    final basePresetId = _basePresetIdFor(activePreset);
+    final textController = TextEditingController(
+      text: '${activePreset.name} Style',
+    );
+
+    final savedName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF17171B),
+        title: const Text(
+          'SAVE AS STYLE',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+          ),
+        ),
+        content: TextField(
+          controller: textController,
+          autofocus: true,
+          maxLength: 32,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            labelText: 'STYLE NAME',
+            labelStyle: TextStyle(color: Colors.white54),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.white24),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFFF39C12)),
+            ),
+          ),
+          textCapitalization: TextCapitalization.words,
+          onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(textController.text),
+            child: const Text('SAVE'),
+          ),
+        ],
+      ),
+    );
+
+    textController.dispose();
+    final name = savedName?.trim();
+    if (name == null || name.isEmpty) {
+      return;
+    }
+
+    final createdAt = DateTime.now().toUtc();
+    final savedStyle = SavedRanaStyle(
+      id: SavedRanaStyle.createId(createdAt),
+      name: name,
+      basePresetId: basePresetId,
+      style: style,
+      createdAt: createdAt,
+    );
+
+    await ref.read(savedRanaStyleRepositoryProvider).save(savedStyle);
+    ref.invalidate(presetsProvider);
+
+    if (!mounted || !sheetContext.mounted) {
+      return;
+    }
+
+    Navigator.of(sheetContext).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('SAVED STYLE ${name.toUpperCase()}'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteStyle(PresetModel preset) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF17171B),
+        title: const Text(
+          'DELETE STYLE',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+          ),
+        ),
+        content: Text(
+          preset.name,
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('DELETE'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true) {
+      return;
+    }
+
+    await ref.read(savedRanaStyleRepositoryProvider).delete(preset.id);
+    ref.invalidate(presetsProvider);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('DELETED STYLE ${preset.name.toUpperCase()}'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  String _basePresetIdFor(PresetModel preset) {
+    final behavior = preset.behavior;
+    if (behavior is Map<String, dynamic>) {
+      final basePresetId = behavior['basePresetId'];
+      if (basePresetId is String && basePresetId.isNotEmpty) {
+        return basePresetId;
+      }
+    }
+    return preset.id;
   }
 
   PresetModel? _findPresetById(List<PresetModel> presets, String id) {

@@ -6,12 +6,12 @@ part of 'camera_controller.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$cameraControllerHash() => r'0cae3c1b533eddb0ce44a60af081f95f19466fbe';
+String _$cameraControllerHash() => r'f035c7c4e2718bd01923ca0737adefdd76395dd3';
 
 /// See also [CameraController].
 @ProviderFor(CameraController)
 final cameraControllerProvider =
-    AutoDisposeNotifierProvider<CameraController, CameraState>.internal(
+    NotifierProvider<CameraController, CameraState>.internal(
       CameraController.new,
       name: r'cameraControllerProvider',
       debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -21,6 +21,6 @@ final cameraControllerProvider =
       allTransitiveDependencies: null,
     );
 
-typedef _$CameraController = AutoDisposeNotifier<CameraState>;
+typedef _$CameraController = Notifier<CameraState>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

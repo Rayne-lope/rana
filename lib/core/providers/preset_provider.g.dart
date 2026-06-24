@@ -6,7 +6,7 @@ part of 'preset_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$presetsHash() => r'f63bab2cd8961aae4da4e92e112d4bb9814aff74';
+String _$presetsHash() => r'e16373475f441be004e6983d9cff861b6d64c6d4';
 
 /// Provider exposing the list of parsed presets loaded dynamically from assets.
 ///

@@ -13,11 +13,12 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'camera_controller.g.dart';
 
-@riverpod
+@Riverpod(keepAlive: true)
 class CameraController extends _$CameraController {
   late final CameraPlatformService _platformService;
   StreamSubscription<Map<String, dynamic>>? _statusSubscription;
   int? _currentPreviewVariant;
+  PresetModel? _selectedPreset;
 
   int _randomizeVariant() => Random().nextInt(4); // 0 to 3
 
@@ -118,6 +119,7 @@ class CameraController extends _$CameraController {
           .read(consistencyDebugProvider.notifier)
           .update((state) => GlParamsState(lastPreviewParams: paramsMap));
       await _platformService.selectPreset(preset.id, paramsMap);
+      _selectedPreset = preset;
       state = state.copyWith(
         activePresetId: preset.id,
         activeStyle: effectiveStyle,
@@ -343,6 +345,11 @@ class CameraController extends _$CameraController {
   }
 
   PresetModel? _activePreset() {
+    final selectedPreset = _selectedPreset;
+    if (selectedPreset != null && selectedPreset.id == state.activePresetId) {
+      return selectedPreset;
+    }
+
     final presets = ref.read(presetsProvider).valueOrNull;
     if (presets == null) {
       return null;
@@ -350,6 +357,7 @@ class CameraController extends _$CameraController {
 
     for (final preset in presets) {
       if (preset.id == state.activePresetId) {
+        _selectedPreset = preset;
         return preset;
       }
     }
