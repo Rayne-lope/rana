@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,7 +12,6 @@ import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/camera/controller/camera_controller.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/camera/view/permission_screen.dart';
-import 'package:rana/features/camera/widgets/compact_style_strip_widget.dart';
 import 'package:rana/features/camera/widgets/preset_chip_widget.dart';
 import 'package:rana/features/camera/widgets/rana_styles_panel_widget.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
@@ -119,9 +119,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       body: SafeArea(
         child: Column(
           children: [
-            // ── Top Control & Status Bar ─────────────────────────────────────
-            _buildTopBar(cameraState, controller),
-
             // ── Viewfinder Area ──────────────────────────────────────────────
             Expanded(child: _buildViewfinder(cameraState, controller)),
 
@@ -133,7 +130,63 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     );
   }
 
-  Widget _buildTopBar(CameraState state, CameraController controller) {
+  Widget _buildGlassIconButton({
+    required IconData icon,
+    required VoidCallback? onPressed,
+    Color iconColor = Colors.white70,
+    String? tooltip,
+  }) {
+    return Tooltip(
+      message: tooltip ?? '',
+      child: ClipOval(
+        child: Material(
+          color: Colors.black.withValues(alpha: 0.4),
+          child: InkWell(
+            onTap: onPressed,
+            child: SizedBox(
+              width: 40,
+              height: 40,
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGlassTextButton({
+    required String text,
+    required VoidCallback? onPressed,
+    String? tooltip,
+  }) {
+    return Tooltip(
+      message: tooltip ?? '',
+      child: ClipOval(
+        child: Material(
+          color: Colors.black.withValues(alpha: 0.4),
+          child: InkWell(
+            onTap: onPressed,
+            child: SizedBox(
+              width: 40,
+              height: 40,
+              child: Center(
+                child: Text(
+                  text,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopOverlayControls(CameraState state, CameraController controller) {
     final isReady =
         state.isCameraInitialized && state.captureStatus == CaptureStatus.idle;
     IconData flashIcon;
@@ -141,7 +194,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     switch (state.flashMode) {
       case FlashMode.off:
         flashIcon = Icons.flash_off_rounded;
-        flashColor = Colors.white38;
+        flashColor = Colors.white70;
       case FlashMode.on:
         flashIcon = Icons.flash_on_rounded;
         flashColor = const Color(0xFFF1C40F); // Vivid yellow
@@ -150,66 +203,176 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         flashColor = const Color(0xFFE67E22); // Orange accent
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Flash Mode Button
-          IconButton(
-            onPressed: isReady ? controller.toggleFlashMode : null,
-            icon: Icon(flashIcon, color: flashColor, size: 24),
-            tooltip: 'Flash: ${state.flashMode.label}',
-          ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // Flash Mode Button
+        _buildGlassIconButton(
+          icon: flashIcon,
+          iconColor: flashColor,
+          tooltip: 'Flash: ${state.flashMode.label}',
+          onPressed: isReady ? controller.toggleFlashMode : null,
+        ),
 
-          // Platform FPS & Status Indicator
-          Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: state.isCameraInitialized
-                      ? const Color(0xFF2ECC71) // Rich green
-                      : const Color(0xFFE74C3C), // Crimson red
-                  boxShadow: [
-                    if (state.isCameraInitialized)
-                      BoxShadow(
-                        color: const Color(0xFF2ECC71).withValues(alpha: 0.5),
-                        blurRadius: 6,
-                        spreadRadius: 2,
-                      ),
-                  ],
-                ),
+        // Ratio Button (Placeholder)
+        _buildGlassTextButton(
+          text: '4:3',
+          tooltip: 'Aspect Ratio',
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('CAMERA ASPECT RATIO OPTION COMING SOON'),
+                behavior: SnackBarBehavior.floating,
+                duration: Duration(seconds: 2),
               ),
-              const SizedBox(width: 8),
-              Text(
-                state.isCameraInitialized
-                    ? 'LIVE — ${state.currentFps} FPS'
-                    : 'OFFLINE',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.5,
-                ),
+            );
+          },
+        ),
+
+        // Timer Button (Placeholder)
+        _buildGlassIconButton(
+          icon: Icons.timer_outlined,
+          tooltip: 'Self Timer',
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('SELF TIMER OPTION COMING SOON'),
+                behavior: SnackBarBehavior.floating,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          },
+        ),
+
+        // Camera Flip Button
+        _buildGlassIconButton(
+          icon: Icons.flip_camera_android_rounded,
+          tooltip: 'Flip Lens',
+          onPressed: isReady ? controller.toggleLens : null,
+        ),
+
+        // Settings Button
+        _buildGlassIconButton(
+          icon: Icons.settings_rounded,
+          tooltip: 'Settings',
+          onPressed: () => context.go(AppRoutes.settings),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPresetOverlay(CameraState state) {
+    final presetsAsync = ref.watch(presetsProvider);
+    final presetsList = presetsAsync.valueOrNull ?? [];
+    if (presetsList.isEmpty) return const SizedBox.shrink();
+
+    PresetModel? activePreset;
+    int activeIndex = 0;
+    for (int i = 0; i < presetsList.length; i++) {
+      if (presetsList[i].id == state.activePresetId) {
+        activePreset = presetsList[i];
+        activeIndex = i;
+        break;
+      }
+    }
+
+    if (activePreset == null) return const SizedBox.shrink();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Glassmorphic Preset Name Pill
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.15),
+              width: 1,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 4,
+                offset: Offset(0, 2),
               ),
             ],
           ),
-
-          // Flip Lens Button
-          IconButton(
-            onPressed: isReady ? controller.toggleLens : null,
-            icon: const Icon(
-              Icons.flip_camera_android_rounded,
-              color: Colors.white70,
-              size: 24,
+          child: Text(
+            activePreset.name.toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.5,
             ),
-            tooltip: 'Flip Lens',
           ),
-        ],
+        ),
+        const SizedBox(height: 8),
+        // Page dots indicator
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(presetsList.length, (index) {
+            final isSelected = index == activeIndex;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: isSelected ? 6 : 4,
+              height: isSelected ? 6 : 4,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected
+                    ? const Color(0xFFF39C12)
+                    : Colors.white.withValues(alpha: 0.3),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildThumbnailButton(CameraState state) {
+    final path = state.lastCapturedPath;
+    final fileExists = path != null && File(path).existsSync();
+
+    return GestureDetector(
+      onTap: () => context.go(AppRoutes.gallery),
+      child: Container(
+        width: 54,
+        height: 54,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white24,
+            width: 2,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black38,
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ClipOval(
+          child: fileExists
+              ? Image.file(
+                  File(path),
+                  fit: BoxFit.cover,
+                  width: 54,
+                  height: 54,
+                )
+              : Container(
+                  color: const Color(0xFF1E1E24),
+                  child: const Icon(
+                    Icons.photo_library_outlined,
+                    color: Colors.white54,
+                    size: 24,
+                  ),
+                ),
+        ),
       ),
     );
   }
@@ -269,6 +432,22 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                       ),
                     ),
                   ),
+                ),
+
+                // Top controls overlay
+                Positioned(
+                  top: 16,
+                  left: 16,
+                  right: 16,
+                  child: _buildTopOverlayControls(state, controller),
+                ),
+
+                // Bottom active preset & indicator overlay
+                Positioned(
+                  bottom: 24,
+                  left: 0,
+                  right: 0,
+                  child: _buildPresetOverlay(state),
                 ),
 
                 // Capture animation overlay
@@ -356,13 +535,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       padding: const EdgeInsets.only(top: 16, bottom: 24),
       child: Column(
         children: [
-          if (state.isCameraInitialized) ...[
-            CompactStyleStripWidget(
-              activePreset: activePreset,
-              activeStyle: state.activeStyle,
-            ),
-            const SizedBox(height: 16),
-          ],
+          // Simplified horizontal scrollable preset carousel of PresetChipWidgets
           presetsAsync.when(
             data: (presetsList) {
               if (presetsList.isEmpty) {
@@ -379,77 +552,34 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 );
               }
 
-              final categories = <String>[];
-              final grouped = <String, List<PresetModel>>{};
-              for (final preset in presetsList) {
-                if (!grouped.containsKey(preset.category)) {
-                  categories.add(preset.category);
-                  grouped[preset.category] = [];
-                }
-                grouped[preset.category]!.add(preset);
-              }
+              return SizedBox(
+                height: 48,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: presetsList.length,
+                  itemBuilder: (context, index) {
+                    final preset = presetsList[index];
+                    final isSelected = state.activePresetId == preset.id;
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: categories.map((category) {
-                  final list = grouped[category]!;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 22,
-                          vertical: 6,
-                        ),
-                        child: Text(
-                          '● ${category.toUpperCase()}',
-                          style: const TextStyle(
-                            color: Color(0xFFF39C12),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: PresetChipWidget(
+                        preset: preset,
+                        isSelected: isSelected,
+                        isEnabled: isReady,
+                        onDeleted: SavedRanaStyle.isSavedStylePresetId(preset.id)
+                            ? () => _confirmDeleteStyle(preset)
+                            : null,
+                        onSelected: (selected) {
+                          if (selected) {
+                            controller.selectPreset(preset);
+                          }
+                        },
                       ),
-                      SizedBox(
-                        height: 48,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: list.length,
-                          itemBuilder: (context, index) {
-                            final preset = list[index];
-                            final isSelected =
-                                state.activePresetId == preset.id;
-
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                              ),
-                              child: PresetChipWidget(
-                                preset: preset,
-                                isSelected: isSelected,
-                                isEnabled: isReady,
-                                onDeleted:
-                                    SavedRanaStyle.isSavedStylePresetId(
-                                      preset.id,
-                                    )
-                                    ? () => _confirmDeleteStyle(preset)
-                                    : null,
-                                onSelected: (selected) {
-                                  if (selected) {
-                                    controller.selectPreset(preset);
-                                  }
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  );
-                }).toList(),
+                    );
+                  },
+                ),
               );
             },
             loading: _buildShimmerLoading,
@@ -471,10 +601,15 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // Extra space left for action alignment
-              const SizedBox(width: 72),
+              // Circular thumbnail (left) - tapping opens gallery
+              SizedBox(
+                width: 72,
+                child: Center(
+                  child: _buildThumbnailButton(state),
+                ),
+              ),
 
-              // Shutter capture button
+              // Shutter capture button (center)
               GestureDetector(
                 onTap: isReady ? controller.capture : null,
                 child: Container(
@@ -497,11 +632,32 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 ),
               ),
 
+              // Style and Reset Button (right)
               SizedBox(
-                width: 72,
-                child: _StylePanelButton(
-                  isEnabled: isReady && activePreset != null,
-                  onPressed: () => _showRanaStylesPanel(activePreset),
+                width: 100, // Fit both Reset icon button and Style panel text button cleanly
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      onPressed: isReady && state.activeStyle != const RanaStyle()
+                          ? controller.resetActiveStyle
+                          : null,
+                      icon: Icon(
+                        Icons.replay_rounded,
+                        color: state.activeStyle != const RanaStyle()
+                            ? const Color(0xFFF39C12)
+                            : Colors.white24,
+                        size: 22,
+                      ),
+                      tooltip: 'Reset Style',
+                    ),
+                    Expanded(
+                      child: _StylePanelButton(
+                        isEnabled: isReady && activePreset != null,
+                        onPressed: () => _showRanaStylesPanel(activePreset),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

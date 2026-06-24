@@ -80,7 +80,7 @@ void main() {
     });
 
     testWidgets(
-      'NavigationBar with 3 destinations appears after splash delay',
+      'NavigationBar is removed and not visible after splash delay',
       (WidgetTester tester) async {
         await tester.pumpWidget(const ProviderScope(child: RanaApp()));
 
@@ -88,39 +88,36 @@ void main() {
         await tester.pump(const Duration(milliseconds: 1300));
         await tester.pumpAndSettle();
 
-        // Shell should now be visible with a NavigationBar.
-        expect(find.byType(NavigationBar), findsOneWidget);
-        expect(find.byType(NavigationDestination), findsNWidgets(3));
-
-        // Verify destination labels.
-        expect(find.text('Camera'), findsOneWidget);
-        expect(find.text('Gallery'), findsOneWidget);
-        expect(find.text('Settings'), findsOneWidget);
+        // NavigationBar should not be present.
+        expect(find.byType(NavigationBar), findsNothing);
+        expect(find.byType(NavigationDestination), findsNothing);
       },
     );
 
-    testWidgets('tapping Gallery tab switches to Gallery branch', (
+    testWidgets('tapping gallery thumbnail navigates to Gallery Screen', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(const ProviderScope(child: RanaApp()));
       await tester.pump(const Duration(milliseconds: 1300));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Gallery'));
+      // Tap gallery thumbnail icon button
+      await tester.tap(find.byIcon(Icons.photo_library_outlined));
       await tester.pumpAndSettle();
 
       // Gallery screen shows its AppBar title.
       expect(find.text('Gallery'), findsWidgets);
     });
 
-    testWidgets('tapping Settings tab switches to Settings branch', (
+    testWidgets('tapping Settings cog navigates to Settings Screen', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(const ProviderScope(child: RanaApp()));
       await tester.pump(const Duration(milliseconds: 1300));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Settings'));
+      // Tap settings cog icon button
+      await tester.tap(find.byIcon(Icons.settings_rounded));
       await tester.pumpAndSettle();
 
       expect(find.text('Settings'), findsWidgets);
