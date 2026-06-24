@@ -1,5 +1,6 @@
 package com.rana.app.rana
 
+import android.graphics.Rect
 import android.graphics.SurfaceTexture
 import android.opengl.EGL14
 import android.opengl.EGLConfig
@@ -194,8 +195,7 @@ class CameraGlRenderer(
     private var viewportWidth = width
     private var viewportHeight = height
 
-    private var cameraWidth = 0
-    private var cameraHeight = 0
+    private var cameraCropRect = Rect(0, 0, 0, 0)
     private var cameraRotationDegrees = 0
 
     private val vertexBuffer: FloatBuffer = ByteBuffer
@@ -332,24 +332,29 @@ class CameraGlRenderer(
         }
     }
 
-    fun setCameraResolution(w: Int, h: Int, rotationDegrees: Int) {
+    fun setCameraTransform(cropRect: Rect, rotationDegrees: Int) {
         renderHandler.post {
-            cameraWidth = w
-            cameraHeight = h
+            cameraCropRect = Rect(cropRect)
             cameraRotationDegrees = rotationDegrees
             updateViewportScaling()
         }
     }
 
+    fun setCameraResolution(w: Int, h: Int, rotationDegrees: Int) {
+        setCameraTransform(Rect(0, 0, w, h), rotationDegrees)
+    }
+
     private fun updateViewportScaling() {
-        if (cameraWidth <= 0 || cameraHeight <= 0 || viewportWidth <= 0 || viewportHeight <= 0) {
+        val cropWidth = cameraCropRect.width()
+        val cropHeight = cameraCropRect.height()
+        if (cropWidth <= 0 || cropHeight <= 0 || viewportWidth <= 0 || viewportHeight <= 0) {
             return
         }
 
         val previewAspectRatio = if (cameraRotationDegrees == 90 || cameraRotationDegrees == 270) {
-            cameraHeight.toFloat() / cameraWidth.toFloat()
+            cropHeight.toFloat() / cropWidth.toFloat()
         } else {
-            cameraWidth.toFloat() / cameraHeight.toFloat()
+            cropWidth.toFloat() / cropHeight.toFloat()
         }
 
         val viewportAspectRatio = viewportWidth.toFloat() / viewportHeight.toFloat()

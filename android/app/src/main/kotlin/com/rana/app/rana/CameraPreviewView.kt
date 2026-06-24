@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.graphics.Rect
 import android.graphics.SurfaceTexture
 import android.net.Uri
 import android.os.Build
@@ -20,8 +21,8 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.UseCaseGroup
 import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import io.flutter.plugin.platform.PlatformView
@@ -68,6 +69,7 @@ class CameraPreviewView(
                 else -> Surface.ROTATION_0
             }
             currentRotation = rotation
+            previewUseCase?.targetRotation = rotation
             imageCapture?.targetRotation = rotation
         }
     }
@@ -154,8 +156,13 @@ class CameraPreviewView(
             try {
                 provider.unbindAll()
 
-                val preview = Preview.Builder()
-                    .setTargetAspectRatio(currentAspectRatio.cameraXTargetAspectRatio)
+                val displayRotation = currentDisplayRotation()
+                val resolutionSelector = currentAspectRatio.resolutionSelector()
+                val viewPort = currentAspectRatio.viewPort(displayRotation)
+
+                val previewUseCase = Preview.Builder()
+                    .setTargetRotation(displayRotation)
+                    .setResolutionSelector(resolutionSelector)
                     .build()
                     .also {
                     it.setSurfaceProvider { request ->
@@ -163,17 +170,13 @@ class CameraPreviewView(
                         val cameraSurfaceTexture = renderer.cameraSurfaceTexture
                         if (cameraSurfaceTexture != null) {
                             cameraSurfaceTexture.setDefaultBufferSize(resolution.width, resolution.height)
-                            
+
                             request.setTransformationInfoListener(
                                 ContextCompat.getMainExecutor(context)
                             ) { info ->
-                                renderer.setCameraResolution(
-                                    resolution.width,
-                                    resolution.height,
-                                    info.rotationDegrees
-                                )
+                                renderer.setCameraTransform(info.cropRect, info.rotationDegrees)
                             }
-                            
+
                             val surface = Surface(cameraSurfaceTexture)
                             request.provideSurface(surface, ContextCompat.getMainExecutor(context)) {
                                 surface.release()
@@ -183,23 +186,30 @@ class CameraPreviewView(
                         }
                     }
                 }
-                previewUseCase = preview
+                this.previewUseCase = previewUseCase
 
-                imageCapture = ImageCapture.Builder()
-                    .setTargetAspectRatio(currentAspectRatio.cameraXTargetAspectRatio)
+                val imageCaptureUseCase = ImageCapture.Builder()
+                    .setTargetRotation(displayRotation)
+                    .setResolutionSelector(resolutionSelector)
                     .setFlashMode(currentFlashMode)
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
                     .build()
+                imageCapture = imageCaptureUseCase
 
                 val cameraSelector = CameraSelector.Builder()
                     .requireLensFacing(currentLensFacing)
                     .build()
 
+                val useCaseGroup = UseCaseGroup.Builder()
+                    .addUseCase(previewUseCase)
+                    .addUseCase(imageCaptureUseCase)
+                    .setViewPort(viewPort)
+                    .build()
+
                 provider.bindToLifecycle(
                     activity as LifecycleOwner,
                     cameraSelector,
-                    preview,
-                    imageCapture
+                    useCaseGroup
                 )
 
                 syncCurrentRotationFromDisplay()
@@ -334,7 +344,7 @@ class CameraPreviewView(
             return
         }
 
-        // syncCurrentRotationFromDisplay()
+        syncCurrentRotationFromDisplay()
         capture.targetRotation = currentRotation
 
         capture.takePicture(
@@ -366,24 +376,21 @@ class CameraPreviewView(
                                 } else {
                                     params
                                 }
-                            inputBitmap = transformCapturedBitmap(
+                            inputBitmap = cropCapturedBitmap(
                                 decodedBitmap,
-                                image.imageInfo.rotationDegrees,
-                                currentLensFacing == CameraSelector.LENS_FACING_FRONT
+                                image.cropRect,
+                                qualityMetadata?.inSampleSize ?: 1
                             )
                             if (inputBitmap !== decodedBitmap) {
                                 decodedBitmap.recycle()
                             }
                             decodedBitmap = null
 
-                            val framedBitmap = cropBitmapToAspectRatio(
+                            inputBitmap = transformCapturedBitmap(
                                 inputBitmap,
-                                currentAspectRatio.captureCropRatio
+                                image.imageInfo.rotationDegrees,
+                                currentLensFacing == CameraSelector.LENS_FACING_FRONT
                             )
-                            if (framedBitmap !== inputBitmap) {
-                                inputBitmap?.safeRecycle()
-                            }
-                            inputBitmap = framedBitmap
 
                             processedBitmap = OfflineGlProcessor.processImage(
                                 context,
@@ -493,18 +500,62 @@ class CameraPreviewView(
         )
     }
 
-    private fun syncCurrentRotationFromDisplay() {
+    private fun cropCapturedBitmap(
+        bitmap: Bitmap,
+        cropRect: Rect,
+        sampleSize: Int
+    ): Bitmap {
+        val sampledCropRect = calculateSampledCropBounds(
+            cropLeft = cropRect.left,
+            cropTop = cropRect.top,
+            cropRight = cropRect.right,
+            cropBottom = cropRect.bottom,
+            sampleSize = sampleSize,
+            bitmapWidth = bitmap.width,
+            bitmapHeight = bitmap.height
+        )
+
+        val needsViewportCrop =
+            sampledCropRect.left != 0 ||
+                sampledCropRect.top != 0 ||
+                sampledCropRect.width != bitmap.width ||
+                sampledCropRect.height != bitmap.height
+
+        if (needsViewportCrop) {
+            return cropBitmapToRect(
+                bitmap,
+                Rect(
+                    sampledCropRect.left,
+                    sampledCropRect.top,
+                    sampledCropRect.right,
+                    sampledCropRect.bottom
+                )
+            )
+        }
+
+        val bitmapAspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
+        return if (kotlin.math.abs(bitmapAspectRatio - currentAspectRatio.captureCropRatio) > 0.001f) {
+            cropBitmapToAspectRatio(bitmap, currentAspectRatio.captureCropRatio)
+        } else {
+            bitmap
+        }
+    }
+
+    private fun currentDisplayRotation(): Int {
         val displayRotation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             activity.display?.rotation ?: Surface.ROTATION_0
         } else {
             @Suppress("DEPRECATION")
             activity.windowManager.defaultDisplay.rotation
         }
+        return displayRotation
+    }
+
+    private fun syncCurrentRotationFromDisplay() {
+        val displayRotation = currentDisplayRotation()
+        currentRotation = displayRotation
         previewUseCase?.targetRotation = displayRotation
-        if (!orientationEventListener.canDetectOrientation()) {
-            currentRotation = displayRotation
-            imageCapture?.targetRotation = displayRotation
-        }
+        imageCapture?.targetRotation = displayRotation
     }
 
     private fun transformCapturedBitmap(
