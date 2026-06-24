@@ -174,13 +174,13 @@ void main() {
       expect(model.style!.undertoneY, -0.45);
 
       final serialized = model.toJson();
-      expect(serialized['style'], isNotNull);
-      expect(serialized['style']['tone'], 12.0);
-      expect(serialized['style']['color'], -15.0);
-      expect(serialized['style']['texture'], 25.0);
-      expect(serialized['style']['styleStrength'], 85.0);
-      expect(serialized['style']['undertoneX'], 0.35);
-      expect(serialized['style']['undertoneY'], -0.45);
+      final styleMap = serialized['style'] as Map<String, dynamic>;
+      expect(styleMap['tone'], 12.0);
+      expect(styleMap['color'], -15.0);
+      expect(styleMap['texture'], 25.0);
+      expect(styleMap['styleStrength'], 85.0);
+      expect(styleMap['undertoneX'], 0.35);
+      expect(styleMap['undertoneY'], -0.45);
     });
   });
 }

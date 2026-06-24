@@ -161,7 +161,23 @@ class CameraGlRenderer(
         1.0f, 1.0f
     )
 
+    private var viewportWidth = width
+    private var viewportHeight = height
+
+    private var cameraWidth = 0
+    private var cameraHeight = 0
+    private var cameraRotationDegrees = 0
+
     private val vertexBuffer: FloatBuffer = ByteBuffer
+        .allocateDirect(vertexCoords.size * 4)
+        .order(ByteOrder.nativeOrder())
+        .asFloatBuffer()
+        .apply {
+            put(vertexCoords)
+            position(0)
+        }
+
+    private val unscaledVertexBuffer: FloatBuffer = ByteBuffer
         .allocateDirect(vertexCoords.size * 4)
         .order(ByteOrder.nativeOrder())
         .asFloatBuffer()
@@ -257,6 +273,60 @@ class CameraGlRenderer(
                     "lensDistortionStrength=$lensDistortionStrength"
             )
         }
+    }
+
+    fun setViewportSize(w: Int, h: Int) {
+        renderHandler.post {
+            viewportWidth = w
+            viewportHeight = h
+            updateViewportScaling()
+        }
+    }
+
+    fun setCameraResolution(w: Int, h: Int, rotationDegrees: Int) {
+        renderHandler.post {
+            cameraWidth = w
+            cameraHeight = h
+            cameraRotationDegrees = rotationDegrees
+            updateViewportScaling()
+        }
+    }
+
+    private fun updateViewportScaling() {
+        if (cameraWidth <= 0 || cameraHeight <= 0 || viewportWidth <= 0 || viewportHeight <= 0) {
+            return
+        }
+
+        val previewAspectRatio = if (cameraRotationDegrees == 90 || cameraRotationDegrees == 270) {
+            cameraHeight.toFloat() / cameraWidth.toFloat()
+        } else {
+            cameraWidth.toFloat() / cameraHeight.toFloat()
+        }
+
+        val viewportAspectRatio = viewportWidth.toFloat() / viewportHeight.toFloat()
+
+        val scaleX: Float
+        val scaleY: Float
+        if (viewportAspectRatio > previewAspectRatio) {
+            // Viewport is wider than preview. Crop top/bottom.
+            scaleX = 1f
+            scaleY = viewportAspectRatio / previewAspectRatio
+        } else {
+            // Viewport is taller than preview. Crop left/right.
+            scaleX = previewAspectRatio / viewportAspectRatio
+            scaleY = 1f
+        }
+
+        val scaledVertices = floatArrayOf(
+            -1.0f * scaleX, -1.0f * scaleY, 0.0f,
+             1.0f * scaleX, -1.0f * scaleY, 0.0f,
+            -1.0f * scaleX,  1.0f * scaleY, 0.0f,
+             1.0f * scaleX,  1.0f * scaleY, 0.0f
+        )
+
+        vertexBuffer.position(0)
+        vertexBuffer.put(scaledVertices)
+        vertexBuffer.position(0)
     }
 
     fun release() {
@@ -377,7 +447,7 @@ class CameraGlRenderer(
             throw RuntimeException("eglMakeCurrent failed")
         }
 
-        GLES20.glViewport(0, 0, width, height)
+        GLES20.glViewport(0, 0, viewportWidth, viewportHeight)
     }
 
     private fun setupSinglePassShader() {
@@ -572,7 +642,7 @@ class CameraGlRenderer(
 
     private fun drawSinglePassFrame(texMatrix: FloatArray) {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
-        GLES20.glViewport(0, 0, width, height)
+        GLES20.glViewport(0, 0, viewportWidth, viewportHeight)
         GLES20.glClearColor(0f, 0f, 0f, 1f)
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         GLES20.glUseProgram(singlePassProgram.programId)
@@ -646,7 +716,7 @@ class CameraGlRenderer(
             ?: throw RuntimeException("Bloom processor unavailable")
 
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, baseFramebufferId)
-        GLES20.glViewport(0, 0, width, height)
+        GLES20.glViewport(0, 0, viewportWidth, viewportHeight)
         GLES20.glClearColor(0f, 0f, 0f, 1f)
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         GLES20.glUseProgram(baseProgram.programId)
@@ -678,19 +748,19 @@ class CameraGlRenderer(
 
         val bloomResult = bloom.applyBloom(
             inputTextureId = baseTextureId,
-            sourceWidth = width,
-            sourceHeight = height,
+            sourceWidth = viewportWidth,
+            sourceHeight = viewportHeight,
             bloomThreshold = bloomThreshold,
             divisor = currentBloomDivisor
         )
 
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
-        GLES20.glViewport(0, 0, width, height)
+        GLES20.glViewport(0, 0, viewportWidth, viewportHeight)
         GLES20.glClearColor(0f, 0f, 0f, 1f)
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         GLES20.glUseProgram(composite.programId)
 
-        bindQuad(composite.positionLoc, composite.textureCoordLoc)
+        bindQuad(composite.positionLoc, composite.textureCoordLoc, unscaledVertexBuffer)
         GLES20.glUniformMatrix4fv(composite.texMatrixLoc, 1, false, identityMatrix, 0)
         GLES20.glUniform1f(composite.bloomIntensityLoc, bloomIntensity)
         GLES20.glUniform1f(composite.halationIntensityLoc, halationIntensity)
@@ -735,14 +805,14 @@ class CameraGlRenderer(
         val needsRecreate =
             baseFramebufferId == 0 ||
                 baseTextureId == 0 ||
-                baseFramebufferWidth != width ||
-                baseFramebufferHeight != height
+                baseFramebufferWidth != viewportWidth ||
+                baseFramebufferHeight != viewportHeight
 
         if (!needsRecreate) return
 
         releaseBaseFramebuffer()
-        baseFramebufferWidth = width
-        baseFramebufferHeight = height
+        baseFramebufferWidth = viewportWidth
+        baseFramebufferHeight = viewportHeight
 
         val textures = IntArray(1)
         GLES20.glGenTextures(1, textures, 0)
@@ -807,8 +877,12 @@ class CameraGlRenderer(
         }
     }
 
-    private fun bindQuad(positionLoc: Int, textureCoordLoc: Int) {
-        vertexBuffer.position(0)
+    private fun bindQuad(
+        positionLoc: Int,
+        textureCoordLoc: Int,
+        activeVertexBuffer: FloatBuffer = vertexBuffer
+    ) {
+        activeVertexBuffer.position(0)
         textureBuffer.position(0)
         GLES20.glEnableVertexAttribArray(positionLoc)
         GLES20.glVertexAttribPointer(
@@ -817,7 +891,7 @@ class CameraGlRenderer(
             GLES20.GL_FLOAT,
             false,
             12,
-            vertexBuffer
+            activeVertexBuffer
         )
         GLES20.glEnableVertexAttribArray(textureCoordLoc)
         GLES20.glVertexAttribPointer(

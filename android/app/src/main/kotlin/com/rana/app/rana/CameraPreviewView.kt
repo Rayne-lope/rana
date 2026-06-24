@@ -59,7 +59,14 @@ class CameraPreviewView(
     private val orientationEventListener = object : OrientationEventListener(context) {
         override fun onOrientationChanged(orientation: Int) {
             if (orientation == ORIENTATION_UNKNOWN) return
-            syncCurrentRotationFromDisplay()
+            val rotation = when (orientation) {
+                in 45 until 135 -> Surface.ROTATION_270
+                in 135 until 225 -> Surface.ROTATION_180
+                in 225 until 315 -> Surface.ROTATION_90
+                else -> Surface.ROTATION_0
+            }
+            currentRotation = rotation
+            imageCapture?.targetRotation = rotation
         }
     }
 
@@ -87,7 +94,7 @@ class CameraPreviewView(
             }
 
             override fun onSurfaceTextureSizeChanged(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
-                // Ignore for MVP
+                glRenderer?.setViewportSize(width, height)
             }
 
             override fun onSurfaceTextureDestroyed(surfaceTexture: SurfaceTexture): Boolean {
@@ -149,6 +156,17 @@ class CameraPreviewView(
                         val cameraSurfaceTexture = renderer.cameraSurfaceTexture
                         if (cameraSurfaceTexture != null) {
                             cameraSurfaceTexture.setDefaultBufferSize(resolution.width, resolution.height)
+                            
+                            request.setTransformationInfoListener(
+                                ContextCompat.getMainExecutor(context)
+                            ) { info ->
+                                renderer.setCameraResolution(
+                                    resolution.width,
+                                    resolution.height,
+                                    info.rotationDegrees
+                                )
+                            }
+                            
                             val surface = Surface(cameraSurfaceTexture)
                             request.provideSurface(surface, ContextCompat.getMainExecutor(context)) {
                                 surface.release()
@@ -275,7 +293,7 @@ class CameraPreviewView(
             return
         }
 
-        syncCurrentRotationFromDisplay()
+        // syncCurrentRotationFromDisplay()
         capture.targetRotation = currentRotation
 
         capture.takePicture(
@@ -432,9 +450,11 @@ class CameraPreviewView(
             @Suppress("DEPRECATION")
             activity.windowManager.defaultDisplay.rotation
         }
-        currentRotation = displayRotation
-        imageCapture?.targetRotation = displayRotation
         previewUseCase?.targetRotation = displayRotation
+        if (!orientationEventListener.canDetectOrientation()) {
+            currentRotation = displayRotation
+            imageCapture?.targetRotation = displayRotation
+        }
     }
 
     private fun transformCapturedBitmap(

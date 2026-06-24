@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'rana_style.dart';
+import 'package:rana/features/preset/model/rana_style.dart';
 
 /// Preset color parameters.
 @immutable
@@ -489,5 +489,6 @@ class PresetModel {
   String toString() =>
       'PresetModel(id: $id, name: $name, category: $category, '
       'color: $color, grain: $grain, vignette: $vignette, lut: $lut, '
-      'overlay: $overlay, behavior: $behavior, effects: $effects, style: $style)';
+      'overlay: $overlay, behavior: $behavior, effects: $effects, '
+      'style: $style)';
 }

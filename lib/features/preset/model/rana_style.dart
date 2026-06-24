@@ -79,5 +79,6 @@ class RanaStyle {
   @override
   String toString() =>
       'RanaStyle(tone: $tone, color: $color, texture: $texture, '
-      'styleStrength: $styleStrength, undertoneX: $undertoneX, undertoneY: $undertoneY)';
+      'styleStrength: $styleStrength, undertoneX: $undertoneX, '
+      'undertoneY: $undertoneY)';
 }
