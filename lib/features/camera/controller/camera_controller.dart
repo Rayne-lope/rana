@@ -203,6 +203,12 @@ class CameraController extends _$CameraController {
       'halationIntensity': activePreset?.effects.halation.intensity ?? 0.0,
       'lensDistortionStrength':
           activePreset?.effects.lensDistortion.strength ?? 0.0,
+      'tone': activePreset?.style?.tone ?? 0.0,
+      'color': activePreset?.style?.color ?? 0.0,
+      'textureVal': activePreset?.style?.texture ?? 0.0,
+      'styleStrength': activePreset?.style?.styleStrength ?? 100.0,
+      'undertoneX': activePreset?.style?.undertoneX ?? 0.0,
+      'undertoneY': activePreset?.style?.undertoneY ?? 0.0,
     };
   }
 
@@ -251,6 +257,12 @@ class CameraController extends _$CameraController {
       'bloomIntensity': preset.effects.bloom.intensity,
       'halationIntensity': preset.effects.halation.intensity,
       'lensDistortionStrength': preset.effects.lensDistortion.strength,
+      'tone': preset.style?.tone ?? 0.0,
+      'color': preset.style?.color ?? 0.0,
+      'textureVal': preset.style?.texture ?? 0.0,
+      'styleStrength': preset.style?.styleStrength ?? 100.0,
+      'undertoneX': preset.style?.undertoneX ?? 0.0,
+      'undertoneY': preset.style?.undertoneY ?? 0.0,
     };
   }
 

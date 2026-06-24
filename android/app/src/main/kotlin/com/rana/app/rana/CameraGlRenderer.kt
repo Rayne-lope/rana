@@ -52,7 +52,13 @@ class CameraGlRenderer(
         val bloomIntensityLoc: Int,
         val halationIntensityLoc: Int,
         val textureLoc: Int,
-        val timeLoc: Int
+        val timeLoc: Int,
+        val toneLoc: Int,
+        val colorLoc: Int,
+        val textureValLoc: Int,
+        val styleStrengthLoc: Int,
+        val undertoneXLoc: Int,
+        val undertoneYLoc: Int
     )
 
     private data class BasePassProgram(
@@ -66,7 +72,13 @@ class CameraGlRenderer(
         val contrastLoc: Int,
         val lutTextureLoc: Int,
         val lutStrengthLoc: Int,
-        val textureLoc: Int
+        val textureLoc: Int,
+        val toneLoc: Int,
+        val colorLoc: Int,
+        val textureValLoc: Int,
+        val styleStrengthLoc: Int,
+        val undertoneXLoc: Int,
+        val undertoneYLoc: Int
     )
 
     private data class CompositeProgram(
@@ -125,6 +137,12 @@ class CameraGlRenderer(
     private var lensDistortionStrength = 0f
     private var dustUVOffsetX = 0f
     private var dustUVOffsetY = 0f
+    private var tone = 0f
+    private var color = 0f
+    private var textureVal = 0f
+    private var styleStrength = 100f
+    private var undertoneX = 0f
+    private var undertoneY = 0f
 
     private var activeLutTextureId = -1
     private var activeLutPath: String? = null
@@ -232,7 +250,13 @@ class CameraGlRenderer(
         bloomThreshold: Float,
         bloomIntensity: Float,
         halationIntensity: Float,
-        lensDistortionStrength: Float
+        lensDistortionStrength: Float,
+        tone: Float,
+        color: Float,
+        textureVal: Float,
+        styleStrength: Float,
+        undertoneX: Float,
+        undertoneY: Float
     ) {
         renderHandler.post {
             this.temperature = temperature
@@ -248,6 +272,12 @@ class CameraGlRenderer(
             this.bloomIntensity = bloomIntensity
             this.halationIntensity = halationIntensity
             this.lensDistortionStrength = lensDistortionStrength
+            this.tone = tone
+            this.color = color
+            this.textureVal = textureVal
+            this.styleStrength = styleStrength
+            this.undertoneX = undertoneX
+            this.undertoneY = undertoneY
 
             if (lutPath != activeLutPath) {
                 activeLutPath = lutPath
@@ -270,7 +300,9 @@ class CameraGlRenderer(
                     "leakIntensity=$lightLeakIntensity leakVariant=$lightLeakVariant " +
                     "dustIntensity=$dustIntensity bloomThreshold=$bloomThreshold " +
                     "bloomIntensity=$bloomIntensity halationIntensity=$halationIntensity " +
-                    "lensDistortionStrength=$lensDistortionStrength"
+                    "lensDistortionStrength=$lensDistortionStrength " +
+                    "tone=$tone color=$color textureVal=$textureVal styleStrength=$styleStrength " +
+                    "undertoneX=$undertoneX undertoneY=$undertoneY"
             )
         }
     }
@@ -485,7 +517,13 @@ class CameraGlRenderer(
             bloomIntensityLoc = GLES20.glGetUniformLocation(programId, "uBloomIntensity"),
             halationIntensityLoc = GLES20.glGetUniformLocation(programId, "uHalationIntensity"),
             textureLoc = GLES20.glGetUniformLocation(programId, "sTexture"),
-            timeLoc = GLES20.glGetUniformLocation(programId, "uTime")
+            timeLoc = GLES20.glGetUniformLocation(programId, "uTime"),
+            toneLoc = GLES20.glGetUniformLocation(programId, "uTone"),
+            colorLoc = GLES20.glGetUniformLocation(programId, "uColor"),
+            textureValLoc = GLES20.glGetUniformLocation(programId, "uTextureVal"),
+            styleStrengthLoc = GLES20.glGetUniformLocation(programId, "uStyleStrength"),
+            undertoneXLoc = GLES20.glGetUniformLocation(programId, "uUndertoneX"),
+            undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY")
         )
     }
 
@@ -517,7 +555,13 @@ class CameraGlRenderer(
                     contrastLoc = GLES20.glGetUniformLocation(programId, "uContrast"),
                     lutTextureLoc = GLES20.glGetUniformLocation(programId, "uLutTexture"),
                     lutStrengthLoc = GLES20.glGetUniformLocation(programId, "uLutStrength"),
-                    textureLoc = GLES20.glGetUniformLocation(programId, "sTexture")
+                    textureLoc = GLES20.glGetUniformLocation(programId, "sTexture"),
+                    toneLoc = GLES20.glGetUniformLocation(programId, "uTone"),
+                    colorLoc = GLES20.glGetUniformLocation(programId, "uColor"),
+                    textureValLoc = GLES20.glGetUniformLocation(programId, "uTextureVal"),
+                    styleStrengthLoc = GLES20.glGetUniformLocation(programId, "uStyleStrength"),
+                    undertoneXLoc = GLES20.glGetUniformLocation(programId, "uUndertoneX"),
+                    undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY")
                 )
             }
 
@@ -670,6 +714,12 @@ class CameraGlRenderer(
             singlePassProgram.timeLoc,
             (System.currentTimeMillis() - startTimeMs) / 1000f
         )
+        GLES20.glUniform1f(singlePassProgram.toneLoc, tone)
+        GLES20.glUniform1f(singlePassProgram.colorLoc, color)
+        GLES20.glUniform1f(singlePassProgram.textureValLoc, textureVal)
+        GLES20.glUniform1f(singlePassProgram.styleStrengthLoc, styleStrength)
+        GLES20.glUniform1f(singlePassProgram.undertoneXLoc, undertoneX)
+        GLES20.glUniform1f(singlePassProgram.undertoneYLoc, undertoneY)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTextureId)
@@ -731,6 +781,12 @@ class CameraGlRenderer(
         GLES20.glUniform1f(baseProgram.saturationLoc, saturation)
         GLES20.glUniform1f(baseProgram.contrastLoc, contrast)
         GLES20.glUniform1f(baseProgram.lutStrengthLoc, lutStrength)
+        GLES20.glUniform1f(baseProgram.toneLoc, tone)
+        GLES20.glUniform1f(baseProgram.colorLoc, color)
+        GLES20.glUniform1f(baseProgram.textureValLoc, textureVal)
+        GLES20.glUniform1f(baseProgram.styleStrengthLoc, styleStrength)
+        GLES20.glUniform1f(baseProgram.undertoneXLoc, undertoneX)
+        GLES20.glUniform1f(baseProgram.undertoneYLoc, undertoneY)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTextureId)

@@ -234,6 +234,12 @@ class CameraPreviewView(
         val lensDistortionStrength = (
             params["lensDistortionStrength"] as? Number
         )?.toFloat() ?: 0.0f
+        val tone = (params["tone"] as? Number)?.toFloat() ?: 0.0f
+        val color = (params["color"] as? Number)?.toFloat() ?: 0.0f
+        val textureVal = (params["textureVal"] as? Number)?.toFloat() ?: 0.0f
+        val styleStrength = (params["styleStrength"] as? Number)?.toFloat() ?: 100.0f
+        val undertoneX = (params["undertoneX"] as? Number)?.toFloat() ?: 0.0f
+        val undertoneY = (params["undertoneY"] as? Number)?.toFloat() ?: 0.0f
 
         glRenderer?.applyPresetParams(
             temperature = temp,
@@ -249,7 +255,13 @@ class CameraPreviewView(
             bloomThreshold = bloomThreshold,
             bloomIntensity = bloomIntensity,
             halationIntensity = halationIntensity,
-            lensDistortionStrength = lensDistortionStrength
+            lensDistortionStrength = lensDistortionStrength,
+            tone = tone,
+            color = color,
+            textureVal = textureVal,
+            styleStrength = styleStrength,
+            undertoneX = undertoneX,
+            undertoneY = undertoneY
         )
     }
 
