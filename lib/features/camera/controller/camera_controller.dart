@@ -7,6 +7,7 @@ import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/debug/provider/consistency_debug_provider.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
+import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:rana/features/preset/utils/rana_texture_mapper.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -101,6 +102,7 @@ class CameraController extends _$CameraController {
   Future<void> selectPreset(PresetModel preset) async {
     try {
       final isNewPreset = state.activePresetId != preset.id;
+      final effectiveStyle = _clampStyle(preset.style ?? const RanaStyle());
       final targetVariant = preset.effects.lightLeak.variant;
       if (targetVariant == -1) {
         if (isNewPreset || _currentPreviewVariant == null) {
@@ -110,16 +112,47 @@ class CameraController extends _$CameraController {
         _currentPreviewVariant = targetVariant;
       }
 
-      final paramsMap = _buildPreviewParams(preset);
+      final paramsMap = _buildPreviewParams(preset, style: effectiveStyle);
       AppLogger.glParams('PREVIEW', paramsMap);
       ref
           .read(consistencyDebugProvider.notifier)
           .update((state) => GlParamsState(lastPreviewParams: paramsMap));
       await _platformService.selectPreset(preset.id, paramsMap);
-      state = state.copyWith(activePresetId: preset.id);
+      state = state.copyWith(
+        activePresetId: preset.id,
+        activeStyle: effectiveStyle,
+      );
     } on Object catch (e) {
       state = state.copyWith(errorMessage: e.toString());
     }
+  }
+
+  /// Updates the active Rana Style and pushes it to the preview renderer.
+  Future<void> updateActiveStyle(RanaStyle style) async {
+    final clampedStyle = _clampStyle(style);
+    state = state.copyWith(activeStyle: clampedStyle);
+
+    final activePreset = _activePreset();
+    if (activePreset == null || !state.isCameraInitialized) {
+      return;
+    }
+
+    try {
+      final paramsMap = _buildPreviewParams(activePreset, style: clampedStyle);
+      AppLogger.glParams('PREVIEW_STYLE_UPDATE', paramsMap);
+      ref
+          .read(consistencyDebugProvider.notifier)
+          .update((state) => state.copyWith(lastPreviewParams: paramsMap));
+      await _platformService.selectPreset(activePreset.id, paramsMap);
+    } on Object catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  /// Resets the active Rana Style to the preset default, or neutral.
+  Future<void> resetActiveStyle() async {
+    final activePreset = _activePreset();
+    await updateActiveStyle(activePreset?.style ?? const RanaStyle());
   }
 
   /// Triggers film capture flow.
@@ -174,25 +207,17 @@ class CameraController extends _$CameraController {
   }
 
   Map<String, dynamic> _buildCaptureParams() {
-    PresetModel? activePreset;
-    final presets = ref.read(presetsProvider).valueOrNull;
-    if (presets != null) {
-      for (final preset in presets) {
-        if (preset.id == state.activePresetId) {
-          activePreset = preset;
-          break;
-        }
-      }
-    }
+    final activePreset = _activePreset();
+    final style = activePreset != null ? state.activeStyle : const RanaStyle();
 
     final lut = activePreset?.lut;
     final lutPath = lut is String && lut.isNotEmpty ? lut : null;
 
     final presetGrain = activePreset?.grain.intensity ?? 0.0;
     final presetDust = activePreset?.effects.dust.intensity ?? 0.0;
-    final textureVal = activePreset?.style?.texture ?? 0.0;
-    final styleStrength = activePreset?.style?.styleStrength ?? 100.0;
-    
+    final textureVal = style.texture;
+    final styleStrength = style.styleStrength;
+
     final mapped = RanaTextureMapper.mapTexture(
       textureVal,
       presetGrain: presetGrain,
@@ -225,12 +250,12 @@ class CameraController extends _$CameraController {
       'halationIntensity': activePreset?.effects.halation.intensity ?? 0.0,
       'lensDistortionStrength':
           activePreset?.effects.lensDistortion.strength ?? 0.0,
-      'tone': activePreset?.style?.tone ?? 0.0,
-      'color': activePreset?.style?.color ?? 0.0,
+      'tone': style.tone,
+      'color': style.color,
       'textureVal': textureVal,
       'styleStrength': styleStrength,
-      'undertoneX': activePreset?.style?.undertoneX ?? 0.0,
-      'undertoneY': activePreset?.style?.undertoneY ?? 0.0,
+      'undertoneX': style.undertoneX,
+      'undertoneY': style.undertoneY,
       'grainSize': finalGrainSize,
       'softness': finalSoftness,
     };
@@ -261,15 +286,19 @@ class CameraController extends _$CameraController {
     }
   }
 
-  Map<String, dynamic> _buildPreviewParams(PresetModel preset) {
+  Map<String, dynamic> _buildPreviewParams(
+    PresetModel preset, {
+    RanaStyle? style,
+  }) {
+    final effectiveStyle = style ?? state.activeStyle;
     final lutPath = preset.lut is String && (preset.lut as String).isNotEmpty
         ? preset.lut as String
         : null;
 
     final presetGrain = preset.grain.intensity;
     final presetDust = preset.effects.dust.intensity;
-    final textureVal = preset.style?.texture ?? 0.0;
-    final styleStrength = preset.style?.styleStrength ?? 100.0;
+    final textureVal = effectiveStyle.texture;
+    final styleStrength = effectiveStyle.styleStrength;
 
     final mapped = RanaTextureMapper.mapTexture(
       textureVal,
@@ -302,16 +331,39 @@ class CameraController extends _$CameraController {
       'bloomIntensity': preset.effects.bloom.intensity,
       'halationIntensity': preset.effects.halation.intensity,
       'lensDistortionStrength': preset.effects.lensDistortion.strength,
-      'tone': preset.style?.tone ?? 0.0,
-      'color': preset.style?.color ?? 0.0,
+      'tone': effectiveStyle.tone,
+      'color': effectiveStyle.color,
       'textureVal': textureVal,
       'styleStrength': styleStrength,
-      'undertoneX': preset.style?.undertoneX ?? 0.0,
-      'undertoneY': preset.style?.undertoneY ?? 0.0,
+      'undertoneX': effectiveStyle.undertoneX,
+      'undertoneY': effectiveStyle.undertoneY,
       'grainSize': finalGrainSize,
       'softness': finalSoftness,
     };
   }
+
+  PresetModel? _activePreset() {
+    final presets = ref.read(presetsProvider).valueOrNull;
+    if (presets == null) {
+      return null;
+    }
+
+    for (final preset in presets) {
+      if (preset.id == state.activePresetId) {
+        return preset;
+      }
+    }
+    return null;
+  }
+
+  RanaStyle _clampStyle(RanaStyle style) => RanaStyle(
+    tone: style.tone.clamp(-100.0, 100.0),
+    color: style.color.clamp(-100.0, 100.0),
+    texture: style.texture.clamp(0.0, 100.0),
+    styleStrength: style.styleStrength.clamp(0.0, 100.0),
+    undertoneX: style.undertoneX.clamp(-1.0, 1.0),
+    undertoneY: style.undertoneY.clamp(-1.0, 1.0),
+  );
 
   /// Clears the transient success state once the result screen is dismissed.
   void acknowledgeResultDismissed() {

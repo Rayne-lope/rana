@@ -13,6 +13,7 @@ import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/camera/view/permission_screen.dart';
 import 'package:rana/features/camera/widgets/compact_style_strip_widget.dart';
 import 'package:rana/features/camera/widgets/preset_chip_widget.dart';
+import 'package:rana/features/camera/widgets/rana_styles_panel_widget.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/settings/provider/settings_provider.dart';
 
@@ -239,8 +240,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 const _AndroidCameraPreview(),
 
                 // 3x3 Composition Grid Lines
-                if (ref.watch(gridLinesProvider))
-                  const _ViewfinderGrid(),
+                if (ref.watch(gridLinesProvider)) const _ViewfinderGrid(),
 
                 // Date/Time Stamp (Classic Huji/Dazz cam orange stamp)
                 Positioned(
@@ -354,7 +354,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       child: Column(
         children: [
           if (state.isCameraInitialized) ...[
-            CompactStyleStripWidget(activePreset: activePreset),
+            CompactStyleStripWidget(
+              activePreset: activePreset,
+              activeStyle: state.activeStyle,
+            ),
             const SizedBox(height: 16),
           ],
           presetsAsync.when(
@@ -459,8 +462,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // Extra space left for gallery icon alignment
-              const SizedBox(width: 48),
+              // Extra space left for action alignment
+              const SizedBox(width: 72),
 
               // Shutter capture button
               GestureDetector(
@@ -485,12 +488,70 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 ),
               ),
 
-              const SizedBox(width: 48),
+              SizedBox(
+                width: 72,
+                child: _StylePanelButton(
+                  isEnabled: isReady && activePreset != null,
+                  onPressed: () => _showRanaStylesPanel(activePreset),
+                ),
+              ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  void _showRanaStylesPanel(PresetModel? fallbackPreset) {
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) => Consumer(
+          builder: (context, ref, _) {
+            final state = ref.watch(cameraControllerProvider);
+            final controller = ref.read(cameraControllerProvider.notifier);
+            final presets = ref.watch(presetsProvider).valueOrNull ?? [];
+            final activePreset =
+                _findPresetById(presets, state.activePresetId) ??
+                fallbackPreset;
+
+            return RanaStylesPanelWidget(
+              activePresetName: activePreset?.name ?? 'Normal',
+              style: state.activeStyle,
+              onStyleChanged: (style) {
+                unawaited(controller.updateActiveStyle(style));
+              },
+              onReset: () {
+                unawaited(controller.resetActiveStyle());
+              },
+              onApply: () {
+                Navigator.of(sheetContext).pop();
+              },
+              onSaveAsStyle: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('SAVE AS STYLE COMING SOON'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  PresetModel? _findPresetById(List<PresetModel> presets, String id) {
+    for (final preset in presets) {
+      if (preset.id == id) {
+        return preset;
+      }
+    }
+    return null;
   }
 
   String _getCurrentDateStamp() {
@@ -503,39 +564,72 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   Widget _buildShimmerLoading() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 22, vertical: 6),
-            child: SizedBox(
-              width: 60,
-              height: 10,
-              child: DecoratedBox(
-                decoration: BoxDecoration(color: Colors.white10),
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 22, vertical: 6),
+        child: SizedBox(
+          width: 60,
+          height: 10,
+          child: DecoratedBox(decoration: BoxDecoration(color: Colors.white10)),
+        ),
+      ),
+      SizedBox(
+        height: 48,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: 3,
+          itemBuilder: (context, index) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Chip(
+              backgroundColor: const Color(0xFF1E1E24),
+              label: const SizedBox(width: 50, height: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
               ),
             ),
           ),
-          SizedBox(
-            height: 48,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: 3,
-              itemBuilder: (context, index) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Chip(
-                  backgroundColor: const Color(0xFF1E1E24),
-                  label: const SizedBox(width: 50, height: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-              ),
+        ),
+      ),
+    ],
+  );
+}
+
+class _StylePanelButton extends StatelessWidget {
+  const _StylePanelButton({required this.isEnabled, required this.onPressed});
+
+  final bool isEnabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: 'Rana Style',
+    child: TextButton(
+      onPressed: isEnabled ? onPressed : null,
+      style: TextButton.styleFrom(
+        foregroundColor: isEnabled ? const Color(0xFFF39C12) : Colors.white24,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.tune_rounded, size: 22),
+          SizedBox(height: 4),
+          Text(
+            'STYLE',
+            maxLines: 1,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1,
             ),
           ),
         ],
-      );
-
+      ),
+    ),
+  );
 }
 
 class _ViewfinderGrid extends StatelessWidget {

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:rana/features/preset/model/rana_style.dart';
 
 /// Available camera flash modes.
 enum FlashMode {
@@ -33,6 +34,7 @@ class CameraState {
     required this.captureStatus,
     required this.currentFps,
     required this.isCameraInitialized,
+    required this.activeStyle,
     this.lastCapturedPath,
     this.errorMessage,
   });
@@ -45,6 +47,7 @@ class CameraState {
     captureStatus: CaptureStatus.idle,
     currentFps: 0,
     isCameraInitialized: false,
+    activeStyle: RanaStyle(),
   );
 
   static const Object _unset = Object();
@@ -55,6 +58,7 @@ class CameraState {
   final CaptureStatus captureStatus;
   final int currentFps;
   final bool isCameraInitialized;
+  final RanaStyle activeStyle;
   final String? lastCapturedPath;
   final String? errorMessage;
 
@@ -66,6 +70,7 @@ class CameraState {
     CaptureStatus? captureStatus,
     int? currentFps,
     bool? isCameraInitialized,
+    RanaStyle? activeStyle,
     Object? lastCapturedPath = _unset,
     Object? errorMessage = _unset,
   }) => CameraState(
@@ -75,6 +80,7 @@ class CameraState {
     captureStatus: captureStatus ?? this.captureStatus,
     currentFps: currentFps ?? this.currentFps,
     isCameraInitialized: isCameraInitialized ?? this.isCameraInitialized,
+    activeStyle: activeStyle ?? this.activeStyle,
     lastCapturedPath: identical(lastCapturedPath, _unset)
         ? this.lastCapturedPath
         : lastCapturedPath as String?,
@@ -93,6 +99,7 @@ class CameraState {
         other.captureStatus == captureStatus &&
         other.currentFps == currentFps &&
         other.isCameraInitialized == isCameraInitialized &&
+        other.activeStyle == activeStyle &&
         other.lastCapturedPath == lastCapturedPath &&
         other.errorMessage == errorMessage;
   }
@@ -105,6 +112,7 @@ class CameraState {
     captureStatus,
     currentFps,
     isCameraInitialized,
+    activeStyle,
     lastCapturedPath,
     errorMessage,
   );
@@ -114,5 +122,6 @@ class CameraState {
       'CameraState(flashMode: $flashMode, activeLens: $activeLens, '
       'activePresetId: $activePresetId, captureStatus: $captureStatus, '
       'currentFps: $currentFps, isCameraInitialized: $isCameraInitialized, '
+      'activeStyle: $activeStyle, '
       'lastCapturedPath: $lastCapturedPath, errorMessage: $errorMessage)';
 }

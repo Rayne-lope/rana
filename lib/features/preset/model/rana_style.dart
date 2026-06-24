@@ -26,6 +26,23 @@ class RanaStyle {
   /// Factory to create a neutral RanaStyle.
   factory RanaStyle.neutral() => const RanaStyle();
 
+  /// Copies this instance, replacing specified fields.
+  RanaStyle copyWith({
+    double? tone,
+    double? color,
+    double? texture,
+    double? styleStrength,
+    double? undertoneX,
+    double? undertoneY,
+  }) => RanaStyle(
+    tone: tone ?? this.tone,
+    color: color ?? this.color,
+    texture: texture ?? this.texture,
+    styleStrength: styleStrength ?? this.styleStrength,
+    undertoneX: undertoneX ?? this.undertoneX,
+    undertoneY: undertoneY ?? this.undertoneY,
+  );
+
   /// Tone parameter (-100.0 to 100.0).
   final double tone;
 
@@ -67,14 +84,8 @@ class RanaStyle {
   }
 
   @override
-  int get hashCode => Object.hash(
-    tone,
-    color,
-    texture,
-    styleStrength,
-    undertoneX,
-    undertoneY,
-  );
+  int get hashCode =>
+      Object.hash(tone, color, texture, styleStrength, undertoneX, undertoneY);
 
   @override
   String toString() =>

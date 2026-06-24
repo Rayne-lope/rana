@@ -7,6 +7,7 @@ import 'package:rana/core/providers/preset_provider.dart';
 import 'package:rana/features/camera/controller/camera_controller.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
+import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:rana/features/preset/repository/preset_repository.dart';
 
 void main() {
@@ -67,6 +68,7 @@ void main() {
       expect(state.activeLens, equals(CameraLens.back));
       expect(state.captureStatus, equals(CaptureStatus.idle));
       expect(state.currentFps, equals(0));
+      expect(state.activeStyle, equals(const RanaStyle()));
     });
 
     test('initialize registers and connects channels successfully', () async {
@@ -172,6 +174,7 @@ void main() {
       await controller.selectPreset(preset);
       final state = container.read(cameraControllerProvider);
       expect(state.activePresetId, equals('classic_f1'));
+      expect(state.activeStyle, equals(const RanaStyle()));
       expect(log.length, equals(1));
       expect(log.first.method, equals('selectPreset'));
       final args = log.first.arguments as Map<dynamic, dynamic>;
@@ -191,6 +194,211 @@ void main() {
       expect(params['bloomIntensity'], equals(0.0));
       expect(params['halationIntensity'], equals(0.0));
       expect(params['lensDistortionStrength'], equals(0.0));
+    });
+
+    test('selectPreset seeds active style and sends style params', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await controller.initialize();
+      log.clear();
+
+      const preset = PresetModel(
+        id: 'styled_preset',
+        name: 'Styled Preset',
+        category: 'Classic',
+        color: PresetColor(temperature: 0.1, contrast: 0.2, saturation: 0.3),
+        grain: PresetGrain(intensity: 0.4),
+        vignette: PresetVignette(intensity: 0.5),
+        style: RanaStyle(
+          tone: 12,
+          color: -8,
+          texture: 40,
+          styleStrength: 70,
+          undertoneX: 0.25,
+          undertoneY: -0.5,
+        ),
+      );
+
+      await controller.selectPreset(preset);
+
+      final state = container.read(cameraControllerProvider);
+      expect(state.activePresetId, equals('styled_preset'));
+      expect(state.activeStyle, equals(preset.style));
+
+      final args = log.single.arguments as Map<dynamic, dynamic>;
+      final params = args['params'] as Map<dynamic, dynamic>;
+      expect(params['tone'], equals(12.0));
+      expect(params['color'], equals(-8.0));
+      expect(params['textureVal'], equals(40.0));
+      expect(params['styleStrength'], equals(70.0));
+      expect(params['undertoneX'], equals(0.25));
+      expect(params['undertoneY'], equals(-0.5));
+    });
+
+    test('updateActiveStyle clamps values and pushes preview params', () async {
+      const preset = PresetModel(
+        id: 'rana_warm',
+        name: 'Rana Warm',
+        category: 'Classic',
+        color: PresetColor(temperature: 0.3, contrast: 0, saturation: 0.1),
+        grain: PresetGrain(intensity: 0.1),
+        vignette: PresetVignette(intensity: 0.05),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          presetRepositoryProvider.overrideWithValue(
+            const _FakePresetRepository([preset]),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await container.read(presetsProvider.future);
+      await controller.initialize();
+      await controller.selectPreset(preset);
+      log.clear();
+
+      await controller.updateActiveStyle(
+        const RanaStyle(
+          tone: 150,
+          color: -140,
+          texture: 120,
+          styleStrength: -5,
+          undertoneX: 2,
+          undertoneY: -2,
+        ),
+      );
+
+      expect(
+        container.read(cameraControllerProvider).activeStyle,
+        equals(
+          const RanaStyle(
+            tone: 100,
+            color: -100,
+            texture: 100,
+            styleStrength: 0,
+            undertoneX: 1,
+            undertoneY: -1,
+          ),
+        ),
+      );
+
+      final updateCall = log.singleWhere(
+        (call) => call.method == 'selectPreset',
+      );
+      final updateArgs = updateCall.arguments as Map<dynamic, dynamic>;
+      final params = updateArgs['params'] as Map<dynamic, dynamic>;
+      expect(params['tone'], equals(100.0));
+      expect(params['color'], equals(-100.0));
+      expect(params['textureVal'], equals(100.0));
+      expect(params['styleStrength'], equals(0.0));
+      expect(params['undertoneX'], equals(1.0));
+      expect(params['undertoneY'], equals(-1.0));
+    });
+
+    test('capture uses the currently edited active style params', () async {
+      const preset = PresetModel(
+        id: 'rana_warm',
+        name: 'Rana Warm',
+        category: 'Classic',
+        color: PresetColor(temperature: 0.3, contrast: 0, saturation: 0.1),
+        grain: PresetGrain(intensity: 0.1),
+        vignette: PresetVignette(intensity: 0.05),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          presetRepositoryProvider.overrideWithValue(
+            const _FakePresetRepository([preset]),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await container.read(presetsProvider.future);
+      await controller.initialize();
+      await controller.selectPreset(preset);
+      await controller.updateActiveStyle(
+        const RanaStyle(
+          tone: 24,
+          color: 18,
+          texture: 36,
+          styleStrength: 80,
+          undertoneX: 0.5,
+          undertoneY: -0.25,
+        ),
+      );
+      log.clear();
+
+      await controller.capture();
+
+      final captureCall = log.singleWhere(
+        (call) => call.method == 'executeCapture',
+      );
+      final args = captureCall.arguments as Map<dynamic, dynamic>;
+      expect(args['tone'], equals(24.0));
+      expect(args['color'], equals(18.0));
+      expect(args['textureVal'], equals(36.0));
+      expect(args['styleStrength'], equals(80.0));
+      expect(args['undertoneX'], equals(0.5));
+      expect(args['undertoneY'], equals(-0.25));
+    });
+
+    test('resetActiveStyle restores preset style or neutral values', () async {
+      const presetStyle = RanaStyle(
+        tone: 10,
+        color: 20,
+        texture: 30,
+        styleStrength: 90,
+      );
+      const styledPreset = PresetModel(
+        id: 'styled_preset',
+        name: 'Styled Preset',
+        category: 'Classic',
+        color: PresetColor(temperature: 0.3, contrast: 0, saturation: 0.1),
+        grain: PresetGrain(intensity: 0.1),
+        vignette: PresetVignette(intensity: 0.05),
+        style: presetStyle,
+      );
+      const neutralPreset = PresetModel(
+        id: 'neutral_preset',
+        name: 'Neutral Preset',
+        category: 'Classic',
+        color: PresetColor(temperature: 0.3, contrast: 0, saturation: 0.1),
+        grain: PresetGrain(intensity: 0.1),
+        vignette: PresetVignette(intensity: 0.05),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          presetRepositoryProvider.overrideWithValue(
+            const _FakePresetRepository([styledPreset, neutralPreset]),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await container.read(presetsProvider.future);
+      await controller.initialize();
+
+      await controller.selectPreset(styledPreset);
+      await controller.updateActiveStyle(const RanaStyle(tone: -60));
+      await controller.resetActiveStyle();
+      expect(
+        container.read(cameraControllerProvider).activeStyle,
+        equals(presetStyle),
+      );
+
+      await controller.selectPreset(neutralPreset);
+      await controller.updateActiveStyle(const RanaStyle(tone: 50));
+      await controller.resetActiveStyle();
+      expect(
+        container.read(cameraControllerProvider).activeStyle,
+        equals(const RanaStyle()),
+      );
     });
 
     test('capture flow enters processing and updates file path', () async {

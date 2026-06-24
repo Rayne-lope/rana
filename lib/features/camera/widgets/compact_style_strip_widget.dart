@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
+import 'package:rana/features/preset/model/rana_style.dart';
 
 /// Minimalist horizontal strip displaying active style parameters.
 class CompactStyleStripWidget extends StatelessWidget {
   /// Main constructor.
   const CompactStyleStripWidget({
     required this.activePreset,
+    this.activeStyle,
     super.key,
   });
 
   /// The currently active preset (if any).
   final PresetModel? activePreset;
+
+  /// Effective style values currently applied to the preview.
+  final RanaStyle? activeStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +23,7 @@ class CompactStyleStripWidget extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final style = activePreset!.style;
+    final style = activeStyle ?? activePreset!.style;
     final toneVal = style?.tone ?? 0.0;
     final colorVal = style?.color ?? 0.0;
     final textureVal = style?.texture ?? 0.0;
@@ -39,9 +44,7 @@ class CompactStyleStripWidget extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFF16161A), // Sleek secondary dark background
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.04),
-          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -68,27 +71,27 @@ class CompactStyleStripWidget extends StatelessWidget {
   }
 
   Widget _buildStripItem(String label, String value) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white38,
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.5,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Color(0xFFF39C12), // Vintage orange stamp color
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              fontFamily: 'monospace',
-            ),
-          ),
-        ],
-      );
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white38,
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.5,
+        ),
+      ),
+      const SizedBox(width: 6),
+      Text(
+        value,
+        style: const TextStyle(
+          color: Color(0xFFF39C12), // Vintage orange stamp color
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          fontFamily: 'monospace',
+        ),
+      ),
+    ],
+  );
 }
