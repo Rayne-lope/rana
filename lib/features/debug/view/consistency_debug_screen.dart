@@ -66,6 +66,12 @@ class _ConsistencyDebugScreenState
       'bloomIntensity',
       'halationIntensity',
       'lensDistortionStrength',
+      'tone',
+      'color',
+      'textureVal',
+      'styleStrength',
+      'undertoneX',
+      'undertoneY',
     };
 
     var hasMismatch = false;
