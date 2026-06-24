@@ -117,6 +117,23 @@ class MainActivity : FlutterActivity() {
                         result.error("CAMERA_NOT_READY", "Camera preview not initialized", null)
                     }
                 }
+                "setAspectRatio" -> {
+                    val preview = activePreviewView
+                    if (preview != null) {
+                        val aspectRatio = call.argument<String>("aspectRatio") ?: "portrait_3_4"
+                        preview.setAspectRatio(aspectRatio)
+                        val label = CameraAspectRatio.fromChannelValue(aspectRatio).label
+                        result.success(
+                            mapOf(
+                                "status" to "aspect_ratio_set",
+                                "aspectRatio" to aspectRatio,
+                                "label" to label
+                            )
+                        )
+                    } else {
+                        result.error("CAMERA_NOT_READY", "Camera preview not initialized", null)
+                    }
+                }
                 "toggleLens" -> {
                     val preview = activePreviewView
                     if (preview != null) {

@@ -566,19 +566,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           onPressed: isReady ? controller.toggleFlashMode : null,
         ),
 
-        // Ratio Button (Placeholder)
+        // Aspect Ratio Button
         _buildGlassTextButton(
-          text: '4:3',
-          tooltip: 'Aspect Ratio',
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('CAMERA ASPECT RATIO OPTION COMING SOON'),
-                behavior: SnackBarBehavior.floating,
-                duration: Duration(seconds: 2),
-              ),
-            );
-          },
+          text: state.aspectRatio.label,
+          tooltip: 'Aspect Ratio: ${state.aspectRatio.label}',
+          onPressed: isReady ? controller.cycleAspectRatio : null,
         ),
 
         // Timer Button (Placeholder)
@@ -724,7 +716,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   Widget _buildViewfinder(CameraState state, CameraController controller) =>
       AspectRatio(
-        aspectRatio: 3 / 4, // Retro photo aspect ratio
+        aspectRatio: state.aspectRatio.viewfinderRatio,
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(

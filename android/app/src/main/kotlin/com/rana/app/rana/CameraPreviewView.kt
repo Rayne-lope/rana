@@ -50,6 +50,7 @@ class CameraPreviewView(
     private var previewUseCase: Preview? = null
     private var glRenderer: CameraGlRenderer? = null
     private var lastPresetParams: Map<String, Any>? = null
+    private var currentAspectRatio = CameraAspectRatio.PORTRAIT_3_4
 
     private var currentLensFacing = CameraSelector.LENS_FACING_BACK
     private var currentFlashMode = ImageCapture.FLASH_MODE_OFF
@@ -153,7 +154,10 @@ class CameraPreviewView(
             try {
                 provider.unbindAll()
 
-                val preview = Preview.Builder().build().also {
+                val preview = Preview.Builder()
+                    .setTargetAspectRatio(currentAspectRatio.cameraXTargetAspectRatio)
+                    .build()
+                    .also {
                     it.setSurfaceProvider { request ->
                         val resolution = request.resolution
                         val cameraSurfaceTexture = renderer.cameraSurfaceTexture
@@ -182,6 +186,7 @@ class CameraPreviewView(
                 previewUseCase = preview
 
                 imageCapture = ImageCapture.Builder()
+                    .setTargetAspectRatio(currentAspectRatio.cameraXTargetAspectRatio)
                     .setFlashMode(currentFlashMode)
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
                     .build()
@@ -217,6 +222,14 @@ class CameraPreviewView(
     fun setFlashMode(flashMode: Int) {
         currentFlashMode = flashMode
         imageCapture?.flashMode = flashMode
+    }
+
+    fun setAspectRatio(aspectRatioValue: String) {
+        val nextAspectRatio = CameraAspectRatio.fromChannelValue(aspectRatioValue)
+        if (currentAspectRatio == nextAspectRatio) return
+
+        currentAspectRatio = nextAspectRatio
+        bindPreview()
     }
 
     fun setPresetParams(params: Map<String, Any>) {
@@ -362,6 +375,15 @@ class CameraPreviewView(
                                 decodedBitmap.recycle()
                             }
                             decodedBitmap = null
+
+                            val framedBitmap = cropBitmapToAspectRatio(
+                                inputBitmap,
+                                currentAspectRatio.captureCropRatio
+                            )
+                            if (framedBitmap !== inputBitmap) {
+                                inputBitmap?.safeRecycle()
+                            }
+                            inputBitmap = framedBitmap
 
                             processedBitmap = OfflineGlProcessor.processImage(
                                 context,

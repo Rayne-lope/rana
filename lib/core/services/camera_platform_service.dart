@@ -147,6 +147,25 @@ class CameraPlatformService {
     }
   }
 
+  /// Sets the active camera aspect ratio natively.
+  Future<Map<String, dynamic>> setAspectRatio(String aspectRatio) async {
+    try {
+      final result = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>(
+        'setAspectRatio',
+        {'aspectRatio': aspectRatio},
+      );
+      return Map<String, dynamic>.from(result ?? {});
+    } on PlatformException catch (e, stack) {
+      AppLogger.e(
+        'CameraPlatformService',
+        'Failed to set camera aspect ratio: $aspectRatio',
+        e,
+        stack,
+      );
+      rethrow;
+    }
+  }
+
   /// Releases native camera resources when backgrounded.
   Future<Map<String, dynamic>> releaseCamera() async {
     try {

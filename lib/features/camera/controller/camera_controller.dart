@@ -65,6 +65,11 @@ class CameraController extends _$CameraController {
         },
       );
 
+      try {
+        await _platformService.setAspectRatio(state.aspectRatio.platformValue);
+      } on Object catch (e) {
+        state = state.copyWith(errorMessage: e.toString());
+      }
       await reapplyActivePreviewParams();
     } on Object catch (e) {
       state = state.copyWith(
@@ -96,6 +101,27 @@ class CameraController extends _$CameraController {
         orElse: () => CameraLens.back,
       );
       state = state.copyWith(activeLens: nextLens);
+    } on Object catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  /// Cycles to the next supported aspect ratio and syncs it to native.
+  Future<void> cycleAspectRatio() async {
+    await setAspectRatio(state.aspectRatio.next);
+  }
+
+  /// Updates the active aspect ratio for both Flutter and native preview.
+  Future<void> setAspectRatio(CameraAspectRatio aspectRatio) async {
+    if (!state.isCameraInitialized) {
+      state = state.copyWith(aspectRatio: aspectRatio);
+      return;
+    }
+
+    try {
+      await _platformService.setAspectRatio(aspectRatio.platformValue);
+      state = state.copyWith(aspectRatio: aspectRatio);
+      await reapplyActivePreviewParams();
     } on Object catch (e) {
       state = state.copyWith(errorMessage: e.toString());
     }

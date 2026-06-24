@@ -20,6 +20,37 @@ enum CameraLens {
   String get value => name;
 }
 
+/// Supported camera aspect ratios for the viewfinder and capture pipeline.
+enum CameraAspectRatio {
+  portrait34(
+    label: '3:4',
+    viewfinderRatio: 3 / 4,
+    platformValue: 'portrait_3_4',
+  ),
+  square11(label: '1:1', viewfinderRatio: 1, platformValue: 'square_1_1'),
+  portrait916(
+    label: '9:16',
+    viewfinderRatio: 9 / 16,
+    platformValue: 'portrait_9_16',
+  );
+
+  const CameraAspectRatio({
+    required this.label,
+    required this.viewfinderRatio,
+    required this.platformValue,
+  });
+
+  final String label;
+  final double viewfinderRatio;
+  final String platformValue;
+
+  CameraAspectRatio get next => switch (this) {
+    CameraAspectRatio.portrait34 => CameraAspectRatio.square11,
+    CameraAspectRatio.square11 => CameraAspectRatio.portrait916,
+    CameraAspectRatio.portrait916 => CameraAspectRatio.portrait34,
+  };
+}
+
 /// States representing the capturing flow animation.
 enum CaptureStatus { idle, capturing, processing, success, error }
 
@@ -31,6 +62,7 @@ class CameraState {
     required this.flashMode,
     required this.activeLens,
     required this.activePresetId,
+    required this.aspectRatio,
     required this.captureStatus,
     required this.currentFps,
     required this.isCameraInitialized,
@@ -44,6 +76,7 @@ class CameraState {
     flashMode: FlashMode.off,
     activeLens: CameraLens.back,
     activePresetId: 'normal',
+    aspectRatio: CameraAspectRatio.portrait34,
     captureStatus: CaptureStatus.idle,
     currentFps: 0,
     isCameraInitialized: false,
@@ -55,6 +88,7 @@ class CameraState {
   final FlashMode flashMode;
   final CameraLens activeLens;
   final String activePresetId;
+  final CameraAspectRatio aspectRatio;
   final CaptureStatus captureStatus;
   final int currentFps;
   final bool isCameraInitialized;
@@ -67,6 +101,7 @@ class CameraState {
     FlashMode? flashMode,
     CameraLens? activeLens,
     String? activePresetId,
+    CameraAspectRatio? aspectRatio,
     CaptureStatus? captureStatus,
     int? currentFps,
     bool? isCameraInitialized,
@@ -77,6 +112,7 @@ class CameraState {
     flashMode: flashMode ?? this.flashMode,
     activeLens: activeLens ?? this.activeLens,
     activePresetId: activePresetId ?? this.activePresetId,
+    aspectRatio: aspectRatio ?? this.aspectRatio,
     captureStatus: captureStatus ?? this.captureStatus,
     currentFps: currentFps ?? this.currentFps,
     isCameraInitialized: isCameraInitialized ?? this.isCameraInitialized,
@@ -96,6 +132,7 @@ class CameraState {
         other.flashMode == flashMode &&
         other.activeLens == activeLens &&
         other.activePresetId == activePresetId &&
+        other.aspectRatio == aspectRatio &&
         other.captureStatus == captureStatus &&
         other.currentFps == currentFps &&
         other.isCameraInitialized == isCameraInitialized &&
@@ -109,6 +146,7 @@ class CameraState {
     flashMode,
     activeLens,
     activePresetId,
+    aspectRatio,
     captureStatus,
     currentFps,
     isCameraInitialized,
@@ -121,7 +159,8 @@ class CameraState {
   String toString() =>
       'CameraState(flashMode: $flashMode, activeLens: $activeLens, '
       'activePresetId: $activePresetId, captureStatus: $captureStatus, '
-      'currentFps: $currentFps, isCameraInitialized: $isCameraInitialized, '
+      'aspectRatio: $aspectRatio, currentFps: $currentFps, '
+      'isCameraInitialized: $isCameraInitialized, '
       'activeStyle: $activeStyle, '
       'lastCapturedPath: $lastCapturedPath, errorMessage: $errorMessage)';
 }
