@@ -11,6 +11,7 @@ import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/camera/controller/camera_controller.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/camera/view/permission_screen.dart';
+import 'package:rana/features/camera/widgets/compact_style_strip_widget.dart';
 import 'package:rana/features/camera/widgets/preset_chip_widget.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/settings/provider/settings_provider.dart';
@@ -339,10 +340,23 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final isReady =
         state.isCameraInitialized && state.captureStatus == CaptureStatus.idle;
 
+    final presetsList = presetsAsync.valueOrNull ?? [];
+    PresetModel? activePreset;
+    for (final p in presetsList) {
+      if (p.id == state.activePresetId) {
+        activePreset = p;
+        break;
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.only(top: 16, bottom: 24),
       child: Column(
         children: [
+          if (state.isCameraInitialized) ...[
+            CompactStyleStripWidget(activePreset: activePreset),
+            const SizedBox(height: 16),
+          ],
           presetsAsync.when(
             data: (presetsList) {
               if (presetsList.isEmpty) {
@@ -489,36 +503,39 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   Widget _buildShimmerLoading() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 22, vertical: 6),
-        child: SizedBox(
-          width: 60,
-          height: 10,
-          child: DecoratedBox(decoration: BoxDecoration(color: Colors.white10)),
-        ),
-      ),
-      SizedBox(
-        height: 48,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: 3,
-          itemBuilder: (context, index) => Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: Chip(
-              backgroundColor: const Color(0xFF1E1E24),
-              label: const SizedBox(width: 50, height: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 22, vertical: 6),
+            child: SizedBox(
+              width: 60,
+              height: 10,
+              child: DecoratedBox(
+                decoration: BoxDecoration(color: Colors.white10),
               ),
             ),
           ),
-        ),
-      ),
-    ],
-  );
+          SizedBox(
+            height: 48,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: 3,
+              itemBuilder: (context, index) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Chip(
+                  backgroundColor: const Color(0xFF1E1E24),
+                  label: const SizedBox(width: 50, height: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+
 }
 
 class _ViewfinderGrid extends StatelessWidget {

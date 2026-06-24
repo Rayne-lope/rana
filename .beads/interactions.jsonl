@@ -59,3 +59,6 @@
 {"id":"int-de65dfb2","kind":"field_change","created_at":"2026-06-24T04:25:35.359499Z","actor":"Rayne-lope","issue_id":"Rana-7c4","extra":{"field":"assignee","new_value":"gemini","old_value":"Rayne-lope"}}
 {"id":"int-d01cd440","kind":"field_change","created_at":"2026-06-24T04:48:01.04493Z","actor":"Rayne-lope","issue_id":"Rana-7c4","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"done\n"}}
 {"id":"int-25d087f6","kind":"field_change","created_at":"2026-06-24T04:49:20.760495Z","actor":"Rayne-lope","issue_id":"Rana-acf","extra":{"field":"assignee","new_value":"gemini","old_value":""}}
+{"id":"int-c19bd40d","kind":"field_change","created_at":"2026-06-24T05:37:29.014149Z","actor":"Rayne-lope","issue_id":"Rana-acf","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"done\n"}}
+{"id":"int-067dcef8","kind":"field_change","created_at":"2026-06-24T05:37:31.903342Z","actor":"Rayne-lope","issue_id":"Rana-07v","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"done\n"}}
+{"id":"int-72ecbc20","kind":"field_change","created_at":"2026-06-24T05:37:56.392653Z","actor":"Rayne-lope","issue_id":"Rana-j1v","extra":{"field":"assignee","new_value":"gemini","old_value":""}}
