@@ -142,6 +142,14 @@ class RanaStylesPanelWidget extends StatelessWidget {
                   onChanged: (value) =>
                       onStyleChanged(style.copyWith(styleStrength: value)),
                 ),
+                const SizedBox(height: 4),
+                _UndertonePad(
+                  undertoneX: style.undertoneX.clamp(-1.0, 1.0),
+                  undertoneY: style.undertoneY.clamp(-1.0, 1.0),
+                  onChanged: (x, y) => onStyleChanged(
+                    style.copyWith(undertoneX: x, undertoneY: y),
+                  ),
+                ),
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -185,6 +193,260 @@ class RanaStylesPanelWidget extends StatelessWidget {
   }
 
   static String _formatIntensity(double value) => '${value.round()}';
+}
+
+class _UndertonePad extends StatelessWidget {
+  const _UndertonePad({
+    required this.undertoneX,
+    required this.undertoneY,
+    required this.onChanged,
+  });
+
+  final double undertoneX;
+  final double undertoneY;
+  final void Function(double x, double y) onChanged;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 18),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'UNDERTONE',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${_formatAxis(undertoneX)} / ${_formatAxis(undertoneY)}',
+              style: const TextStyle(
+                color: Color(0xFFF39C12),
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 220),
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final size = constraints.biggest.shortestSide;
+                  const dotSize = 18.0;
+                  final left = ((undertoneX + 1) / 2) * size - dotSize / 2;
+                  final top = ((1 - undertoneY) / 2) * size - dotSize / 2;
+
+                  return GestureDetector(
+                    key: const Key('undertone-pad'),
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (details) =>
+                        _emitPosition(details.localPosition, size),
+                    onPanStart: (details) =>
+                        _emitPosition(details.localPosition, size),
+                    onPanUpdate: (details) =>
+                        _emitPosition(details.localPosition, size),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(18),
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFF5D3D2D),
+                                  Color(0xFF222225),
+                                  Color(0xFF233A56),
+                                ],
+                              ),
+                              border: Border.all(color: Colors.white24),
+                            ),
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(18),
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  const Color(
+                                    0xFFC56AA8,
+                                  ).withValues(alpha: 0.30),
+                                  Colors.transparent,
+                                  const Color(
+                                    0xFF4E7F58,
+                                  ).withValues(alpha: 0.28),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: CustomPaint(painter: _UndertoneGridPainter()),
+                        ),
+                        const Positioned(
+                          top: 10,
+                          left: 0,
+                          right: 0,
+                          child: _PadAxisLabel(
+                            label: 'MAGENTA',
+                            alignment: TextAlign.center,
+                          ),
+                        ),
+                        const Positioned(
+                          bottom: 10,
+                          left: 0,
+                          right: 0,
+                          child: _PadAxisLabel(
+                            label: 'GREEN',
+                            alignment: TextAlign.center,
+                          ),
+                        ),
+                        const Positioned(
+                          left: 12,
+                          top: 0,
+                          bottom: 0,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: _PadAxisLabel(label: 'WARM'),
+                          ),
+                        ),
+                        const Positioned(
+                          right: 12,
+                          top: 0,
+                          bottom: 0,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: _PadAxisLabel(
+                              label: 'COOL',
+                              alignment: TextAlign.right,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: left.clamp(-dotSize / 2, size - dotSize / 2),
+                          top: top.clamp(-dotSize / 2, size - dotSize / 2),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white,
+                              border: Border.all(
+                                color: const Color(0xFFF39C12),
+                                width: 2,
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x66000000),
+                                  blurRadius: 14,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: const SizedBox.square(dimension: dotSize),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  void _emitPosition(Offset localPosition, double size) {
+    final dx = (localPosition.dx / size).clamp(0.0, 1.0);
+    final dy = (localPosition.dy / size).clamp(0.0, 1.0);
+    onChanged(dx * 2 - 1, (1 - dy) * 2 - 1);
+  }
+
+  static String _formatAxis(double value) {
+    final rounded = (value * 100).round();
+    return rounded > 0 ? '+$rounded' : '$rounded';
+  }
+}
+
+class _PadAxisLabel extends StatelessWidget {
+  const _PadAxisLabel({required this.label, this.alignment = TextAlign.left});
+
+  final String label;
+  final TextAlign alignment;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    label,
+    textAlign: alignment,
+    style: TextStyle(
+      color: Colors.white.withValues(alpha: 0.50),
+      fontSize: 9,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 1,
+    ),
+  );
+}
+
+class _UndertoneGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.13)
+      ..strokeWidth = 1;
+    final centerPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.26)
+      ..strokeWidth = 1.2;
+
+    canvas
+      ..drawLine(
+        Offset(size.width / 3, 0),
+        Offset(size.width / 3, size.height),
+        paint,
+      )
+      ..drawLine(
+        Offset(size.width * 2 / 3, 0),
+        Offset(size.width * 2 / 3, size.height),
+        paint,
+      )
+      ..drawLine(
+        Offset(0, size.height / 3),
+        Offset(size.width, size.height / 3),
+        paint,
+      )
+      ..drawLine(
+        Offset(0, size.height * 2 / 3),
+        Offset(size.width, size.height * 2 / 3),
+        paint,
+      )
+      ..drawLine(
+        Offset(size.width / 2, 0),
+        Offset(size.width / 2, size.height),
+        centerPaint,
+      )
+      ..drawLine(
+        Offset(0, size.height / 2),
+        Offset(size.width, size.height / 2),
+        centerPaint,
+      );
+  }
+
+  @override
+  bool shouldRepaint(covariant _UndertoneGridPainter oldDelegate) => false;
 }
 
 class _StyleSlider extends StatelessWidget {

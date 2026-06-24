@@ -18,6 +18,8 @@ void main() {
                 color: -8,
                 texture: 40,
                 styleStrength: 70,
+                undertoneX: -0.35,
+                undertoneY: 0.42,
               ),
               onStyleChanged: (_) {},
               onReset: () {},
@@ -34,14 +36,21 @@ void main() {
       expect(find.text('COLOR'), findsOneWidget);
       expect(find.text('TEXTURE'), findsOneWidget);
       expect(find.text('STYLE STRENGTH'), findsOneWidget);
+      expect(find.text('UNDERTONE'), findsOneWidget);
+      expect(find.text('WARM'), findsOneWidget);
+      expect(find.text('COOL'), findsOneWidget);
+      expect(find.text('MAGENTA'), findsOneWidget);
+      expect(find.text('GREEN'), findsOneWidget);
       expect(find.text('+12'), findsOneWidget);
       expect(find.text('-8'), findsOneWidget);
       expect(find.text('40'), findsOneWidget);
       expect(find.text('70%'), findsOneWidget);
+      expect(find.text('-35 / +42'), findsOneWidget);
       expect(find.text('RESET'), findsOneWidget);
       expect(find.text('APPLY'), findsOneWidget);
       expect(find.text('SAVE STYLE'), findsOneWidget);
       expect(find.byType(Slider), findsNWidgets(4));
+      expect(find.byKey(const Key('undertone-pad')), findsOneWidget);
     });
 
     testWidgets('emits updated style values from each slider', (
@@ -82,6 +91,43 @@ void main() {
       expect(emittedStyles[3].styleStrength, equals(88));
     });
 
+    testWidgets('emits updated undertone values from the direction pad', (
+      WidgetTester tester,
+    ) async {
+      final emittedStyles = <RanaStyle>[];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RanaStylesPanelWidget(
+              activePresetName: 'Rana Warm',
+              style: const RanaStyle(
+                tone: 1,
+                color: 2,
+                texture: 3,
+                styleStrength: 4,
+              ),
+              onStyleChanged: emittedStyles.add,
+              onReset: () {},
+              onApply: () {},
+              onSaveAsStyle: () {},
+            ),
+          ),
+        ),
+      );
+
+      final pad = find.byKey(const Key('undertone-pad'));
+      final rect = tester.getRect(pad);
+      await tester.tapAt(rect.topRight + const Offset(-2, 2));
+      await tester.pump();
+
+      expect(emittedStyles, isNotEmpty);
+      expect(emittedStyles.last.undertoneX, closeTo(1.0, 0.05));
+      expect(emittedStyles.last.undertoneY, closeTo(1.0, 0.05));
+      expect(emittedStyles.last.tone, equals(1));
+      expect(emittedStyles.last.color, equals(2));
+    });
+
     testWidgets('invokes reset apply and save callbacks', (
       WidgetTester tester,
     ) async {
@@ -104,8 +150,11 @@ void main() {
         ),
       );
 
+      await tester.ensureVisible(find.text('RESET'));
       await tester.tap(find.text('RESET'));
+      await tester.ensureVisible(find.text('APPLY'));
       await tester.tap(find.text('APPLY'));
+      await tester.ensureVisible(find.text('SAVE STYLE'));
       await tester.tap(find.text('SAVE STYLE'));
 
       expect(resetCount, equals(1));
