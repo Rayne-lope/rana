@@ -522,7 +522,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           builder: (context, ref, _) {
             final state = ref.watch(cameraControllerProvider);
             final controller = ref.read(cameraControllerProvider.notifier);
-            final presets = ref.watch(presetsProvider).valueOrNull ?? [];
+            final presets = ref.read(presetsProvider).valueOrNull ?? [];
             final activePreset =
                 _findPresetById(presets, state.activePresetId) ??
                 fallbackPreset;
@@ -543,7 +543,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 unawaited(
                   _showSaveStyleDialog(
                     sheetContext,
-                    ref,
                     activePreset,
                     state.activeStyle,
                   ),
@@ -558,7 +557,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   Future<void> _showSaveStyleDialog(
     BuildContext sheetContext,
-    WidgetRef ref,
     PresetModel? activePreset,
     RanaStyle style,
   ) async {
@@ -631,14 +629,17 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       createdAt: createdAt,
     );
 
+    if (sheetContext.mounted) {
+      Navigator.of(sheetContext).pop();
+    }
+
     await ref.read(savedRanaStyleRepositoryProvider).save(savedStyle);
     ref.invalidate(presetsProvider);
 
-    if (!mounted || !sheetContext.mounted) {
+    if (!mounted) {
       return;
     }
 
-    Navigator.of(sheetContext).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('SAVED STYLE ${name.toUpperCase()}'),

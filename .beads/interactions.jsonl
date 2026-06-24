@@ -68,3 +68,5 @@
 {"id":"int-b4b1ecf7","kind":"field_change","created_at":"2026-06-24T06:52:31.80291Z","actor":"Rayne-lope","issue_id":"Rana-oy3","extra":{"field":"assignee","new_value":"other","old_value":""}}
 {"id":"int-ac9e8a13","kind":"field_change","created_at":"2026-06-24T06:57:32.932391Z","actor":"Rayne-lope","issue_id":"Rana-6x8","extra":{"field":"assignee","new_value":"other","old_value":""}}
 {"id":"int-a683ff0b","kind":"field_change","created_at":"2026-06-24T07:07:34.012097Z","actor":"Rayne-lope","issue_id":"Rana-fqb","extra":{"field":"assignee","new_value":"other","old_value":""}}
+{"id":"int-8039f4fd","kind":"field_change","created_at":"2026-06-24T09:20:39.123012Z","actor":"Rayne-lope","issue_id":"Rana-pjo","extra":{"field":"assignee","new_value":"gemini","old_value":"other"}}
+{"id":"int-78c92a4f","kind":"field_change","created_at":"2026-06-24T09:34:01.879589Z","actor":"Rayne-lope","issue_id":"Rana-70o","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Fixed the Failed assertion: _dependents.isEmpty is not true crash on Save Style by removing sheet-specific ref parameter and using class-level ref."}}
