@@ -14,7 +14,7 @@ void main() {
             body: RanaInteractiveSlider(
               label: 'Test Tone',
               valueLabel: '+15',
-              value: 15.0,
+              value: 15,
               min: -100,
               max: 100,
               onChanged: (val) {
