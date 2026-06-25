@@ -1,7 +1,12 @@
 package com.rana.app.rana
 
+import android.content.ContentUris
 import android.content.Intent
+import android.database.Cursor
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -9,6 +14,10 @@ import io.flutter.plugin.common.MethodChannel
 import android.os.Handler
 import android.os.Looper
 import androidx.camera.core.CameraSelector
+import android.provider.MediaStore
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     private val METHOD_CHANNEL = "com.rana.app/camera_control"
@@ -16,6 +25,7 @@ class MainActivity : FlutterActivity() {
 
     private var eventSink: EventChannel.EventSink? = null
     private val handler = Handler(Looper.getMainLooper())
+    private val mediaStoreExecutor = Executors.newSingleThreadExecutor()
     var activePreviewView: CameraPreviewView? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -91,6 +101,48 @@ class MainActivity : FlutterActivity() {
                             result.success(imageBytes)
                         } catch (e: Exception) {
                             result.error("LOAD_IMAGE_FAILED", e.message, null)
+                        }
+                    }
+                }
+                "listGalleryMedia" -> {
+                    mediaStoreExecutor.execute {
+                        try {
+                            val items = listGalleryMedia()
+                            handler.post { result.success(items) }
+                        } catch (e: SecurityException) {
+                            handler.post {
+                                result.error("PERMISSION_DENIED", e.message, null)
+                            }
+                        } catch (e: Exception) {
+                            handler.post {
+                                result.error("LIST_GALLERY_FAILED", e.message, null)
+                            }
+                        }
+                    }
+                }
+                "loadGalleryThumbnailBytes" -> {
+                    val uriArg = call.argument<String>("uri")
+                    val targetSize = (call.argument<Number>("targetSize"))
+                        ?.toInt() ?: 360
+                    if (uriArg.isNullOrBlank()) {
+                        result.error("INVALID_URI", "Image URI is required", null)
+                    } else {
+                        mediaStoreExecutor.execute {
+                            try {
+                                val thumbBytes = loadGalleryThumbnailBytes(
+                                    Uri.parse(uriArg),
+                                    targetSize
+                                )
+                                handler.post { result.success(thumbBytes) }
+                            } catch (e: Exception) {
+                                handler.post {
+                                    result.error(
+                                        "LOAD_THUMBNAIL_FAILED",
+                                        e.message,
+                                        null
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -356,6 +408,167 @@ class MainActivity : FlutterActivity() {
         return contentResolver.openInputStream(uri)?.use { stream ->
             stream.readBytes()
         } ?: throw IllegalStateException("Unable to open image stream")
+    }
+
+    private fun listGalleryMedia(): List<Map<String, Any?>> {
+        val includeRelativePath = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+        val projection = if (includeRelativePath) {
+            arrayOf(
+                MediaStore.Images.Media._ID,
+                MediaStore.MediaColumns.DISPLAY_NAME,
+                MediaStore.Images.Media.DATE_TAKEN,
+                MediaStore.Images.Media.DATE_ADDED,
+                MediaStore.MediaColumns.WIDTH,
+                MediaStore.MediaColumns.HEIGHT,
+                MediaStore.MediaColumns.SIZE,
+                MediaStore.MediaColumns.MIME_TYPE,
+                MediaStore.MediaColumns.RELATIVE_PATH,
+            )
+        } else {
+            arrayOf(
+                MediaStore.Images.Media._ID,
+                MediaStore.MediaColumns.DISPLAY_NAME,
+                MediaStore.Images.Media.DATE_TAKEN,
+                MediaStore.Images.Media.DATE_ADDED,
+                MediaStore.MediaColumns.WIDTH,
+                MediaStore.MediaColumns.HEIGHT,
+                MediaStore.MediaColumns.SIZE,
+                MediaStore.MediaColumns.MIME_TYPE,
+                MediaStore.Images.Media.DATA,
+            )
+        }
+
+        val (selection, selectionArgs) = gallerySelection()
+        val sortOrder = buildString {
+            append(MediaStore.Images.Media.DATE_TAKEN)
+            append(" DESC, ")
+            append(MediaStore.Images.Media.DATE_ADDED)
+            append(" DESC")
+        }
+
+        val items = mutableListOf<Map<String, Any?>>()
+        contentResolver.query(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            projection,
+            selection,
+            selectionArgs,
+            sortOrder
+        )?.use { cursor ->
+            items.addAll(cursor.toGalleryRows(includeRelativePath))
+        }
+        return items
+    }
+
+    private fun Cursor.toGalleryRows(includeRelativePath: Boolean): List<Map<String, Any?>> {
+        val idCol = getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+        val displayNameCol = getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+        val dateTakenCol = getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
+        val dateAddedCol = getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
+        val widthCol = getColumnIndexOrThrow(MediaStore.MediaColumns.WIDTH)
+        val heightCol = getColumnIndexOrThrow(MediaStore.MediaColumns.HEIGHT)
+        val sizeCol = getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
+        val mimeTypeCol = getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE)
+        val relativePathCol = if (includeRelativePath) {
+            getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH)
+        } else {
+            getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
+        }
+
+        val rows = mutableListOf<Map<String, Any?>>()
+        while (moveToNext()) {
+            val id = getLong(idCol)
+            val dateTaken = if (!isNull(dateTakenCol) && getLong(dateTakenCol) > 0L) {
+                getLong(dateTakenCol)
+            } else {
+                getLong(dateAddedCol) * 1000L
+            }
+            val contentUri = ContentUris.withAppendedId(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                id
+            )
+            rows.add(
+                mapOf(
+                    "id" to id,
+                    "contentUri" to contentUri.toString(),
+                    "displayName" to (getString(displayNameCol) ?: "Rana photo"),
+                    "dateTaken" to dateTaken,
+                    "dateAdded" to getLong(dateAddedCol) * 1000L,
+                    "width" to if (isNull(widthCol)) 0 else getInt(widthCol),
+                    "height" to if (isNull(heightCol)) 0 else getInt(heightCol),
+                    "sizeBytes" to if (isNull(sizeCol)) null else getLong(sizeCol),
+                    "mimeType" to getString(mimeTypeCol),
+                    "relativePath" to if (isNull(relativePathCol)) null else getString(relativePathCol),
+                )
+            )
+        }
+        return rows
+    }
+
+    private fun gallerySelection(): Pair<String?, Array<String>?> {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val selection = buildString {
+                append("(")
+                append(MediaStore.MediaColumns.RELATIVE_PATH)
+                append(" = ? OR ")
+                append(MediaStore.MediaColumns.RELATIVE_PATH)
+                append(" LIKE ?)")
+            }
+            selection to arrayOf("Pictures/Rana", "Pictures/Rana/%")
+        } else {
+            "${MediaStore.Images.Media.DATA} LIKE ?" to arrayOf("%/Pictures/Rana/%")
+        }
+    }
+
+    private fun loadGalleryThumbnailBytes(uri: Uri, targetSizePx: Int): ByteArray {
+        val bitmap = decodeSampledBitmapFromUri(uri, targetSizePx)
+        return ByteArrayOutputStream().use { output ->
+            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 88, output)) {
+                bitmap.safeRecycle()
+                throw IOException("Bitmap compression failed")
+            }
+            bitmap.safeRecycle()
+            output.toByteArray()
+        }
+    }
+
+    private fun decodeSampledBitmapFromUri(uri: Uri, targetSizePx: Int): Bitmap {
+        val bounds = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+
+        contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, bounds)
+        } ?: throw IOException("Unable to read image bounds")
+
+        val sampleSize = calculateSampleSize(bounds.outWidth, bounds.outHeight, targetSizePx)
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+            inPreferredConfig = Bitmap.Config.RGB_565
+        }
+
+        return contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, options)
+        } ?: throw IOException("Unable to decode image thumbnail")
+    }
+
+    private fun calculateSampleSize(
+        width: Int,
+        height: Int,
+        targetSizePx: Int
+    ): Int {
+        if (width <= 0 || height <= 0 || targetSizePx <= 0) {
+            return 1
+        }
+
+        var sampleSize = 1
+        var halfWidth = width / 2
+        var halfHeight = height / 2
+        while (halfWidth / sampleSize >= targetSizePx ||
+            halfHeight / sampleSize >= targetSizePx
+        ) {
+            sampleSize *= 2
+        }
+        return sampleSize.coerceAtLeast(1)
     }
 
     private fun openMediaInGallery(
