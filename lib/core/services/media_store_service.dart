@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/services.dart';
 import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/gallery/model/gallery_media_item.dart';
@@ -50,6 +48,42 @@ class MediaStoreService {
       AppLogger.e(
         'MediaStoreService',
         'Failed to load gallery thumbnail: $uri',
+        e,
+        stack,
+      );
+      rethrow;
+    }
+  }
+
+  /// Opens Android's share sheet for a MediaStore image URI.
+  Future<void> shareGalleryMedia(String uri) async {
+    try {
+      await _methodChannel.invokeMethod<void>('shareGalleryMedia', {
+        'uri': uri,
+      });
+    } on PlatformException catch (e, stack) {
+      AppLogger.e(
+        'MediaStoreService',
+        'Failed to share gallery media: $uri',
+        e,
+        stack,
+      );
+      rethrow;
+    }
+  }
+
+  /// Deletes a MediaStore image URI.
+  ///
+  /// Scoped-storage consent is requested by Android when needed.
+  Future<void> deleteGalleryMedia(String uri) async {
+    try {
+      await _methodChannel.invokeMethod<void>('deleteGalleryMedia', {
+        'uri': uri,
+      });
+    } on PlatformException catch (e, stack) {
+      AppLogger.e(
+        'MediaStoreService',
+        'Failed to delete gallery media: $uri',
         e,
         stack,
       );

@@ -10,6 +10,7 @@ import 'package:rana/core/services/media_store_service.dart';
 import 'package:rana/features/gallery/controller/gallery_controller.dart';
 import 'package:rana/features/gallery/model/gallery_media_item.dart';
 import 'package:rana/features/gallery/state/gallery_state.dart';
+import 'package:rana/features/gallery/view/gallery_detail_screen.dart';
 
 /// Gallery screen that reads Rana photos from Android MediaStore.
 class GalleryScreen extends ConsumerStatefulWidget {
@@ -53,6 +54,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     final permissionState = ref.watch(permissionControllerProvider);
     final galleryState = ref.watch(galleryControllerProvider);
     final controller = ref.read(galleryControllerProvider.notifier);
+    final visibleItems = galleryState.visibleItems;
 
     final showLoader =
         permissionState.isChecking ||
@@ -97,8 +99,12 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                 sliver: SliverToBoxAdapter(
                   child: _GallerySummaryCard(
                     itemCount: galleryState.items.length,
+                    favoriteCount: galleryState.favoriteIds.length,
                     hasPermission: permissionState.hasStorage,
                     isLoading: showLoader,
+                    showFavoritesOnly: galleryState.showFavoritesOnly,
+                    onFavoritesOnlyChanged: (value) =>
+                        controller.setFavoritesOnly(value: value),
                   ),
                 ),
               ),
@@ -130,10 +136,11 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                     onRetry: controller.loadGallery,
                   ),
                 )
-              else if (galleryState.items.isEmpty)
+              else if (visibleItems.isEmpty)
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: _GalleryEmptyState(
+                    showFavoritesOnly: galleryState.showFavoritesOnly,
                     onTakePhoto: () => context.go(AppRoutes.camera),
                   ),
                 )
@@ -152,16 +159,27 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                           childAspectRatio: 0.82,
                         ),
                         delegate: SliverChildBuilderDelegate((context, index) {
-                          final item = galleryState.items[index];
+                          final item = visibleItems[index];
                           return _GalleryTile(
                             key: ValueKey<String>('gallery-tile-${item.id}'),
                             item: item,
-                            onTap: () => context.push(
-                              AppRoutes.result,
-                              extra: item.contentUri,
+                            isFavorite: galleryState.isFavorite(item.id),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => GalleryDetailScreen(
+                                  items: visibleItems,
+                                  initialIndex: index,
+                                ),
+                              ),
+                            ),
+                            onLongPress: () => _showGalleryActions(
+                              context: context,
+                              ref: ref,
+                              item: item,
+                              isFavorite: galleryState.isFavorite(item.id),
                             ),
                           );
-                        }, childCount: galleryState.items.length),
+                        }, childCount: visibleItems.length),
                       );
                     },
                   ),
@@ -174,16 +192,123 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   }
 }
 
+Future<void> _showGalleryActions({
+  required BuildContext context,
+  required WidgetRef ref,
+  required GalleryMediaItem item,
+  required bool isFavorite,
+}) async {
+  final action = await showModalBottomSheet<_GalleryAction>(
+    context: context,
+    backgroundColor: const Color(0xFF17171B),
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: Icon(
+              isFavorite
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
+              color: const Color(0xFFF39C12),
+            ),
+            title: Text(
+              isFavorite ? 'Remove favorite' : 'Favorite',
+              style: const TextStyle(color: Colors.white),
+            ),
+            onTap: () => Navigator.of(context).pop(_GalleryAction.favorite),
+          ),
+          ListTile(
+            leading: const Icon(Icons.ios_share_rounded, color: Colors.white70),
+            title: const Text('Share', style: TextStyle(color: Colors.white)),
+            onTap: () => Navigator.of(context).pop(_GalleryAction.share),
+          ),
+          ListTile(
+            leading: const Icon(
+              Icons.delete_outline_rounded,
+              color: Color(0xFFF39C12),
+            ),
+            title: const Text('Delete', style: TextStyle(color: Colors.white)),
+            onTap: () => Navigator.of(context).pop(_GalleryAction.delete),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (action == null || !context.mounted) return;
+
+  final controller = ref.read(galleryControllerProvider.notifier);
+  try {
+    switch (action) {
+      case _GalleryAction.favorite:
+        await controller.toggleFavorite(item.id);
+      case _GalleryAction.share:
+        await controller.shareItem(item.contentUri);
+      case _GalleryAction.delete:
+        final shouldDelete = await _confirmGalleryDelete(context, item);
+        if (shouldDelete == true) {
+          await controller.deleteItem(item.contentUri);
+        }
+    }
+  } on Object catch (_) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Unable to complete this gallery action.')),
+    );
+  }
+}
+
+Future<bool?> _confirmGalleryDelete(
+  BuildContext context,
+  GalleryMediaItem item,
+) => showDialog<bool>(
+  context: context,
+  builder: (context) => AlertDialog(
+    backgroundColor: const Color(0xFF17171B),
+    titleTextStyle: const TextStyle(
+      color: Colors.white,
+      fontSize: 20,
+      fontWeight: FontWeight.w800,
+    ),
+    contentTextStyle: const TextStyle(color: Colors.white70, height: 1.4),
+    title: const Text('Delete photo?'),
+    content: Text('${item.displayName} will be removed from MediaStore.'),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(false),
+        child: const Text('CANCEL'),
+      ),
+      FilledButton(
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFFF39C12),
+          foregroundColor: Colors.black,
+        ),
+        onPressed: () => Navigator.of(context).pop(true),
+        child: const Text('DELETE'),
+      ),
+    ],
+  ),
+);
+
+enum _GalleryAction { favorite, share, delete }
+
 class _GallerySummaryCard extends StatelessWidget {
   const _GallerySummaryCard({
     required this.itemCount,
+    required this.favoriteCount,
     required this.hasPermission,
     required this.isLoading,
+    required this.showFavoritesOnly,
+    required this.onFavoritesOnlyChanged,
   });
 
   final int itemCount;
+  final int favoriteCount;
   final bool hasPermission;
   final bool isLoading;
+  final bool showFavoritesOnly;
+  final ValueChanged<bool> onFavoritesOnlyChanged;
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
@@ -234,9 +359,7 @@ class _GallerySummaryCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  isLoading
-                      ? 'Loading recent captures'
-                      : '$itemCount photo${itemCount == 1 ? '' : 's'} saved in MediaStore',
+                  isLoading ? 'Loading recent captures' : _photoCountLabel,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -246,10 +369,36 @@ class _GallerySummaryCard extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: 10),
+          FilterChip(
+            selected: showFavoritesOnly,
+            onSelected: hasPermission && !isLoading
+                ? onFavoritesOnlyChanged
+                : null,
+            avatar: Icon(
+              showFavoritesOnly
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
+              size: 16,
+            ),
+            label: Text('$favoriteCount'),
+            selectedColor: const Color(0xFFF39C12),
+            backgroundColor: Colors.black.withValues(alpha: 0.26),
+            checkmarkColor: Colors.black,
+            labelStyle: TextStyle(
+              color: showFavoritesOnly ? Colors.black : Colors.white70,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ],
       ),
     ),
   );
+
+  String get _photoCountLabel {
+    final plural = itemCount == 1 ? '' : 's';
+    return '$itemCount photo$plural saved in MediaStore';
+  }
 }
 
 class _GalleryLoadingState extends StatelessWidget {
@@ -347,10 +496,7 @@ class _GalleryPermissionState extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          TextButton(
-            onPressed: () => onRetryCheck(),
-            child: const Text('CHECK AGAIN'),
-          ),
+          TextButton(onPressed: onRetryCheck, child: const Text('CHECK AGAIN')),
         ],
       ),
     ),
@@ -408,8 +554,12 @@ class _GalleryErrorState extends StatelessWidget {
 }
 
 class _GalleryEmptyState extends StatelessWidget {
-  const _GalleryEmptyState({required this.onTakePhoto});
+  const _GalleryEmptyState({
+    required this.showFavoritesOnly,
+    required this.onTakePhoto,
+  });
 
+  final bool showFavoritesOnly;
   final VoidCallback onTakePhoto;
 
   @override
@@ -434,10 +584,10 @@ class _GalleryEmptyState extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'NO RANA PHOTOS YET',
+          Text(
+            showFavoritesOnly ? 'NO FAVORITES YET' : 'NO RANA PHOTOS YET',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.w800,
@@ -445,11 +595,13 @@ class _GalleryEmptyState extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          const Text(
-            'Capture a photo and it will appear here automatically from '
-            'MediaStore.',
+          Text(
+            showFavoritesOnly
+                ? 'Tap the heart on a photo to keep it in your favorites.'
+                : 'Capture a photo and it will appear here automatically from '
+                      'MediaStore.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white54, height: 1.45),
+            style: const TextStyle(color: Colors.white54, height: 1.45),
           ),
           const SizedBox(height: 20),
           FilledButton(
@@ -467,10 +619,18 @@ class _GalleryEmptyState extends StatelessWidget {
 }
 
 class _GalleryTile extends StatefulWidget {
-  const _GalleryTile({required this.item, required this.onTap, super.key});
+  const _GalleryTile({
+    required this.item,
+    required this.isFavorite,
+    required this.onTap,
+    required this.onLongPress,
+    super.key,
+  });
 
   final GalleryMediaItem item;
+  final bool isFavorite;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   State<_GalleryTile> createState() => _GalleryTileState();
@@ -489,6 +649,7 @@ class _GalleryTileState extends State<_GalleryTile> {
   @override
   Widget build(BuildContext context) => GestureDetector(
     onTap: widget.onTap,
+    onLongPress: widget.onLongPress,
     child: ClipRRect(
       borderRadius: BorderRadius.circular(18),
       child: DecoratedBox(
@@ -534,6 +695,16 @@ class _GalleryTileState extends State<_GalleryTile> {
                 ),
               ),
             ),
+            if (widget.isFavorite)
+              const Positioned(
+                top: 10,
+                right: 10,
+                child: Icon(
+                  Icons.favorite_rounded,
+                  color: Color(0xFFF39C12),
+                  size: 22,
+                ),
+              ),
             Positioned(
               left: 12,
               right: 12,

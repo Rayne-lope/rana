@@ -15,16 +15,6 @@ class GalleryMediaItem {
     required this.relativePath,
   });
 
-  final String id;
-  final String contentUri;
-  final String displayName;
-  final DateTime dateTaken;
-  final int width;
-  final int height;
-  final String? mimeType;
-  final int? sizeBytes;
-  final String? relativePath;
-
   factory GalleryMediaItem.fromMap(Map<String, dynamic> json) {
     final timestamp =
         (json['dateTaken'] as num?)?.toInt() ??
@@ -46,6 +36,16 @@ class GalleryMediaItem {
       relativePath: json['relativePath']?.toString(),
     );
   }
+
+  final String id;
+  final String contentUri;
+  final String displayName;
+  final DateTime dateTaken;
+  final int width;
+  final int height;
+  final String? mimeType;
+  final int? sizeBytes;
+  final String? relativePath;
 
   String get captureStamp {
     final day = dateTaken.day.toString().padLeft(2, '0');

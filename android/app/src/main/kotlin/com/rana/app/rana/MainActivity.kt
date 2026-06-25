@@ -1,7 +1,10 @@
 package com.rana.app.rana
 
+import android.app.Activity
+import android.app.RecoverableSecurityException
 import android.content.ContentUris
 import android.content.Intent
+import android.content.IntentSender
 import android.database.Cursor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -22,10 +25,12 @@ import java.util.concurrent.Executors
 class MainActivity : FlutterActivity() {
     private val METHOD_CHANNEL = "com.rana.app/camera_control"
     private val EVENT_CHANNEL = "com.rana.app/camera_status"
+    private val DELETE_MEDIA_REQUEST_CODE = 4107
 
     private var eventSink: EventChannel.EventSink? = null
     private val handler = Handler(Looper.getMainLooper())
     private val mediaStoreExecutor = Executors.newSingleThreadExecutor()
+    private var pendingDeleteResult: MethodChannel.Result? = null
     var activePreviewView: CameraPreviewView? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -152,6 +157,22 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_URI", "Image URI is required", null)
                     } else {
                         openMediaInGallery(Uri.parse(uriArg), result)
+                    }
+                }
+                "shareGalleryMedia" -> {
+                    val uriArg = call.argument<String>("uri")
+                    if (uriArg.isNullOrBlank()) {
+                        result.error("INVALID_URI", "Image URI is required", null)
+                    } else {
+                        shareGalleryMedia(Uri.parse(uriArg), result)
+                    }
+                }
+                "deleteGalleryMedia" -> {
+                    val uriArg = call.argument<String>("uri")
+                    if (uriArg.isNullOrBlank()) {
+                        result.error("INVALID_URI", "Image URI is required", null)
+                    } else {
+                        deleteGalleryMedia(Uri.parse(uriArg), result)
                     }
                 }
                 "setFlashMode" -> {
@@ -404,6 +425,19 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != DELETE_MEDIA_REQUEST_CODE) return
+
+        val result = pendingDeleteResult ?: return
+        pendingDeleteResult = null
+        if (resultCode == Activity.RESULT_OK) {
+            result.success(null)
+        } else {
+            result.error("DELETE_CANCELLED", "Delete request was cancelled", null)
+        }
+    }
+
     private fun loadCapturedImageBytes(uri: Uri): ByteArray {
         return contentResolver.openInputStream(uri)?.use { stream ->
             stream.readBytes()
@@ -595,6 +629,100 @@ class MainActivity : FlutterActivity() {
             } catch (e: Exception) {
                 result.error("OPEN_GALLERY_FAILED", e.message, null)
             }
+        }
+    }
+
+    private fun shareGalleryMedia(
+        uri: Uri,
+        result: MethodChannel.Result
+    ) {
+        handler.post {
+            try {
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "image/*"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                startActivity(Intent.createChooser(shareIntent, "Share Rana photo"))
+                result.success(null)
+            } catch (e: Exception) {
+                result.error("SHARE_MEDIA_FAILED", e.message, null)
+            }
+        }
+    }
+
+    private fun deleteGalleryMedia(
+        uri: Uri,
+        result: MethodChannel.Result
+    ) {
+        mediaStoreExecutor.execute {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    requestScopedDelete(uri, result)
+                    return@execute
+                }
+
+                val deleted = tryDeleteUri(uri)
+                handler.post {
+                    if (deleted) {
+                        result.success(null)
+                    } else {
+                        result.error("DELETE_MEDIA_FAILED", "MediaStore item was not deleted", null)
+                    }
+                }
+            } catch (e: RecoverableSecurityException) {
+                handler.post {
+                    requestDeleteWithIntentSender(
+                        e.userAction.actionIntent.intentSender,
+                        result
+                    )
+                }
+            } catch (e: SecurityException) {
+                handler.post { result.error("PERMISSION_DENIED", e.message, null) }
+            } catch (e: Exception) {
+                handler.post { result.error("DELETE_MEDIA_FAILED", e.message, null) }
+            }
+        }
+    }
+
+    private fun tryDeleteUri(uri: Uri): Boolean {
+        return contentResolver.delete(uri, null, null) > 0
+    }
+
+    private fun requestScopedDelete(
+        uri: Uri,
+        result: MethodChannel.Result
+    ) {
+        val intentSender = MediaStore.createDeleteRequest(
+            contentResolver,
+            listOf(uri)
+        ).intentSender
+        handler.post { requestDeleteWithIntentSender(intentSender, result) }
+    }
+
+    private fun requestDeleteWithIntentSender(
+        intentSender: IntentSender,
+        result: MethodChannel.Result
+    ) {
+        if (pendingDeleteResult != null) {
+            result.error("DELETE_ALREADY_PENDING", "Another delete request is pending", null)
+            return
+        }
+
+        pendingDeleteResult = result
+        try {
+            startIntentSenderForResult(
+                intentSender,
+                DELETE_MEDIA_REQUEST_CODE,
+                null,
+                0,
+                0,
+                0,
+                null
+            )
+        } catch (e: Exception) {
+            pendingDeleteResult = null
+            result.error("DELETE_REQUEST_FAILED", e.message, null)
         }
     }
 

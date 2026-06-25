@@ -10,6 +10,7 @@ import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/repository/preset_repository.dart';
 import 'package:rana/features/splash/view/splash_screen.dart';
 import 'package:rana/main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +23,7 @@ void main() {
     const cameraChannel = MethodChannel('com.rana.app/camera_control');
 
     setUp(() {
+      SharedPreferences.setMockInitialValues({});
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(permissionChannel, (
             MethodCall methodCall,
@@ -59,6 +61,10 @@ void main() {
               case 'loadGalleryThumbnailBytes':
                 return testImageBytes;
               case 'openMediaInGallery':
+                return null;
+              case 'shareGalleryMedia':
+                return null;
+              case 'deleteGalleryMedia':
                 return null;
             }
             return null;

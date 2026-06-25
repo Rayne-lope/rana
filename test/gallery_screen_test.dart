@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rana/core/router/app_router.dart';
 import 'package:rana/features/camera/view/result_screen.dart';
 import 'package:rana/features/gallery/view/gallery_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +20,7 @@ void main() {
   const cameraChannel = MethodChannel('com.rana.app/camera_control');
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(permissionChannel, (
           MethodCall methodCall,
@@ -86,6 +87,10 @@ void main() {
               return testImageBytes;
             case 'openMediaInGallery':
               return null;
+            case 'shareGalleryMedia':
+              return null;
+            case 'deleteGalleryMedia':
+              return null;
           }
           return null;
         });
@@ -121,7 +126,11 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(find.text('VIEW IN GALLERY'), findsOneWidget);
+    expect(find.text('1 / 1'), findsOneWidget);
+    expect(find.text('Rana_2026-06-25-10-11-12.jpg'), findsOneWidget);
+    expect(find.byTooltip('Favorite'), findsOneWidget);
+    expect(find.byTooltip('Share photo'), findsOneWidget);
+    expect(find.byTooltip('Delete photo'), findsOneWidget);
   });
 
   testWidgets('shows settings prompt when storage access is denied', (
@@ -137,6 +146,10 @@ void main() {
             case 'loadCapturedImageBytes':
               return testImageBytes;
             case 'openMediaInGallery':
+              return null;
+            case 'shareGalleryMedia':
+              return null;
+            case 'deleteGalleryMedia':
               return null;
           }
           return null;
