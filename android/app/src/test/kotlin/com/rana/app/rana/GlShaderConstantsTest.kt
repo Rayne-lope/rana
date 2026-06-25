@@ -12,7 +12,7 @@ class GlShaderConstantsTest {
         assertOrder(
             shader,
             "vec2 sourceUv = applyLensDistortion(vTextureCoord);",
-            "vec4 texColor = texture2D(sTexture, sourceUv);"
+            "texColor = texture2D(sTexture, sourceUv);"
         )
     }
 
@@ -23,7 +23,7 @@ class GlShaderConstantsTest {
         assertOrder(
             shader,
             "vec2 sourceUv = applyLensDistortion(vTextureCoord);",
-            "vec4 texColor = texture2D(sTexture, sourceUv);"
+            "texColor = texture2D(sTexture, sourceUv);"
         )
     }
 

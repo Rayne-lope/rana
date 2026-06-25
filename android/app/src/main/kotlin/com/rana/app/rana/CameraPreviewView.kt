@@ -58,6 +58,7 @@ class CameraPreviewView(
     private var currentRotation: Int = Surface.ROTATION_0
     private val captureExecutor = Executors.newSingleThreadExecutor()
     private val isCapturing = AtomicBoolean(false)
+    private var previewBindGeneration = 0
 
     private val orientationEventListener = object : OrientationEventListener(context) {
         override fun onOrientationChanged(orientation: Int) {
@@ -154,6 +155,8 @@ class CameraPreviewView(
         val renderer = glRenderer ?: return
         activity.runOnUiThread {
             try {
+                previewBindGeneration += 1
+                val bindGeneration = previewBindGeneration
                 provider.unbindAll()
 
                 val displayRotation = currentDisplayRotation()
@@ -170,10 +173,18 @@ class CameraPreviewView(
                         val cameraSurfaceTexture = renderer.cameraSurfaceTexture
                         if (cameraSurfaceTexture != null) {
                             cameraSurfaceTexture.setDefaultBufferSize(resolution.width, resolution.height)
+                            renderer.setPreviewFrameConfig(
+                                bufferWidth = resolution.width,
+                                bufferHeight = resolution.height,
+                                fallbackAspectRatio = currentAspectRatio.viewfinderRatio,
+                                mirrorHorizontally =
+                                    currentLensFacing == CameraSelector.LENS_FACING_FRONT
+                            )
 
                             request.setTransformationInfoListener(
                                 ContextCompat.getMainExecutor(context)
                             ) { info ->
+                                if (bindGeneration != previewBindGeneration) return@setTransformationInfoListener
                                 renderer.setCameraTransform(info.cropRect, info.rotationDegrees)
                             }
 
@@ -651,6 +662,7 @@ class CameraPreviewView(
     fun unbindCamera() {
         activity.runOnUiThread {
             try {
+                previewBindGeneration += 1
                 orientationEventListener.disable()
                 cameraProvider?.unbindAll()
             } catch (e: Exception) {

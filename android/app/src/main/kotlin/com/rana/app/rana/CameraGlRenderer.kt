@@ -195,8 +195,12 @@ class CameraGlRenderer(
     private var viewportWidth = width
     private var viewportHeight = height
 
-    private var cameraCropRect = Rect(0, 0, 0, 0)
-    private var cameraRotationDegrees = 0
+    private var previewBufferWidth = 0
+    private var previewBufferHeight = 0
+    private var previewCropRect = Rect(0, 0, 0, 0)
+    private var previewRotationDegrees = 0
+    private var previewMirrorHorizontally = false
+    private var previewFallbackAspectRatio = 3f / 4f
 
     private val vertexBuffer: FloatBuffer = ByteBuffer
         .allocateDirect(vertexCoords.size * 4)
@@ -328,59 +332,30 @@ class CameraGlRenderer(
         renderHandler.post {
             viewportWidth = w
             viewportHeight = h
-            updateViewportScaling()
+        }
+    }
+
+    fun setPreviewFrameConfig(
+        bufferWidth: Int,
+        bufferHeight: Int,
+        fallbackAspectRatio: Float,
+        mirrorHorizontally: Boolean
+    ) {
+        renderHandler.post {
+            previewBufferWidth = bufferWidth
+            previewBufferHeight = bufferHeight
+            previewFallbackAspectRatio = fallbackAspectRatio
+            previewMirrorHorizontally = mirrorHorizontally
+            previewCropRect = Rect(0, 0, 0, 0)
+            previewRotationDegrees = 0
         }
     }
 
     fun setCameraTransform(cropRect: Rect, rotationDegrees: Int) {
         renderHandler.post {
-            cameraCropRect = Rect(cropRect)
-            cameraRotationDegrees = rotationDegrees
-            updateViewportScaling()
+            previewCropRect = Rect(cropRect)
+            previewRotationDegrees = rotationDegrees
         }
-    }
-
-    fun setCameraResolution(w: Int, h: Int, rotationDegrees: Int) {
-        setCameraTransform(Rect(0, 0, w, h), rotationDegrees)
-    }
-
-    private fun updateViewportScaling() {
-        val cropWidth = cameraCropRect.width()
-        val cropHeight = cameraCropRect.height()
-        if (cropWidth <= 0 || cropHeight <= 0 || viewportWidth <= 0 || viewportHeight <= 0) {
-            return
-        }
-
-        val previewAspectRatio = if (cameraRotationDegrees == 90 || cameraRotationDegrees == 270) {
-            cropHeight.toFloat() / cropWidth.toFloat()
-        } else {
-            cropWidth.toFloat() / cropHeight.toFloat()
-        }
-
-        val viewportAspectRatio = viewportWidth.toFloat() / viewportHeight.toFloat()
-
-        val scaleX: Float
-        val scaleY: Float
-        if (viewportAspectRatio > previewAspectRatio) {
-            // Viewport is wider than preview. Crop top/bottom.
-            scaleX = 1f
-            scaleY = viewportAspectRatio / previewAspectRatio
-        } else {
-            // Viewport is taller than preview. Crop left/right.
-            scaleX = previewAspectRatio / viewportAspectRatio
-            scaleY = 1f
-        }
-
-        val scaledVertices = floatArrayOf(
-            -1.0f * scaleX, -1.0f * scaleY, 0.0f,
-             1.0f * scaleX, -1.0f * scaleY, 0.0f,
-            -1.0f * scaleX,  1.0f * scaleY, 0.0f,
-             1.0f * scaleX,  1.0f * scaleY, 0.0f
-        )
-
-        vertexBuffer.position(0)
-        vertexBuffer.put(scaledVertices)
-        vertexBuffer.position(0)
     }
 
     fun release() {
@@ -706,8 +681,24 @@ class CameraGlRenderer(
             return
         }
 
-        val texMatrix = FloatArray(16)
-        surfaceTexture.getTransformMatrix(texMatrix)
+        val surfaceTextureMatrix = FloatArray(16)
+        surfaceTexture.getTransformMatrix(surfaceTextureMatrix)
+        val texMatrix = buildPreviewTextureMatrix(
+            surfaceTextureMatrix = surfaceTextureMatrix,
+            bufferWidth = previewBufferWidth,
+            bufferHeight = previewBufferHeight,
+            cropRect = previewCropRect.takeIf { it.width() > 0 && it.height() > 0 }?.let {
+                PreviewCropRect(
+                    left = it.left,
+                    top = it.top,
+                    right = it.right,
+                    bottom = it.bottom
+                )
+            },
+            rotationDegrees = previewRotationDegrees,
+            mirrorHorizontally = previewMirrorHorizontally,
+            fallbackAspectRatio = previewFallbackAspectRatio
+        )
 
         if (shouldUseBloomPath()) {
             try {
