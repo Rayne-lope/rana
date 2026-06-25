@@ -54,6 +54,10 @@ void main() {
                 };
               case 'loadCapturedImageBytes':
                 return testImageBytes;
+              case 'listGalleryMedia':
+                return const [];
+              case 'loadGalleryThumbnailBytes':
+                return testImageBytes;
               case 'openMediaInGallery':
                 return null;
             }
@@ -79,20 +83,19 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets(
-      'NavigationBar is removed and not visible after splash delay',
-      (WidgetTester tester) async {
-        await tester.pumpWidget(const ProviderScope(child: RanaApp()));
+    testWidgets('NavigationBar is removed and not visible after splash delay', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(const ProviderScope(child: RanaApp()));
 
-        // Advance past SplashScreen._duration (1200 ms).
-        await tester.pump(const Duration(milliseconds: 1300));
-        await tester.pumpAndSettle();
+      // Advance past SplashScreen._duration (1200 ms).
+      await tester.pump(const Duration(milliseconds: 1300));
+      await tester.pumpAndSettle();
 
-        // NavigationBar should not be present.
-        expect(find.byType(NavigationBar), findsNothing);
-        expect(find.byType(NavigationDestination), findsNothing);
-      },
-    );
+      // NavigationBar should not be present.
+      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byType(NavigationDestination), findsNothing);
+    });
 
     testWidgets('tapping gallery thumbnail navigates to Gallery Screen', (
       WidgetTester tester,
