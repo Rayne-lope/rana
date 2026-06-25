@@ -17,6 +17,8 @@ part 'camera_controller.g.dart';
 class CameraController extends _$CameraController {
   late final CameraPlatformService _platformService;
   StreamSubscription<Map<String, dynamic>>? _statusSubscription;
+  Timer? _selfTimerCountdown;
+  int _selfTimerGeneration = 0;
   int? _currentPreviewVariant;
   PresetModel? _selectedPreset;
 
@@ -28,6 +30,10 @@ class CameraController extends _$CameraController {
 
     ref.onDispose(() {
       unawaited(_statusSubscription?.cancel());
+      _statusSubscription = null;
+      _selfTimerGeneration += 1;
+      _selfTimerCountdown?.cancel();
+      _selfTimerCountdown = null;
     });
 
     return CameraState.initial();
@@ -81,6 +87,7 @@ class CameraController extends _$CameraController {
 
   /// Cycles to the next flash mode (off -> on -> auto).
   Future<void> toggleFlashMode() async {
+    if (state.isSelfTimerRunning) return;
     final nextFlash = _getNextFlashMode(state.flashMode);
     try {
       await _platformService.setFlashMode(nextFlash.name);
@@ -92,6 +99,7 @@ class CameraController extends _$CameraController {
 
   /// Toggles front and back camera lenses.
   Future<void> toggleLens() async {
+    if (state.isSelfTimerRunning) return;
     try {
       final currentLensValue = state.activeLens.value;
       final result = await _platformService.toggleLens(currentLensValue);
@@ -113,6 +121,7 @@ class CameraController extends _$CameraController {
 
   /// Updates the active aspect ratio for both Flutter and native preview.
   Future<void> setAspectRatio(CameraAspectRatio aspectRatio) async {
+    if (state.isSelfTimerRunning) return;
     if (!state.isCameraInitialized) {
       state = state.copyWith(aspectRatio: aspectRatio);
       return;
@@ -129,6 +138,7 @@ class CameraController extends _$CameraController {
 
   /// Selects active film preset on native rendering pipeline.
   Future<void> selectPreset(PresetModel preset) async {
+    if (state.isSelfTimerRunning) return;
     try {
       final isNewPreset = state.activePresetId != preset.id;
       final effectiveStyle = _clampStyle(preset.style ?? const RanaStyle());
@@ -159,6 +169,7 @@ class CameraController extends _$CameraController {
 
   /// Updates the active Rana Style and pushes it to the preview renderer.
   Future<void> updateActiveStyle(RanaStyle style) async {
+    if (state.isSelfTimerRunning) return;
     final clampedStyle = _clampStyle(style);
     state = state.copyWith(activeStyle: clampedStyle);
 
@@ -181,6 +192,7 @@ class CameraController extends _$CameraController {
 
   /// Re-sends the current active preset/style to the native preview renderer.
   Future<void> reapplyActivePreviewParams() async {
+    if (state.isSelfTimerRunning) return;
     if (!state.isCameraInitialized) {
       return;
     }
@@ -207,13 +219,31 @@ class CameraController extends _$CameraController {
 
   /// Resets the active Rana Style to the preset default, or neutral.
   Future<void> resetActiveStyle() async {
+    if (state.isSelfTimerRunning) return;
     final activePreset = _activePreset();
     await updateActiveStyle(activePreset?.style ?? const RanaStyle());
   }
 
+  /// Handles the shutter button, starting the timer when enabled.
+  Future<void> handleShutterPressed() async {
+    if (state.captureStatus != CaptureStatus.idle) return;
+    if (state.isSelfTimerRunning) return;
+
+    if (!state.selfTimerMode.isEnabled) {
+      await capture();
+      return;
+    }
+
+    startSelfTimer(state.selfTimerMode);
+  }
+
   /// Triggers film capture flow.
   Future<void> capture() async {
-    if (state.captureStatus != CaptureStatus.idle) return;
+    if (state.captureStatus != CaptureStatus.idle || state.isSelfTimerRunning) {
+      return;
+    }
+
+    cancelSelfTimer();
 
     final captureParams = _buildCaptureParams();
     final activePreviewParams = ref
@@ -260,6 +290,78 @@ class CameraController extends _$CameraController {
         }),
       );
     }
+  }
+
+  /// Cycles the self-timer preset or cancels an active countdown.
+  void cycleSelfTimer() {
+    if (state.captureStatus != CaptureStatus.idle) return;
+    if (state.isSelfTimerRunning) {
+      cancelSelfTimer();
+      return;
+    }
+
+    final nextMode = state.selfTimerMode.next;
+    state = state.copyWith(
+      selfTimerMode: nextMode,
+      selfTimerRemainingSeconds: 0,
+    );
+  }
+
+  /// Cancels any active countdown without changing the selected mode.
+  void cancelSelfTimer({bool clearMode = false}) {
+    _selfTimerGeneration += 1;
+    _selfTimerCountdown?.cancel();
+    _selfTimerCountdown = null;
+
+    state = state.copyWith(
+      selfTimerMode: clearMode ? SelfTimerMode.off : state.selfTimerMode,
+      selfTimerRemainingSeconds: 0,
+    );
+  }
+
+  void startSelfTimer(SelfTimerMode mode) {
+    if (!mode.isEnabled || state.captureStatus != CaptureStatus.idle) return;
+
+    cancelSelfTimer();
+
+    final totalSeconds = mode.seconds;
+    final session = ++_selfTimerGeneration;
+    state = state.copyWith(
+      selfTimerMode: mode,
+      selfTimerRemainingSeconds: totalSeconds,
+    );
+
+    _selfTimerCountdown = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (session != _selfTimerGeneration) {
+        timer.cancel();
+        return;
+      }
+
+      if (!state.isCameraInitialized ||
+          state.captureStatus != CaptureStatus.idle) {
+        timer.cancel();
+        _selfTimerCountdown = null;
+        if (session == _selfTimerGeneration) {
+          state = state.copyWith(selfTimerRemainingSeconds: 0);
+        }
+        return;
+      }
+
+      final nextRemaining = state.selfTimerRemainingSeconds - 1;
+      if (nextRemaining > 0) {
+        state = state.copyWith(selfTimerRemainingSeconds: nextRemaining);
+        return;
+      }
+
+      timer.cancel();
+      _selfTimerCountdown = null;
+      if (session != _selfTimerGeneration) {
+        return;
+      }
+
+      state = state.copyWith(selfTimerRemainingSeconds: 0);
+      unawaited(capture());
+    });
   }
 
   Map<String, dynamic> _buildCaptureParams() {
@@ -439,6 +541,7 @@ class CameraController extends _$CameraController {
   Future<void> releaseCamera() async {
     if (!state.isCameraInitialized) return;
     try {
+      cancelSelfTimer();
       unawaited(_statusSubscription?.cancel());
       _statusSubscription = null;
       await _platformService.releaseCamera();

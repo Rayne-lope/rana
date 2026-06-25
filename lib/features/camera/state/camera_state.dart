@@ -51,6 +51,28 @@ enum CameraAspectRatio {
   };
 }
 
+/// Available self-timer countdown modes.
+enum SelfTimerMode {
+  off(label: 'OFF', seconds: 0),
+  threeSeconds(label: '3S', seconds: 3),
+  fiveSeconds(label: '5S', seconds: 5),
+  tenSeconds(label: '10S', seconds: 10);
+
+  const SelfTimerMode({required this.label, required this.seconds});
+
+  final String label;
+  final int seconds;
+
+  bool get isEnabled => this != SelfTimerMode.off;
+
+  SelfTimerMode get next => switch (this) {
+    SelfTimerMode.off => SelfTimerMode.threeSeconds,
+    SelfTimerMode.threeSeconds => SelfTimerMode.fiveSeconds,
+    SelfTimerMode.fiveSeconds => SelfTimerMode.tenSeconds,
+    SelfTimerMode.tenSeconds => SelfTimerMode.off,
+  };
+}
+
 /// States representing the capturing flow animation.
 enum CaptureStatus { idle, capturing, processing, success, error }
 
@@ -63,6 +85,8 @@ class CameraState {
     required this.activeLens,
     required this.activePresetId,
     required this.aspectRatio,
+    required this.selfTimerMode,
+    required this.selfTimerRemainingSeconds,
     required this.captureStatus,
     required this.currentFps,
     required this.isCameraInitialized,
@@ -77,6 +101,8 @@ class CameraState {
     activeLens: CameraLens.back,
     activePresetId: 'normal',
     aspectRatio: CameraAspectRatio.portrait34,
+    selfTimerMode: SelfTimerMode.off,
+    selfTimerRemainingSeconds: 0,
     captureStatus: CaptureStatus.idle,
     currentFps: 0,
     isCameraInitialized: false,
@@ -89,6 +115,8 @@ class CameraState {
   final CameraLens activeLens;
   final String activePresetId;
   final CameraAspectRatio aspectRatio;
+  final SelfTimerMode selfTimerMode;
+  final int selfTimerRemainingSeconds;
   final CaptureStatus captureStatus;
   final int currentFps;
   final bool isCameraInitialized;
@@ -96,12 +124,16 @@ class CameraState {
   final String? lastCapturedPath;
   final String? errorMessage;
 
+  bool get isSelfTimerRunning => selfTimerRemainingSeconds > 0;
+
   /// Copies this instance, replacing specified fields.
   CameraState copyWith({
     FlashMode? flashMode,
     CameraLens? activeLens,
     String? activePresetId,
     CameraAspectRatio? aspectRatio,
+    SelfTimerMode? selfTimerMode,
+    int? selfTimerRemainingSeconds,
     CaptureStatus? captureStatus,
     int? currentFps,
     bool? isCameraInitialized,
@@ -113,6 +145,9 @@ class CameraState {
     activeLens: activeLens ?? this.activeLens,
     activePresetId: activePresetId ?? this.activePresetId,
     aspectRatio: aspectRatio ?? this.aspectRatio,
+    selfTimerMode: selfTimerMode ?? this.selfTimerMode,
+    selfTimerRemainingSeconds:
+        selfTimerRemainingSeconds ?? this.selfTimerRemainingSeconds,
     captureStatus: captureStatus ?? this.captureStatus,
     currentFps: currentFps ?? this.currentFps,
     isCameraInitialized: isCameraInitialized ?? this.isCameraInitialized,
@@ -133,6 +168,8 @@ class CameraState {
         other.activeLens == activeLens &&
         other.activePresetId == activePresetId &&
         other.aspectRatio == aspectRatio &&
+        other.selfTimerMode == selfTimerMode &&
+        other.selfTimerRemainingSeconds == selfTimerRemainingSeconds &&
         other.captureStatus == captureStatus &&
         other.currentFps == currentFps &&
         other.isCameraInitialized == isCameraInitialized &&
@@ -147,6 +184,8 @@ class CameraState {
     activeLens,
     activePresetId,
     aspectRatio,
+    selfTimerMode,
+    selfTimerRemainingSeconds,
     captureStatus,
     currentFps,
     isCameraInitialized,
@@ -159,7 +198,9 @@ class CameraState {
   String toString() =>
       'CameraState(flashMode: $flashMode, activeLens: $activeLens, '
       'activePresetId: $activePresetId, captureStatus: $captureStatus, '
-      'aspectRatio: $aspectRatio, currentFps: $currentFps, '
+      'aspectRatio: $aspectRatio, selfTimerMode: $selfTimerMode, '
+      'selfTimerRemainingSeconds: $selfTimerRemainingSeconds, '
+      'currentFps: $currentFps, '
       'isCameraInitialized: $isCameraInitialized, '
       'activeStyle: $activeStyle, '
       'lastCapturedPath: $lastCapturedPath, errorMessage: $errorMessage)';

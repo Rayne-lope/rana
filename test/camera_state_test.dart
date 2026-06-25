@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -68,6 +69,9 @@ void main() {
       expect(state.activeLens, equals(CameraLens.back));
       expect(state.captureStatus, equals(CaptureStatus.idle));
       expect(state.currentFps, equals(0));
+      expect(state.selfTimerMode, equals(SelfTimerMode.off));
+      expect(state.selfTimerRemainingSeconds, equals(0));
+      expect(state.isSelfTimerRunning, isFalse);
       expect(state.activeStyle, equals(const RanaStyle()));
     });
 
@@ -81,8 +85,9 @@ void main() {
       final state = container.read(cameraControllerProvider);
       expect(state.isCameraInitialized, isTrue);
       expect(state.activeLens, equals(CameraLens.back));
-      expect(log.length, equals(1));
-      expect(log.first.method, equals('initializeCamera'));
+      expect(log, hasLength(2));
+      expect(log[0].method, equals('initializeCamera'));
+      expect(log[1].method, equals('setAspectRatio'));
     });
 
     test(
@@ -450,6 +455,161 @@ void main() {
       expect(args['undertoneX'], equals(0.5));
       expect(args['undertoneY'], equals(-0.25));
     });
+
+    test('cycleSelfTimer rotates through all available modes', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await controller.initialize();
+
+      expect(
+        container.read(cameraControllerProvider).selfTimerMode,
+        equals(SelfTimerMode.off),
+      );
+
+      controller.cycleSelfTimer();
+      expect(
+        container.read(cameraControllerProvider).selfTimerMode,
+        equals(SelfTimerMode.threeSeconds),
+      );
+
+      controller.cycleSelfTimer();
+      expect(
+        container.read(cameraControllerProvider).selfTimerMode,
+        equals(SelfTimerMode.fiveSeconds),
+      );
+
+      controller.cycleSelfTimer();
+      expect(
+        container.read(cameraControllerProvider).selfTimerMode,
+        equals(SelfTimerMode.tenSeconds),
+      );
+
+      controller.cycleSelfTimer();
+      expect(
+        container.read(cameraControllerProvider).selfTimerMode,
+        equals(SelfTimerMode.off),
+      );
+    });
+
+    test(
+      'handleShutterPressed captures immediately when timer is off',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final controller = container.read(cameraControllerProvider.notifier);
+        await controller.initialize();
+        log.clear();
+
+        await controller.handleShutterPressed();
+
+        expect(
+          log.where((call) => call.method == 'executeCapture'),
+          hasLength(1),
+        );
+        expect(
+          container.read(cameraControllerProvider).captureStatus,
+          equals(CaptureStatus.success),
+        );
+      },
+    );
+
+    test('self timer counts down before triggering capture', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await controller.initialize();
+      controller.cycleSelfTimer();
+      log.clear();
+
+      fakeAsync((async) {
+        controller.handleShutterPressed();
+
+        expect(
+          container.read(cameraControllerProvider).selfTimerRemainingSeconds,
+          equals(3),
+        );
+
+        async.elapse(const Duration(seconds: 1));
+        expect(
+          container.read(cameraControllerProvider).selfTimerRemainingSeconds,
+          equals(2),
+        );
+
+        async.elapse(const Duration(seconds: 1));
+        expect(
+          container.read(cameraControllerProvider).selfTimerRemainingSeconds,
+          equals(1),
+        );
+
+        async.elapse(const Duration(seconds: 1));
+        async.elapse(const Duration(milliseconds: 120));
+        async.flushMicrotasks();
+      });
+
+      expect(
+        log.where((call) => call.method == 'executeCapture'),
+        hasLength(1),
+      );
+      expect(
+        container.read(cameraControllerProvider).captureStatus,
+        equals(CaptureStatus.success),
+      );
+      expect(
+        container.read(cameraControllerProvider).selfTimerRemainingSeconds,
+        equals(0),
+      );
+    });
+
+    test(
+      'releaseCamera cancels an active self timer without capturing',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final controller = container.read(cameraControllerProvider.notifier);
+        await controller.initialize();
+        controller.cycleSelfTimer();
+        log.clear();
+
+        fakeAsync((async) {
+          controller.handleShutterPressed();
+
+          expect(
+            container.read(cameraControllerProvider).selfTimerRemainingSeconds,
+            equals(3),
+          );
+
+          async.elapse(const Duration(seconds: 1));
+          expect(
+            container.read(cameraControllerProvider).selfTimerRemainingSeconds,
+            equals(2),
+          );
+
+          unawaited(controller.releaseCamera());
+          expect(
+            container.read(cameraControllerProvider).selfTimerRemainingSeconds,
+            equals(0),
+          );
+          expect(
+            container.read(cameraControllerProvider).selfTimerMode,
+            equals(SelfTimerMode.threeSeconds),
+          );
+
+          async.elapse(const Duration(seconds: 5));
+          async.flushMicrotasks();
+        });
+
+        expect(log.where((call) => call.method == 'executeCapture'), isEmpty);
+        expect(
+          container.read(cameraControllerProvider).isCameraInitialized,
+          isFalse,
+        );
+      },
+    );
 
     test('resetActiveStyle restores preset style or neutral values', () async {
       const presetStyle = RanaStyle(

@@ -535,12 +535,89 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     ),
   );
 
+  Widget _buildSelfTimerButton(CameraState state, CameraController controller) {
+    final isRunning = state.isSelfTimerRunning;
+    final hasSelection = state.selfTimerMode.isEnabled;
+    final label = isRunning
+        ? state.selfTimerRemainingSeconds.toString()
+        : state.selfTimerMode.label;
+    final tooltip = isRunning
+        ? 'Self Timer: ${state.selfTimerRemainingSeconds}s remaining'
+        : 'Self Timer: ${state.selfTimerMode.label}';
+
+    return Tooltip(
+      message: tooltip,
+      child: ClipOval(
+        child: Material(
+          color: Colors.black.withValues(alpha: 0.4),
+          child: InkWell(
+            onTap:
+                state.isCameraInitialized &&
+                    state.captureStatus == CaptureStatus.idle
+                ? controller.cycleSelfTimer
+                : null,
+            child: SizedBox(
+              width: 40,
+              height: 40,
+              child: Center(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  transitionBuilder: (child, animation) {
+                    final fade = CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOut,
+                    );
+                    return FadeTransition(
+                      opacity: fade,
+                      child: ScaleTransition(
+                        scale: Tween<double>(begin: 0.9, end: 1).animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutBack,
+                          ),
+                        ),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: hasSelection
+                      ? Text(
+                          label,
+                          key: ValueKey<String>(label),
+                          style: TextStyle(
+                            color: isRunning
+                                ? const Color(0xFFF39C12)
+                                : Colors.white,
+                            fontSize: isRunning ? 12 : 11,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: isRunning ? 0.3 : 0.8,
+                          ),
+                        )
+                      : Icon(
+                          Icons.timer_outlined,
+                          key: const ValueKey<String>('timer_icon'),
+                          color: state.isCameraInitialized
+                              ? Colors.white70
+                              : Colors.white24,
+                          size: 20,
+                        ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTopOverlayControls(
     CameraState state,
     CameraController controller,
   ) {
-    final isReady =
-        state.isCameraInitialized && state.captureStatus == CaptureStatus.idle;
+    final canInteract =
+        state.isCameraInitialized &&
+        state.captureStatus == CaptureStatus.idle &&
+        !state.isSelfTimerRunning;
     IconData flashIcon;
     Color flashColor;
     switch (state.flashMode) {
@@ -563,36 +640,24 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           icon: flashIcon,
           iconColor: flashColor,
           tooltip: 'Flash: ${state.flashMode.label}',
-          onPressed: isReady ? controller.toggleFlashMode : null,
+          onPressed: canInteract ? controller.toggleFlashMode : null,
         ),
 
         // Aspect Ratio Button
         _buildGlassTextButton(
           text: state.aspectRatio.label,
           tooltip: 'Aspect Ratio: ${state.aspectRatio.label}',
-          onPressed: isReady ? controller.cycleAspectRatio : null,
+          onPressed: canInteract ? controller.cycleAspectRatio : null,
         ),
 
-        // Timer Button (Placeholder)
-        _buildGlassIconButton(
-          icon: Icons.timer_outlined,
-          tooltip: 'Self Timer',
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('SELF TIMER OPTION COMING SOON'),
-                behavior: SnackBarBehavior.floating,
-                duration: Duration(seconds: 2),
-              ),
-            );
-          },
-        ),
+        // Timer Button
+        _buildSelfTimerButton(state, controller),
 
         // Camera Flip Button
         _buildGlassIconButton(
           icon: Icons.flip_camera_android_rounded,
           tooltip: 'Flip Lens',
-          onPressed: isReady ? controller.toggleLens : null,
+          onPressed: canInteract ? controller.toggleLens : null,
         ),
 
         // Settings Button
@@ -714,156 +779,237 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     );
   }
 
-  Widget _buildViewfinder(CameraState state, CameraController controller) =>
-      AspectRatio(
-        aspectRatio: state.aspectRatio.viewfinderRatio,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.05),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // Live Camera Viewfinder Preview
-                _AndroidCameraPreview(
-                  key: _previewKey,
-                  onPlatformViewCreated: (_) {
-                    unawaited(controller.reapplyActivePreviewParams());
-                  },
-                ),
-
-                // 3x3 Composition Grid Lines
-                if (ref.watch(gridLinesProvider)) const _ViewfinderGrid(),
-
-                // Date/Time Stamp (Classic Huji/Dazz cam orange stamp)
-                Positioned(
-                  bottom: 16,
-                  right: 16,
-                  child: Opacity(
-                    opacity: 0.85,
-                    child: Text(
-                      _getCurrentDateStamp(),
-                      style: const TextStyle(
-                        fontFamily: 'Courier',
-                        color: Color(0xFFF39C12), // Vintage orange stamp color
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 2,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black54,
-                            blurRadius: 2,
-                            offset: Offset(1, 1),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Top controls overlay
-                if (!_isEditingStyle && !_isEditingUndertone)
-                  Positioned(
-                    top: 16,
-                    left: 16,
-                    right: 16,
-                    child: _buildTopOverlayControls(state, controller),
-                  ),
-
-                // Bottom active preset & indicator overlay
-                Positioned(
-                  bottom: 24,
-                  left: 0,
-                  right: 0,
-                  child: _buildPresetOverlay(state),
-                ),
-
-                // Capture animation overlay
-                if (state.captureStatus == CaptureStatus.capturing)
-                  ColoredBox(
-                    color: Colors.black.withValues(alpha: 0.70),
-                    child: const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.camera_alt_rounded,
-                            color: Color(0xFFF39C12),
-                            size: 32,
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            'CAPTURING...',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                if (state.captureStatus == CaptureStatus.processing)
-                  ColoredBox(
-                    color: Colors.black.withValues(alpha: 0.76),
-                    child: const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Color(0xFFF39C12),
-                            ),
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            'DEVELOPING FILM...',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // Camera shutter flash screen effect
-                if (state.captureStatus == CaptureStatus.success ||
-                    state.captureStatus == CaptureStatus.error)
-                  _FlashScreenEffect(
-                    success: state.captureStatus == CaptureStatus.success,
-                  ),
-              ],
-            ),
-          ),
+  Widget _buildViewfinder(
+    CameraState state,
+    CameraController controller,
+  ) => AspectRatio(
+    aspectRatio: state.aspectRatio.viewfinderRatio,
+    child: Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.05),
+          width: 1.5,
         ),
-      );
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Live Camera Viewfinder Preview
+            _AndroidCameraPreview(
+              key: _previewKey,
+              onPlatformViewCreated: (_) {
+                unawaited(controller.reapplyActivePreviewParams());
+              },
+            ),
+
+            // 3x3 Composition Grid Lines
+            if (ref.watch(gridLinesProvider)) const _ViewfinderGrid(),
+
+            // Date/Time Stamp (Classic Huji/Dazz cam orange stamp)
+            Positioned(
+              bottom: 16,
+              right: 16,
+              child: Opacity(
+                opacity: 0.85,
+                child: Text(
+                  _getCurrentDateStamp(),
+                  style: const TextStyle(
+                    fontFamily: 'Courier',
+                    color: Color(0xFFF39C12), // Vintage orange stamp color
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black54,
+                        blurRadius: 2,
+                        offset: Offset(1, 1),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Top controls overlay
+            if (!_isEditingStyle && !_isEditingUndertone)
+              Positioned(
+                top: 16,
+                left: 16,
+                right: 16,
+                child: _buildTopOverlayControls(state, controller),
+              ),
+
+            // Bottom active preset & indicator overlay
+            Positioned(
+              bottom: 24,
+              left: 0,
+              right: 0,
+              child: _buildPresetOverlay(state),
+            ),
+
+            // Self timer countdown overlay
+            if (state.isSelfTimerRunning)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    child: Center(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        transitionBuilder: (child, animation) {
+                          final fade = CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOut,
+                          );
+                          return FadeTransition(
+                            opacity: fade,
+                            child: ScaleTransition(
+                              scale: Tween<double>(begin: 0.92, end: 1).animate(
+                                CurvedAnimation(
+                                  parent: animation,
+                                  curve: Curves.easeOutBack,
+                                ),
+                              ),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: Container(
+                          key: ValueKey<int>(state.selfTimerRemainingSeconds),
+                          width: 132,
+                          height: 132,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.black.withValues(alpha: 0.56),
+                            border: Border.all(
+                              color: const Color(0xFFF39C12),
+                              width: 2.5,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black54,
+                                blurRadius: 24,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '${state.selfTimerRemainingSeconds}',
+                                style: const TextStyle(
+                                  color: Color(0xFFF39C12),
+                                  fontSize: 42,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'SELF TIMER',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 2.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Capture animation overlay
+            if (state.captureStatus == CaptureStatus.capturing)
+              ColoredBox(
+                color: Colors.black.withValues(alpha: 0.70),
+                child: const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.camera_alt_rounded,
+                        color: Color(0xFFF39C12),
+                        size: 32,
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'CAPTURING...',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            if (state.captureStatus == CaptureStatus.processing)
+              ColoredBox(
+                color: Colors.black.withValues(alpha: 0.76),
+                child: const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Color(0xFFF39C12),
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'DEVELOPING FILM...',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Camera shutter flash screen effect
+            if (state.captureStatus == CaptureStatus.success ||
+                state.captureStatus == CaptureStatus.error)
+              _FlashScreenEffect(
+                success: state.captureStatus == CaptureStatus.success,
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
 
   Widget _buildBottomPanel(CameraState state, CameraController controller) {
     final presetsAsync = ref.watch(presetsProvider);
     final isReady =
-        state.isCameraInitialized && state.captureStatus == CaptureStatus.idle;
+        state.isCameraInitialized &&
+        state.captureStatus == CaptureStatus.idle &&
+        !state.isSelfTimerRunning;
 
     final presetsList = presetsAsync.valueOrNull ?? [];
     PresetModel? activePreset;
@@ -953,7 +1099,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
               // Shutter capture button (center)
               GestureDetector(
-                onTap: isReady ? controller.capture : null,
+                onTap: isReady ? controller.handleShutterPressed : null,
                 child: Container(
                   width: 80,
                   height: 80,
