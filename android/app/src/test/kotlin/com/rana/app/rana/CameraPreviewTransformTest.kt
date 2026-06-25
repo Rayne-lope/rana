@@ -230,6 +230,42 @@ class CameraPreviewTransformTest {
         )
     }
 
+    @Test
+    fun `texture matrix does not double apply CameraX preview rotation`() {
+        val surfaceTextureMatrix = floatArrayOf(
+            1f, 0f, 0f, 0f,
+            0f, 1f, 0f, 0f,
+            0f, 0f, 1f, 0f,
+            0f, 0f, 0f, 1f
+        )
+
+        val matrix = buildPreviewTextureMatrix(
+            surfaceTextureMatrix = surfaceTextureMatrix,
+            bufferWidth = 4000,
+            bufferHeight = 3000,
+            cropRect = PreviewCropRect(0, 0, 4000, 3000),
+            rotationDegrees = 90,
+            mirrorHorizontally = false,
+            fallbackAspectRatio = 3f / 4f
+        )
+        val affine = Affine2D.fromSurfaceTextureMatrix(matrix)
+
+        assertCornerMapping(
+            matrix = affine,
+            displayX = 0.0,
+            displayY = 0.0,
+            expectedX = 0.0,
+            expectedY = 0.0
+        )
+        assertCornerMapping(
+            matrix = affine,
+            displayX = 1.0,
+            displayY = 1.0,
+            expectedX = 1.0,
+            expectedY = 1.0
+        )
+    }
+
     private fun assertAspectRatio(
         matrix: Affine2D,
         bufferWidth: Int,

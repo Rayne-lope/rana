@@ -99,7 +99,10 @@ internal fun buildPreviewTextureMatrix(
         bufferWidth = bufferWidth,
         bufferHeight = bufferHeight,
         cropRect = cropRect,
-        rotationDegrees = rotationDegrees,
+        // SurfaceTexture already includes the buffer transform CameraX applies
+        // for preview. Applying TransformationInfo.rotationDegrees here rotates
+        // the live preview a second time while capture output stays correct.
+        rotationDegrees = 0,
         mirrorHorizontally = mirrorHorizontally,
         fallbackAspectRatio = fallbackAspectRatio
     )
