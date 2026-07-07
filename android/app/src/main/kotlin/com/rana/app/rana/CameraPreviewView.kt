@@ -51,7 +51,9 @@ class CameraPreviewView(
     private var previewUseCase: Preview? = null
     private var glRenderer: CameraGlRenderer? = null
     private var lastPresetParams: Map<String, Any>? = null
-    private var currentAspectRatio = CameraAspectRatio.PORTRAIT_3_4
+    private var currentAspectRatio = CameraAspectRatio.fromChannelValue(
+        creationParams?.get("aspectRatio") as? String
+    )
 
     private var currentLensFacing = CameraSelector.LENS_FACING_BACK
     private var currentFlashMode = ImageCapture.FLASH_MODE_OFF

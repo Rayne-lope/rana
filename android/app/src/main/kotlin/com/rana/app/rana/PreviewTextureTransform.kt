@@ -2,8 +2,6 @@ package com.rana.app.rana
 
 import kotlin.math.abs
 
-private const val PREVIEW_CROP_ASPECT_TOLERANCE = 0.02f
-
 internal data class PreviewCropRect(
     val left: Int,
     val top: Int,
@@ -131,12 +129,12 @@ internal fun buildPreviewDisplayToSourceMatrix(
         return Affine2D.identity()
     }
 
-    val effectiveCropRect = resolvePreviewCropRect(
-        bufferWidth = bufferWidth,
-        bufferHeight = bufferHeight,
-        cropRect = cropRect,
-        fallbackAspectRatio = fallbackAspectRatio
-    )
+    val effectiveCropRect = cropRect?.takeIf { it.width > 0 && it.height > 0 }
+        ?: calculateCenterCropBounds(
+            sourceWidth = bufferWidth,
+            sourceHeight = bufferHeight,
+            targetAspectRatio = fallbackAspectRatio
+        ).toPreviewCropRect()
 
     val source = normalizedRectVertices(
         rect = effectiveCropRect,
@@ -154,29 +152,6 @@ internal fun buildPreviewDisplayToSourceMatrix(
     if (sourceToDisplay == null) return Affine2D.identity()
 
     return sourceToDisplay.invert()
-}
-
-internal fun resolvePreviewCropRect(
-    bufferWidth: Int,
-    bufferHeight: Int,
-    cropRect: PreviewCropRect?,
-    fallbackAspectRatio: Float
-): PreviewCropRect {
-    val validCropRect = cropRect?.takeIf { it.width > 0 && it.height > 0 }
-    if (validCropRect != null && fallbackAspectRatio > 0f) {
-        val cropAspectRatio = validCropRect.width.toFloat() / validCropRect.height.toFloat()
-        if (abs(cropAspectRatio - fallbackAspectRatio) <= PREVIEW_CROP_ASPECT_TOLERANCE) {
-            return validCropRect
-        }
-    } else if (validCropRect != null) {
-        return validCropRect
-    }
-
-    return calculateCenterCropBounds(
-        sourceWidth = bufferWidth,
-        sourceHeight = bufferHeight,
-        targetAspectRatio = fallbackAspectRatio
-    ).toPreviewCropRect()
 }
 
 internal fun applyAffine(matrix: Affine2D, x: Double, y: Double): Pair<Double, Double> {

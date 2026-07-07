@@ -38,7 +38,6 @@ enum _ViewfinderLayoutMode { capture, styleEditor }
 class _CameraScreenState extends ConsumerState<CameraScreen>
     with WidgetsBindingObserver {
   late final ProviderSubscription<CameraState> _cameraStateSubscription;
-  final GlobalKey _previewKey = GlobalKey(debugLabel: 'camera-preview');
 
   bool _isEditingStyle = false;
   bool _isEditingUndertone = false;
@@ -1018,7 +1017,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           children: [
             // Live Camera Viewfinder Preview
             _AndroidCameraPreview(
-              key: _previewKey,
+              key: ValueKey<String>(
+                'camera-preview-${state.aspectRatio.platformValue}',
+              ),
+              aspectRatio: state.aspectRatio,
               onPlatformViewCreated: (_) {
                 unawaited(controller.reapplyActivePreviewParams());
               },
@@ -1425,15 +1427,20 @@ class _FlashScreenEffectState extends State<_FlashScreenEffect>
 }
 
 class _AndroidCameraPreview extends StatelessWidget {
-  const _AndroidCameraPreview({super.key, this.onPlatformViewCreated});
+  const _AndroidCameraPreview({
+    required this.aspectRatio,
+    super.key,
+    this.onPlatformViewCreated,
+  });
 
+  final CameraAspectRatio aspectRatio;
   final PlatformViewCreatedCallback? onPlatformViewCreated;
 
   @override
   Widget build(BuildContext context) => AndroidView(
     viewType: 'com.rana.app/camera_preview',
     layoutDirection: TextDirection.ltr,
-    creationParams: const <String, dynamic>{},
+    creationParams: <String, dynamic>{'aspectRatio': aspectRatio.platformValue},
     creationParamsCodec: const StandardMessageCodec(),
     onPlatformViewCreated: onPlatformViewCreated,
   );
