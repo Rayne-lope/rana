@@ -47,13 +47,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   double _originalUndertoneX = 0;
   double _originalUndertoneY = 0;
 
-  static const double _stylePreviewTargetFactor = 0.58;
-  static const double _undertonePreviewTargetFactor = 0.56;
-  static const double _styleControlsReserve = 150;
-  static const double _undertoneControlsReserve = 250;
-  static const double _editingHeaderReserve = 64;
-  static const double _minimumEditingPreviewHeight = 260;
-
   @override
   void initState() {
     super.initState();
@@ -145,24 +138,18 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
             else
               const SizedBox.shrink(),
 
-            Flexible(
-              fit: isEditing ? FlexFit.loose : FlexFit.tight,
-              child: SizedBox(
-                height: isEditing ? _editingPreviewHeight(context) : null,
-                child: _buildViewfinder(
-                  cameraState,
-                  controller,
-                  layoutMode: isEditing
-                      ? _ViewfinderLayoutMode.styleEditor
-                      : _ViewfinderLayoutMode.capture,
-                ),
+            Expanded(
+              child: _buildViewfinder(
+                cameraState,
+                controller,
+                layoutMode: isEditing
+                    ? _ViewfinderLayoutMode.styleEditor
+                    : _ViewfinderLayoutMode.capture,
               ),
             ),
 
             if (isEditing)
-              Expanded(
-                child: _buildStylesEditingContent(cameraState, controller),
-              )
+              _buildStylesEditingContent(cameraState, controller)
             else
               _buildBottomPanel(cameraState, controller),
           ],
@@ -171,36 +158,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     );
   }
 
-  double _editingPreviewHeight(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final safeHeight =
-        mediaQuery.size.height -
-        mediaQuery.padding.top -
-        mediaQuery.padding.bottom;
-    final targetFactor = _isEditingUndertone
-        ? _undertonePreviewTargetFactor
-        : _stylePreviewTargetFactor;
-    final controlsReserve = _isEditingUndertone
-        ? _undertoneControlsReserve
-        : _styleControlsReserve;
-    final maxPreviewHeight = math.max<double>(
-      0,
-      safeHeight - _editingHeaderReserve - controlsReserve,
-    );
-
-    if (maxPreviewHeight <= _minimumEditingPreviewHeight) {
-      return maxPreviewHeight;
-    }
-
-    final targetHeight = safeHeight * targetFactor;
-    return targetHeight.clamp(_minimumEditingPreviewHeight, maxPreviewHeight);
-  }
-
   Widget _buildStylesEditingContent(
     CameraState state,
     CameraController controller,
   ) => Column(
-    mainAxisAlignment: MainAxisAlignment.end,
+    mainAxisSize: MainAxisSize.min,
     children: [
       if (_isEditingUndertone)
         Padding(

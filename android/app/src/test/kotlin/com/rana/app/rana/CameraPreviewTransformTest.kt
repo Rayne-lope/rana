@@ -49,6 +49,70 @@ class CameraPreviewTransformTest {
     }
 
     @Test
+    fun `square fallback replaces mismatched full frame crop`() {
+        val bufferWidth = 4000
+        val bufferHeight = 3000
+        val expectedCrop = calculateCenterCropBounds(
+            sourceWidth = bufferWidth,
+            sourceHeight = bufferHeight,
+            targetAspectRatio = 1f
+        )
+        val matrix = buildPreviewDisplayToSourceMatrix(
+            bufferWidth = bufferWidth,
+            bufferHeight = bufferHeight,
+            cropRect = PreviewCropRect(0, 0, bufferWidth, bufferHeight),
+            rotationDegrees = 0,
+            mirrorHorizontally = false,
+            fallbackAspectRatio = 1f
+        )
+
+        assertCornerMapping(
+            matrix = matrix,
+            displayX = 0.0,
+            displayY = 0.0,
+            expectedX = expectedCrop.left.toDouble() / bufferWidth,
+            expectedY = expectedCrop.top.toDouble() / bufferHeight
+        )
+        assertCornerMapping(
+            matrix = matrix,
+            displayX = 1.0,
+            displayY = 1.0,
+            expectedX = (expectedCrop.left + expectedCrop.width).toDouble() / bufferWidth,
+            expectedY = (expectedCrop.top + expectedCrop.height).toDouble() / bufferHeight
+        )
+    }
+
+    @Test
+    fun `matching CameraX crop rect is preserved`() {
+        val bufferWidth = 4000
+        val bufferHeight = 3000
+        val cropRect = PreviewCropRect(500, 0, 3500, 3000)
+        val matrix = buildPreviewDisplayToSourceMatrix(
+            bufferWidth = bufferWidth,
+            bufferHeight = bufferHeight,
+            cropRect = cropRect,
+            rotationDegrees = 0,
+            mirrorHorizontally = false,
+            fallbackAspectRatio = 1f
+        )
+
+        assertCornerMapping(
+            matrix = matrix,
+            displayX = 0.0,
+            displayY = 0.0,
+            expectedX = cropRect.left.toDouble() / bufferWidth,
+            expectedY = cropRect.top.toDouble() / bufferHeight
+        )
+        assertCornerMapping(
+            matrix = matrix,
+            displayX = 1.0,
+            displayY = 1.0,
+            expectedX = cropRect.right.toDouble() / bufferWidth,
+            expectedY = cropRect.bottom.toDouble() / bufferHeight
+        )
+    }
+
+    @Test
     fun `portrait fallback preserves 3 by 4 crop ratio`() {
         val bufferWidth = 4000
         val bufferHeight = 3000
@@ -195,7 +259,7 @@ class CameraPreviewTransformTest {
     }
 
     @Test
-    fun `texture matrix keeps the surface texture flip for a full frame crop`() {
+    fun `texture matrix keeps the surface texture flip for a matching full frame crop`() {
         val surfaceTextureMatrix = floatArrayOf(
             1f, 0f, 0f, 0f,
             0f, -1f, 0f, 0f,
@@ -210,7 +274,7 @@ class CameraPreviewTransformTest {
             cropRect = PreviewCropRect(0, 0, 4000, 3000),
             rotationDegrees = 0,
             mirrorHorizontally = false,
-            fallbackAspectRatio = 1f
+            fallbackAspectRatio = 4f / 3f
         )
         val affine = Affine2D.fromSurfaceTextureMatrix(matrix)
 
@@ -246,7 +310,7 @@ class CameraPreviewTransformTest {
             cropRect = PreviewCropRect(0, 0, 4000, 3000),
             rotationDegrees = 90,
             mirrorHorizontally = false,
-            fallbackAspectRatio = 3f / 4f
+            fallbackAspectRatio = 4f / 3f
         )
         val affine = Affine2D.fromSurfaceTextureMatrix(matrix)
 
