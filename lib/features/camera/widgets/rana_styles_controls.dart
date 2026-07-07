@@ -9,6 +9,8 @@ class RanaInteractiveUndertonePad extends StatefulWidget {
     required this.undertoneY,
     required this.styleStrength,
     required this.onChanged,
+    this.maxPadSize = 220,
+    this.contentPadding = const EdgeInsets.only(bottom: 10),
     super.key,
   });
 
@@ -16,6 +18,8 @@ class RanaInteractiveUndertonePad extends StatefulWidget {
   final double undertoneY; // [-1.0, 1.0]
   final double styleStrength; // [0.0, 100.0]
   final void Function(double x, double y) onChanged;
+  final double maxPadSize;
+  final EdgeInsetsGeometry contentPadding;
 
   @override
   State<RanaInteractiveUndertonePad> createState() =>
@@ -65,6 +69,7 @@ class _RanaInteractiveUndertonePadState
 
   static const double _padLayoutSize = 220;
   static const double _padEdgeRatio = 28 / _padLayoutSize;
+  static const double _headerReserve = 32;
 
   double _mapXToNormalized(double ux) {
     final ratio = ((ux + 1) / 2).clamp(0, 1);
@@ -168,131 +173,136 @@ class _RanaInteractiveUndertonePadState
     final normStyleStrength = widget.styleStrength / 100.0;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      padding: widget.contentPadding,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final maxHeight = constraints.maxHeight.isFinite
+              ? math.max<double>(0, constraints.maxHeight - _headerReserve)
+              : widget.maxPadSize;
+          final maxWidth = constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : widget.maxPadSize;
+          final size = math.min<double>(
+            widget.maxPadSize,
+            math.min<double>(maxWidth, maxHeight),
+          );
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'UNDERTONE',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                ),
+              Row(
+                children: [
+                  const Text(
+                    'UNDERTONE',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${_formatAxis(widget.undertoneX)} / ${_formatAxis(widget.undertoneY)}',
+                    style: const TextStyle(
+                      color: Color(0xFFF39C12),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
               ),
-              const Spacer(),
-              Text(
-                '${_formatAxis(widget.undertoneX)} / ${_formatAxis(widget.undertoneY)}',
-                style: const TextStyle(
-                  color: Color(0xFFF39C12),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'monospace',
+              const SizedBox(height: 8),
+              Center(
+                child: SizedBox.square(
+                  dimension: size,
+                  child: GestureDetector(
+                    key: const Key('undertone-pad'),
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (details) {
+                      _setPadFromLocal(details.localPosition, size);
+                    },
+                    onPanStart: (details) {
+                      _dragging = true;
+                      _setPadFromLocal(details.localPosition, size);
+                    },
+                    onPanUpdate: (details) {
+                      _setPadFromLocal(details.localPosition, size);
+                    },
+                    onPanEnd: (_) {
+                      _dragging = false;
+                      _wakeMotion(1200);
+                    },
+                    onPanCancel: () {
+                      _dragging = false;
+                      _wakeMotion(1200);
+                    },
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned.fill(
+                          child: RepaintBoundary(
+                            child: CustomPaint(
+                              painter: _ToneFieldPainter(
+                                x: _x,
+                                y: _y,
+                                slider: normStyleStrength,
+                                motion: _motion,
+                                time: _time,
+                                trail: List<_TrailPoint>.from(_trail),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const Positioned(
+                          top: 10,
+                          left: 0,
+                          right: 0,
+                          child: _PadAxisLabel(
+                            label: 'MAGENTA',
+                            alignment: TextAlign.center,
+                          ),
+                        ),
+                        const Positioned(
+                          bottom: 10,
+                          left: 0,
+                          right: 0,
+                          child: _PadAxisLabel(
+                            label: 'GREEN',
+                            alignment: TextAlign.center,
+                          ),
+                        ),
+                        const Positioned(
+                          left: 12,
+                          top: 0,
+                          bottom: 0,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: _PadAxisLabel(label: 'WARM'),
+                          ),
+                        ),
+                        const Positioned(
+                          right: 12,
+                          top: 0,
+                          bottom: 0,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: _PadAxisLabel(
+                              label: 'COOL',
+                              alignment: TextAlign.right,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          Flexible(
-            child: Center(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final size = math.min(
-                    _padLayoutSize,
-                    constraints.biggest.shortestSide,
-                  );
-
-                  return SizedBox.square(
-                    dimension: size,
-                    child: GestureDetector(
-                      key: const Key('undertone-pad'),
-                      behavior: HitTestBehavior.opaque,
-                      onTapDown: (details) {
-                        _setPadFromLocal(details.localPosition, size);
-                      },
-                      onPanStart: (details) {
-                        _dragging = true;
-                        _setPadFromLocal(details.localPosition, size);
-                      },
-                      onPanUpdate: (details) {
-                        _setPadFromLocal(details.localPosition, size);
-                      },
-                      onPanEnd: (_) {
-                        _dragging = false;
-                        _wakeMotion(1200);
-                      },
-                      onPanCancel: () {
-                        _dragging = false;
-                        _wakeMotion(1200);
-                      },
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Positioned.fill(
-                            child: RepaintBoundary(
-                              child: CustomPaint(
-                                painter: _ToneFieldPainter(
-                                  x: _x,
-                                  y: _y,
-                                  slider: normStyleStrength,
-                                  motion: _motion,
-                                  time: _time,
-                                  trail: List<_TrailPoint>.from(_trail),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const Positioned(
-                            top: 10,
-                            left: 0,
-                            right: 0,
-                            child: _PadAxisLabel(
-                              label: 'MAGENTA',
-                              alignment: TextAlign.center,
-                            ),
-                          ),
-                          const Positioned(
-                            bottom: 10,
-                            left: 0,
-                            right: 0,
-                            child: _PadAxisLabel(
-                              label: 'GREEN',
-                              alignment: TextAlign.center,
-                            ),
-                          ),
-                          const Positioned(
-                            left: 12,
-                            top: 0,
-                            bottom: 0,
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: _PadAxisLabel(label: 'WARM'),
-                            ),
-                          ),
-                          const Positioned(
-                            right: 12,
-                            top: 0,
-                            bottom: 0,
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: _PadAxisLabel(
-                                label: 'COOL',
-                                alignment: TextAlign.right,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -658,6 +668,9 @@ class RanaInteractiveSlider extends StatefulWidget {
     required this.min,
     required this.max,
     required this.onChanged,
+    this.bottomPadding = 14,
+    this.labelGap = 6,
+    this.trackHeight = 40,
     super.key,
   });
 
@@ -667,6 +680,9 @@ class RanaInteractiveSlider extends StatefulWidget {
   final double min;
   final double max;
   final ValueChanged<double> onChanged;
+  final double bottomPadding;
+  final double labelGap;
+  final double trackHeight;
 
   @override
   State<RanaInteractiveSlider> createState() => _RanaInteractiveSliderState();
@@ -769,7 +785,7 @@ class _RanaInteractiveSliderState extends State<RanaInteractiveSlider>
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 14),
+    padding: EdgeInsets.only(bottom: widget.bottomPadding),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -796,11 +812,11 @@ class _RanaInteractiveSliderState extends State<RanaInteractiveSlider>
             ),
           ],
         ),
-        const SizedBox(height: 6),
+        SizedBox(height: widget.labelGap),
         LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth;
-            const height = 40.0;
+            final height = math.max<double>(40, widget.trackHeight);
 
             return GestureDetector(
               behavior: HitTestBehavior.opaque,

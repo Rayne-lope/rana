@@ -29,10 +29,58 @@ void main() {
       expect(find.text('+15'), findsOneWidget);
 
       // Verify widget behaves correctly on drag interaction
-      final slider = find.byType(RanaInteractiveSlider);
-      await tester.drag(slider, const Offset(50, 0));
-      await tester.pumpAndSettle();
+      final trackFinder = find
+          .descendant(
+            of: find.byType(RanaInteractiveSlider),
+            matching: find.byType(CustomPaint),
+          )
+          .last;
+      final trackRect = tester.getRect(trackFinder);
+      await tester.dragFrom(trackRect.center, const Offset(50, 0));
+      await tester.pump(const Duration(milliseconds: 200));
       expect(changedVal, isNot(15.0));
+    });
+
+    testWidgets('RanaInteractiveSlider compact options still change value', (
+      WidgetTester tester,
+    ) async {
+      var changedVal = 0.0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 320,
+                height: 90,
+                child: RanaInteractiveSlider(
+                  label: 'Tone',
+                  valueLabel: '0',
+                  value: 0,
+                  min: -100,
+                  max: 100,
+                  bottomPadding: 4,
+                  labelGap: 4,
+                  onChanged: (val) {
+                    changedVal = val;
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final trackFinder = find
+          .descendant(
+            of: find.byType(RanaInteractiveSlider),
+            matching: find.byType(CustomPaint),
+          )
+          .last;
+      final trackRect = tester.getRect(trackFinder);
+      await tester.tapAt(Offset(trackRect.right - 24, trackRect.center.dy));
+      await tester.pump();
+
+      expect(changedVal, greaterThan(0));
     });
 
     testWidgets('RanaInteractiveUndertonePad renders labels and coordinates', (
@@ -66,6 +114,7 @@ void main() {
 
       final pad = find.byKey(const Key('undertone-pad'));
       final rect = tester.getRect(pad);
+      expect(rect.height, lessThanOrEqualTo(220));
 
       // Tap near the top-right corner
       await tester.tapAt(rect.topRight + const Offset(-10, 10));
@@ -73,6 +122,36 @@ void main() {
 
       expect(changedX, isNot(0));
       expect(changedY, isNot(0));
+    });
+
+    testWidgets('RanaInteractiveUndertonePad supports compact max size', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 260,
+                height: 230,
+                child: RanaInteractiveUndertonePad(
+                  undertoneX: 0.25,
+                  undertoneY: -0.35,
+                  styleStrength: 70,
+                  maxPadSize: 188,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (_, _) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      final padRect = tester.getRect(find.byKey(const Key('undertone-pad')));
+      expect(padRect.height, lessThanOrEqualTo(188));
+      expect(padRect.width, lessThanOrEqualTo(188));
     });
 
     testWidgets('RanaInteractiveUndertonePad shrinks in tight vertical space', (

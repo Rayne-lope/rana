@@ -47,6 +47,13 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   double _originalUndertoneX = 0;
   double _originalUndertoneY = 0;
 
+  static const double _stylePreviewTargetFactor = 0.58;
+  static const double _undertonePreviewTargetFactor = 0.56;
+  static const double _styleControlsReserve = 150;
+  static const double _undertoneControlsReserve = 250;
+  static const double _editingHeaderReserve = 64;
+  static const double _minimumEditingPreviewHeight = 260;
+
   @override
   void initState() {
     super.initState();
@@ -165,26 +172,48 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   double _editingPreviewHeight(BuildContext context) {
-    final screenHeight = MediaQuery.sizeOf(context).height;
-    final factor = _isEditingUndertone ? 0.50 : 0.58;
-    return screenHeight * factor;
+    final mediaQuery = MediaQuery.of(context);
+    final safeHeight =
+        mediaQuery.size.height -
+        mediaQuery.padding.top -
+        mediaQuery.padding.bottom;
+    final targetFactor = _isEditingUndertone
+        ? _undertonePreviewTargetFactor
+        : _stylePreviewTargetFactor;
+    final controlsReserve = _isEditingUndertone
+        ? _undertoneControlsReserve
+        : _styleControlsReserve;
+    final maxPreviewHeight = math.max<double>(
+      0,
+      safeHeight - _editingHeaderReserve - controlsReserve,
+    );
+
+    if (maxPreviewHeight <= _minimumEditingPreviewHeight) {
+      return maxPreviewHeight;
+    }
+
+    final targetHeight = safeHeight * targetFactor;
+    return targetHeight.clamp(_minimumEditingPreviewHeight, maxPreviewHeight);
   }
 
   Widget _buildStylesEditingContent(
     CameraState state,
     CameraController controller,
   ) => Column(
+    mainAxisAlignment: MainAxisAlignment.end,
     children: [
-      _buildCompactValuesRow(state.activeStyle),
-
-      Expanded(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: _buildActiveStyleControl(state, controller),
-          ),
+      if (_isEditingUndertone)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 2),
+          child: _buildActiveStyleControl(state, controller),
+        )
+      else ...[
+        _buildCompactValuesRow(state.activeStyle),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+          child: _buildActiveStyleControl(state, controller),
         ),
-      ),
+      ],
 
       if (_isEditingUndertone)
         _buildUndertoneActionsRow(state, controller)
@@ -281,14 +310,14 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final textureVal = style.texture.round();
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.fromLTRB(0, 6, 0, 5),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _buildCompactValueLabel('TONE', toneVal),
-          const SizedBox(width: 24),
+          const SizedBox(width: 18),
           _buildCompactValueLabel('COLOR', colorVal),
-          const SizedBox(width: 24),
+          const SizedBox(width: 18),
           _buildCompactValueLabel('TEXTURE', textureVal),
         ],
       ),
@@ -298,7 +327,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   Widget _buildCompactValueLabel(String label, int value) => RichText(
     text: TextSpan(
       style: const TextStyle(
-        fontSize: 11,
+        fontSize: 10,
         fontFamily: 'monospace',
         letterSpacing: 0.5,
       ),
@@ -330,6 +359,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         undertoneX: state.activeStyle.undertoneX,
         undertoneY: state.activeStyle.undertoneY,
         styleStrength: state.activeStyle.styleStrength,
+        maxPadSize: 188,
+        contentPadding: EdgeInsets.zero,
         onChanged: (x, y) {
           controller.updateActiveStyle(
             state.activeStyle.copyWith(undertoneX: x, undertoneY: y),
@@ -347,6 +378,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           value: state.activeStyle.tone,
           min: -100,
           max: 100,
+          bottomPadding: 4,
+          labelGap: 4,
           onChanged: (val) {
             controller.updateActiveStyle(state.activeStyle.copyWith(tone: val));
           },
@@ -359,6 +392,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           value: state.activeStyle.color,
           min: -100,
           max: 100,
+          bottomPadding: 4,
+          labelGap: 4,
           onChanged: (val) {
             controller.updateActiveStyle(
               state.activeStyle.copyWith(color: val),
@@ -373,6 +408,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           value: state.activeStyle.texture,
           min: 0,
           max: 100,
+          bottomPadding: 4,
+          labelGap: 4,
           onChanged: (val) {
             controller.updateActiveStyle(
               state.activeStyle.copyWith(texture: val),
@@ -390,7 +427,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   Widget _buildStylesSelectorTabBar() => Container(
-    padding: const EdgeInsets.symmetric(vertical: 16),
+    padding: const EdgeInsets.symmetric(vertical: 9),
     decoration: const BoxDecoration(
       border: Border(top: BorderSide(color: Colors.white10)),
       color: Colors.black26,
@@ -429,12 +466,12 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         child: Text(
           label.toUpperCase(),
           style: TextStyle(
             color: color,
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: FontWeight.w900,
             letterSpacing: 1,
           ),
@@ -447,7 +484,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     CameraState state,
     CameraController controller,
   ) => Container(
-    padding: const EdgeInsets.symmetric(vertical: 16),
+    padding: const EdgeInsets.symmetric(vertical: 5),
     decoration: const BoxDecoration(
       border: Border(top: BorderSide(color: Colors.white10)),
       color: Colors.black26,
@@ -455,40 +492,48 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        TextButton(
+        _buildCompactActionButton(
+          label: 'RESET',
+          color: Colors.white54,
           onPressed: () {
             controller.updateActiveStyle(
               state.activeStyle.copyWith(undertoneX: 0, undertoneY: 0),
             );
           },
-          child: const Text(
-            'RESET',
-            style: TextStyle(
-              color: Colors.white54,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1,
-            ),
-          ),
         ),
-        TextButton(
+        _buildCompactActionButton(
+          label: 'APPLY',
+          color: const Color(0xFFF39C12),
           onPressed: () {
             setState(() {
               _isEditingUndertone = false;
               _isEditingStyle = true;
             });
           },
-          child: const Text(
-            'APPLY',
-            style: TextStyle(
-              color: Color(0xFFF39C12),
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1,
-            ),
-          ),
         ),
       ],
+    ),
+  );
+
+  Widget _buildCompactActionButton({
+    required String label,
+    required Color color,
+    required VoidCallback onPressed,
+  }) => TextButton(
+    style: TextButton.styleFrom(
+      minimumSize: Size.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+    ),
+    onPressed: onPressed,
+    child: Text(
+      label,
+      style: TextStyle(
+        color: color,
+        fontSize: 11,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 1,
+      ),
     ),
   );
 
