@@ -1021,6 +1021,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 'camera-preview-${state.aspectRatio.platformValue}',
               ),
               aspectRatio: state.aspectRatio,
+              lens: state.activeLens,
+              flashMode: state.flashMode,
               onPlatformViewCreated: (_) {
                 unawaited(controller.reapplyActivePreviewParams());
               },
@@ -1438,18 +1440,26 @@ class _FlashScreenEffectState extends State<_FlashScreenEffect>
 class _AndroidCameraPreview extends StatelessWidget {
   const _AndroidCameraPreview({
     required this.aspectRatio,
+    required this.lens,
+    required this.flashMode,
     super.key,
     this.onPlatformViewCreated,
   });
 
   final CameraAspectRatio aspectRatio;
+  final CameraLens lens;
+  final FlashMode flashMode;
   final PlatformViewCreatedCallback? onPlatformViewCreated;
 
   @override
   Widget build(BuildContext context) => AndroidView(
     viewType: 'com.rana.app/camera_preview',
     layoutDirection: TextDirection.ltr,
-    creationParams: <String, dynamic>{'aspectRatio': aspectRatio.platformValue},
+    creationParams: <String, dynamic>{
+      'aspectRatio': aspectRatio.platformValue,
+      'lens': lens.value,
+      'flashMode': flashMode.name,
+    },
     creationParamsCodec: const StandardMessageCodec(),
     onPlatformViewCreated: onPlatformViewCreated,
   );

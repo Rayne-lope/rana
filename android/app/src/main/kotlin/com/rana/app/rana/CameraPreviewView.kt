@@ -55,8 +55,15 @@ class CameraPreviewView(
         creationParams?.get("aspectRatio") as? String
     )
 
-    private var currentLensFacing = CameraSelector.LENS_FACING_BACK
-    private var currentFlashMode = ImageCapture.FLASH_MODE_OFF
+    private var currentLensFacing = when (creationParams?.get("lens") as? String) {
+        "front" -> CameraSelector.LENS_FACING_FRONT
+        else -> CameraSelector.LENS_FACING_BACK
+    }
+    private var currentFlashMode = when (creationParams?.get("flashMode") as? String) {
+        "on" -> ImageCapture.FLASH_MODE_ON
+        "auto" -> ImageCapture.FLASH_MODE_AUTO
+        else -> ImageCapture.FLASH_MODE_OFF
+    }
     private var currentRotation: Int = Surface.ROTATION_0
     private val captureExecutor = Executors.newSingleThreadExecutor()
     private val isCapturing = AtomicBoolean(false)
@@ -78,6 +85,10 @@ class CameraPreviewView(
     }
 
     init {
+        android.util.Log.d(
+            "CameraPreviewView",
+            "Initializing CameraPreviewView: id=$viewId, lens=$currentLensFacing, flash=$currentFlashMode, aspectRatio=$currentAspectRatio"
+        )
         textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
             override fun onSurfaceTextureAvailable(
                 surfaceTexture: SurfaceTexture, width: Int, height: Int
