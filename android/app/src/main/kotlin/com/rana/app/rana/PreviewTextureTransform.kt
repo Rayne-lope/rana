@@ -95,24 +95,38 @@ internal fun buildPreviewTextureMatrix(
     mirrorHorizontally: Boolean,
     fallbackAspectRatio: Float
 ): FloatArray {
-    val displayToSource = buildPreviewDisplayToSourceMatrix(
-        bufferWidth = bufferWidth,
-        bufferHeight = bufferHeight,
-        cropRect = cropRect,
-        // SurfaceTexture already includes the buffer transform CameraX applies
-        // for preview. Applying TransformationInfo.rotationDegrees here rotates
-        // the live preview a second time while capture output stays correct.
-        rotationDegrees = 0,
-        mirrorHorizontally = mirrorHorizontally,
-        fallbackAspectRatio = fallbackAspectRatio
+    if (bufferWidth <= 0 || bufferHeight <= 0) {
+        return surfaceTextureMatrix.clone()
+    }
+
+    val effectiveCropRect = cropRect?.takeIf { it.width > 0 && it.height > 0 }
+        ?: calculateCenterCropBounds(
+            sourceWidth = bufferWidth,
+            sourceHeight = bufferHeight,
+            targetAspectRatio = fallbackAspectRatio
+        ).toPreviewCropRect()
+
+    // OES texture coordinates (s, t) map [0,1]^2 to raw buffer space with a bottom-left origin.
+    // Android cropRect coordinates map to buffer space with a top-left origin.
+    // Thus:
+    // s_cropped = left / bufferWidth + s * (cropWidth / bufferWidth)
+    // t_cropped = (1.0 - bottom / bufferHeight) + t * (cropHeight / bufferHeight)
+    val scaleS = effectiveCropRect.width.toDouble() / bufferWidth.toDouble()
+    val scaleT = effectiveCropRect.height.toDouble() / bufferHeight.toDouble()
+    val translateS = effectiveCropRect.left.toDouble() / bufferWidth.toDouble()
+    val translateT = 1.0 - (effectiveCropRect.bottom.toDouble() / bufferHeight.toDouble())
+
+    val cropMatrix = Affine2D(
+        a = scaleS,
+        b = 0.0,
+        c = translateS,
+        d = 0.0,
+        e = scaleT,
+        f = translateT
     )
 
-    // CameraX's crop rect is already in the provided Surface buffer space.
-    // Apply that crop first, then let SurfaceTexture map buffer coordinates
-    // into the external OES texture coordinates used by the shader.
-    return Affine2D.fromSurfaceTextureMatrix(surfaceTextureMatrix)
-        .times(displayToSource)
-        .toGlMatrix()
+    // finalMatrix = cropMatrix * ST_matrix
+    return cropMatrix.times(Affine2D.fromSurfaceTextureMatrix(surfaceTextureMatrix)).toGlMatrix()
 }
 
 internal fun buildPreviewDisplayToSourceMatrix(
