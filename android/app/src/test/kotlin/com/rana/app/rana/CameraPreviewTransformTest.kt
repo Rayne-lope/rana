@@ -231,6 +231,49 @@ class CameraPreviewTransformTest {
     }
 
     @Test
+    fun `texture matrix applies square crop before surface texture transform`() {
+        val surfaceTextureMatrix = floatArrayOf(
+            1f, 0f, 0f, 0f,
+            0f, -1f, 0f, 0f,
+            0f, 0f, 1f, 0f,
+            0f, 1f, 0f, 1f
+        )
+
+        val matrix = buildPreviewTextureMatrix(
+            surfaceTextureMatrix = surfaceTextureMatrix,
+            bufferWidth = 4000,
+            bufferHeight = 3000,
+            cropRect = PreviewCropRect(500, 0, 3500, 3000),
+            rotationDegrees = 0,
+            mirrorHorizontally = false,
+            fallbackAspectRatio = 1f
+        )
+        val affine = Affine2D.fromSurfaceTextureMatrix(matrix)
+
+        assertCornerMapping(
+            matrix = affine,
+            displayX = 0.0,
+            displayY = 0.0,
+            expectedX = 0.125,
+            expectedY = 1.0
+        )
+        assertCornerMapping(
+            matrix = affine,
+            displayX = 1.0,
+            displayY = 1.0,
+            expectedX = 0.875,
+            expectedY = 0.0
+        )
+        assertAspectRatio(
+            matrix = affine,
+            bufferWidth = 4000,
+            bufferHeight = 3000,
+            expectedWidth = 3000.0,
+            expectedHeight = 3000.0
+        )
+    }
+
+    @Test
     fun `texture matrix does not double apply CameraX preview rotation`() {
         val surfaceTextureMatrix = floatArrayOf(
             1f, 0f, 0f, 0f,

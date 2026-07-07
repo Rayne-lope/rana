@@ -107,13 +107,11 @@ internal fun buildPreviewTextureMatrix(
         fallbackAspectRatio = fallbackAspectRatio
     )
 
-    // CameraX gives us the crop/rotation in image-space coordinates, while the
-    // GLSurface texture coordinates go through SurfaceTexture's raw OES mapping.
-    // Convert between those spaces with a Y-flip on both sides of the helper.
+    // CameraX's crop rect is already in the provided Surface buffer space.
+    // Apply that crop first, then let SurfaceTexture map buffer coordinates
+    // into the external OES texture coordinates used by the shader.
     return Affine2D.fromSurfaceTextureMatrix(surfaceTextureMatrix)
-        .times(Affine2D.flipY())
         .times(displayToSource)
-        .times(Affine2D.flipY())
         .toGlMatrix()
 }
 
