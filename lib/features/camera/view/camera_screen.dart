@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -31,6 +32,8 @@ class CameraScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<CameraScreen> createState() => _CameraScreenState();
 }
+
+enum _ViewfinderLayoutMode { capture, styleEditor }
 
 class _CameraScreenState extends ConsumerState<CameraScreen>
     with WidgetsBindingObserver {
@@ -139,7 +142,13 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               fit: isEditing ? FlexFit.loose : FlexFit.tight,
               child: SizedBox(
                 height: isEditing ? _editingPreviewHeight(context) : null,
-                child: _buildViewfinder(cameraState, controller),
+                child: _buildViewfinder(
+                  cameraState,
+                  controller,
+                  layoutMode: isEditing
+                      ? _ViewfinderLayoutMode.styleEditor
+                      : _ViewfinderLayoutMode.capture,
+                ),
               ),
             ),
 
@@ -781,11 +790,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   Widget _buildViewfinder(
     CameraState state,
-    CameraController controller,
-  ) => AspectRatio(
-    aspectRatio: state.aspectRatio.viewfinderRatio,
-    child: Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+    CameraController controller, {
+    required _ViewfinderLayoutMode layoutMode,
+  }) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.black,
         borderRadius: BorderRadius.circular(16),
@@ -802,6 +811,200 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         ],
       ),
       child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final previewSize = _previewGateSize(
+              constraints,
+              state.aspectRatio.viewfinderRatio,
+            );
+
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                Center(
+                  child: SizedBox(
+                    width: previewSize.width,
+                    height: previewSize.height,
+                    child: _buildPreviewGate(state, controller),
+                  ),
+                ),
+
+                // Top controls stay anchored to the fixed camera stage.
+                if (layoutMode == _ViewfinderLayoutMode.capture)
+                  Positioned(
+                    top: 16,
+                    left: 16,
+                    right: 16,
+                    child: _buildTopOverlayControls(state, controller),
+                  ),
+
+                // Self timer countdown overlay
+                if (state.isSelfTimerRunning)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: ColoredBox(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        child: Center(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            transitionBuilder: (child, animation) {
+                              final fade = CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeOut,
+                              );
+                              return FadeTransition(
+                                opacity: fade,
+                                child: ScaleTransition(
+                                  scale: Tween<double>(begin: 0.92, end: 1)
+                                      .animate(
+                                        CurvedAnimation(
+                                          parent: animation,
+                                          curve: Curves.easeOutBack,
+                                        ),
+                                      ),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: Container(
+                              key: ValueKey<int>(
+                                state.selfTimerRemainingSeconds,
+                              ),
+                              width: 132,
+                              height: 132,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.black.withValues(alpha: 0.56),
+                                border: Border.all(
+                                  color: const Color(0xFFF39C12),
+                                  width: 2.5,
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.black54,
+                                    blurRadius: 24,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    '${state.selfTimerRemainingSeconds}',
+                                    style: const TextStyle(
+                                      color: Color(0xFFF39C12),
+                                      fontSize: 42,
+                                      fontWeight: FontWeight.w900,
+                                      height: 1,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'SELF TIMER',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 2.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Capture animation overlay
+                if (state.captureStatus == CaptureStatus.capturing)
+                  ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.70),
+                    child: const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.camera_alt_rounded,
+                            color: Color(0xFFF39C12),
+                            size: 32,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'CAPTURING...',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                if (state.captureStatus == CaptureStatus.processing)
+                  ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.76),
+                    child: const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Color(0xFFF39C12),
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'DEVELOPING FILM...',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // Camera shutter flash screen effect
+                if (state.captureStatus == CaptureStatus.success ||
+                    state.captureStatus == CaptureStatus.error)
+                  _FlashScreenEffect(
+                    success: state.captureStatus == CaptureStatus.success,
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    ),
+  );
+
+  Size _previewGateSize(BoxConstraints constraints, double aspectRatio) {
+    final maxWidth = constraints.maxWidth;
+    final maxHeight = constraints.maxHeight;
+    if (!maxWidth.isFinite ||
+        !maxHeight.isFinite ||
+        maxWidth <= 0 ||
+        maxHeight <= 0 ||
+        aspectRatio <= 0) {
+      return Size.zero;
+    }
+
+    final fittedWidth = math.min(maxWidth, maxHeight * aspectRatio);
+    return Size(fittedWidth, fittedWidth / aspectRatio);
+  }
+
+  Widget _buildPreviewGate(CameraState state, CameraController controller) =>
+      ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: Stack(
           fit: StackFit.expand,
@@ -843,15 +1046,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               ),
             ),
 
-            // Top controls overlay
-            if (!_isEditingStyle && !_isEditingUndertone)
-              Positioned(
-                top: 16,
-                left: 16,
-                right: 16,
-                child: _buildTopOverlayControls(state, controller),
-              ),
-
             // Bottom active preset & indicator overlay
             Positioned(
               bottom: 24,
@@ -859,150 +1053,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               right: 0,
               child: _buildPresetOverlay(state),
             ),
-
-            // Self timer countdown overlay
-            if (state.isSelfTimerRunning)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: ColoredBox(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    child: Center(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        transitionBuilder: (child, animation) {
-                          final fade = CurvedAnimation(
-                            parent: animation,
-                            curve: Curves.easeOut,
-                          );
-                          return FadeTransition(
-                            opacity: fade,
-                            child: ScaleTransition(
-                              scale: Tween<double>(begin: 0.92, end: 1).animate(
-                                CurvedAnimation(
-                                  parent: animation,
-                                  curve: Curves.easeOutBack,
-                                ),
-                              ),
-                              child: child,
-                            ),
-                          );
-                        },
-                        child: Container(
-                          key: ValueKey<int>(state.selfTimerRemainingSeconds),
-                          width: 132,
-                          height: 132,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.black.withValues(alpha: 0.56),
-                            border: Border.all(
-                              color: const Color(0xFFF39C12),
-                              width: 2.5,
-                            ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Colors.black54,
-                                blurRadius: 24,
-                                spreadRadius: 2,
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                '${state.selfTimerRemainingSeconds}',
-                                style: const TextStyle(
-                                  color: Color(0xFFF39C12),
-                                  fontSize: 42,
-                                  fontWeight: FontWeight.w900,
-                                  height: 1,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'SELF TIMER',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 2.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-            // Capture animation overlay
-            if (state.captureStatus == CaptureStatus.capturing)
-              ColoredBox(
-                color: Colors.black.withValues(alpha: 0.70),
-                child: const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.camera_alt_rounded,
-                        color: Color(0xFFF39C12),
-                        size: 32,
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'CAPTURING...',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            if (state.captureStatus == CaptureStatus.processing)
-              ColoredBox(
-                color: Colors.black.withValues(alpha: 0.76),
-                child: const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Color(0xFFF39C12),
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'DEVELOPING FILM...',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            // Camera shutter flash screen effect
-            if (state.captureStatus == CaptureStatus.success ||
-                state.captureStatus == CaptureStatus.error)
-              _FlashScreenEffect(
-                success: state.captureStatus == CaptureStatus.success,
-              ),
           ],
         ),
-      ),
-    ),
-  );
+      );
 
   Widget _buildBottomPanel(CameraState state, CameraController controller) {
     final presetsAsync = ref.watch(presetsProvider);
