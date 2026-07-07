@@ -1,0 +1,38 @@
+{
+  "id": "hp5_plus_400",
+  "name": "Ilford HP5 Plus 400",
+  "category": "Classic",
+  "color": {
+    "temperature": 0.0,
+    "contrast": 0.18,
+    "saturation": -1.0
+  },
+  "grain": {
+    "intensity": 0.40
+  },
+  "vignette": {
+    "intensity": 0.02
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.85,
+      "intensity": 0.0
+    },
+    "halation": {
+      "intensity": 0.0
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "portra_400",
+  "name": "Kodak Portra 400",
+  "category": "Classic",
+  "color": {
+    "temperature": 0.08,
+    "contrast": -0.04,
+    "saturation": -0.06
+  },
+  "grain": {
+    "intensity": 0.16
+  },
+  "vignette": {
+    "intensity": 0.02
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.84,
+      "intensity": 0.04
+    },
+    "halation": {
+      "intensity": 0.03
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  }
+}

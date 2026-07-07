@@ -1,0 +1,38 @@
+{
+  "id": "gold_200",
+  "name": "Kodak Gold 200",
+  "category": "Vintage",
+  "color": {
+    "temperature": 0.24,
+    "contrast": 0.12,
+    "saturation": 0.16
+  },
+  "grain": {
+    "intensity": 0.22
+  },
+  "vignette": {
+    "intensity": 0.04
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.82,
+      "intensity": 0.05
+    },
+    "halation": {
+      "intensity": 0.03
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  }
+}

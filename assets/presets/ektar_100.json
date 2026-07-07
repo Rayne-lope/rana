@@ -1,0 +1,38 @@
+{
+  "id": "ektar_100",
+  "name": "Kodak Ektar 100",
+  "category": "Classic",
+  "color": {
+    "temperature": 0.04,
+    "contrast": 0.18,
+    "saturation": 0.30
+  },
+  "grain": {
+    "intensity": 0.08
+  },
+  "vignette": {
+    "intensity": 0.01
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.87,
+      "intensity": 0.02
+    },
+    "halation": {
+      "intensity": 0.01
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  }
+}

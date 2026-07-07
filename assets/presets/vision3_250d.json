@@ -1,0 +1,38 @@
+{
+  "id": "vision3_250d",
+  "name": "Kodak Vision3 250D",
+  "category": "Cinematic",
+  "color": {
+    "temperature": 0.06,
+    "contrast": -0.16,
+    "saturation": -0.10
+  },
+  "grain": {
+    "intensity": 0.12
+  },
+  "vignette": {
+    "intensity": 0.02
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.81,
+      "intensity": 0.06
+    },
+    "halation": {
+      "intensity": 0.01
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  }
+}

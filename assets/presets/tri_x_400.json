@@ -1,0 +1,38 @@
+{
+  "id": "tri_x_400",
+  "name": "Kodak Tri-X 400",
+  "category": "Classic",
+  "color": {
+    "temperature": 0.0,
+    "contrast": 0.34,
+    "saturation": -1.0
+  },
+  "grain": {
+    "intensity": 0.48
+  },
+  "vignette": {
+    "intensity": 0.02
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.85,
+      "intensity": 0.0
+    },
+    "halation": {
+      "intensity": 0.0
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  }
+}

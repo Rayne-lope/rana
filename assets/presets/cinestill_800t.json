@@ -1,0 +1,38 @@
+{
+  "id": "cinestill_800t",
+  "name": "CineStill 800T",
+  "category": "Cinematic",
+  "color": {
+    "temperature": -0.24,
+    "contrast": 0.12,
+    "saturation": 0.08
+  },
+  "grain": {
+    "intensity": 0.30
+  },
+  "vignette": {
+    "intensity": 0.06
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.74,
+      "intensity": 0.18
+    },
+    "halation": {
+      "intensity": 0.58
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  }
+}
