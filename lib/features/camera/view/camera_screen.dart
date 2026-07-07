@@ -1155,7 +1155,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
             children: [
               // Circular thumbnail (left) - tapping opens gallery
               SizedBox(
-                width: 72,
+                width: 120,
                 child: Center(child: _buildThumbnailButton(state)),
               ),
 
@@ -1184,27 +1184,24 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
               // Style and Reset Button (right)
               SizedBox(
-                // Fit both Reset and Style panel text buttons cleanly
-                width: 100,
+                width: 120,
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    IconButton(
-                      onPressed:
-                          isReady && state.activeStyle != const RanaStyle()
-                          ? controller.resetActiveStyle
-                          : null,
-                      icon: Icon(
-                        Icons.replay_rounded,
-                        color: state.activeStyle != const RanaStyle()
-                            ? const Color(0xFFF39C12)
-                            : Colors.white24,
-                        size: 22,
+                    Expanded(
+                      child: _BottomPanelActionButton(
+                        label: 'RESET',
+                        icon: Icons.replay_rounded,
+                        isEnabled: isReady &&
+                            state.activeStyle != const RanaStyle(),
+                        onPressed: controller.resetActiveStyle,
+                        tooltip: 'Reset Style',
                       ),
-                      tooltip: 'Reset Style',
                     ),
                     Expanded(
-                      child: _StylePanelButton(
+                      child: _BottomPanelActionButton(
+                        label: 'STYLE',
+                        icon: Icons.tune_rounded,
                         isEnabled: isReady && activePreset != null,
                         onPressed: () {
                           setState(() {
@@ -1216,6 +1213,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                             _activeStyleTab = 0;
                           });
                         },
+                        tooltip: 'Rana Style',
                       ),
                     ),
                   ],
@@ -1318,32 +1316,43 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   );
 }
 
-class _StylePanelButton extends StatelessWidget {
-  const _StylePanelButton({required this.isEnabled, required this.onPressed});
+class _BottomPanelActionButton extends StatelessWidget {
+  const _BottomPanelActionButton({
+    required this.label,
+    required this.icon,
+    required this.isEnabled,
+    required this.onPressed,
+    this.tooltip,
+  });
 
+  final String label;
+  final IconData icon;
   final bool isEnabled;
   final VoidCallback onPressed;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: 'Rana Style',
+    message: tooltip ?? label,
     child: TextButton(
       onPressed: isEnabled ? onPressed : null,
       style: TextButton.styleFrom(
         foregroundColor: isEnabled ? const Color(0xFFF39C12) : Colors.white24,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
-      child: const Column(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.tune_rounded, size: 22),
-          SizedBox(height: 4),
+          Icon(icon, size: 22),
+          const SizedBox(height: 4),
           Text(
-            'STYLE',
+            label,
             maxLines: 1,
-            style: TextStyle(
-              fontSize: 10,
+            style: const TextStyle(
+              fontSize: 9.5,
               fontWeight: FontWeight.w900,
               letterSpacing: 1,
             ),

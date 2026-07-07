@@ -570,9 +570,11 @@ class MainActivity : FlutterActivity() {
             inJustDecodeBounds = true
         }
 
-        contentResolver.openInputStream(uri)?.use { stream ->
+        val streamForBounds = contentResolver.openInputStream(uri)
+            ?: throw IOException("Unable to open image stream for bounds")
+        streamForBounds.use { stream ->
             BitmapFactory.decodeStream(stream, null, bounds)
-        } ?: throw IOException("Unable to read image bounds")
+        }
 
         val sampleSize = calculateSampleSize(bounds.outWidth, bounds.outHeight, targetSizePx)
         val options = BitmapFactory.Options().apply {
