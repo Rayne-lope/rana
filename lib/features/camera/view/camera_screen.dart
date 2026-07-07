@@ -685,78 +685,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     );
   }
 
-  Widget _buildPresetOverlay(CameraState state) {
-    final presetsAsync = ref.watch(presetsProvider);
-    final presetsList = presetsAsync.valueOrNull ?? [];
-    if (presetsList.isEmpty) return const SizedBox.shrink();
 
-    PresetModel? activePreset;
-    var activeIndex = 0;
-    for (var i = 0; i < presetsList.length; i++) {
-      if (presetsList[i].id == state.activePresetId) {
-        activePreset = presetsList[i];
-        activeIndex = i;
-        break;
-      }
-    }
-
-    if (activePreset == null) return const SizedBox.shrink();
-
-    final showDots = !_isEditingStyle && !_isEditingUndertone;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Glassmorphic Preset Name Pill
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 4,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Text(
-            activePreset.name.toUpperCase(),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.5,
-            ),
-          ),
-        ),
-        if (showDots) ...[
-          const SizedBox(height: 8),
-          // Page dots indicator
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(presetsList.length, (index) {
-              final isSelected = index == activeIndex;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: isSelected ? 6 : 4,
-                height: isSelected ? 6 : 4,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isSelected
-                      ? const Color(0xFFF39C12)
-                      : Colors.white.withValues(alpha: 0.3),
-                ),
-              );
-            }),
-          ),
-        ],
-      ],
-    );
-  }
 
   Widget _buildThumbnailButton(CameraState state) {
     final path = state.lastCapturedPath;
@@ -1009,42 +938,53 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     return Size(fittedWidth, fittedWidth / aspectRatio);
   }
 
-  Widget _buildPreviewGate(CameraState state, CameraController controller) =>
-      ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Live Camera Viewfinder Preview
-            _AndroidCameraPreview(
-              key: ValueKey<String>(
-                'camera-preview-${state.aspectRatio.platformValue}',
-              ),
-              aspectRatio: state.aspectRatio,
-              lens: state.activeLens,
-              flashMode: state.flashMode,
-              onPlatformViewCreated: (_) {
-                unawaited(controller.reapplyActivePreviewParams());
-              },
+  Widget _buildPreviewGate(CameraState state, CameraController controller) {
+    final presetsAsync = ref.watch(presetsProvider);
+    final presetsList = presetsAsync.valueOrNull ?? [];
+    PresetModel? activePreset;
+    for (final p in presetsList) {
+      if (p.id == state.activePresetId) {
+        activePreset = p;
+        break;
+      }
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Live Camera Viewfinder Preview
+          _AndroidCameraPreview(
+            key: ValueKey<String>(
+              'camera-preview-${state.aspectRatio.platformValue}',
             ),
+            aspectRatio: state.aspectRatio,
+            lens: state.activeLens,
+            flashMode: state.flashMode,
+            onPlatformViewCreated: (_) {
+              unawaited(controller.reapplyActivePreviewParams());
+            },
+          ),
 
-            // 3x3 Composition Grid Lines
-            if (ref.watch(gridLinesProvider)) const _ViewfinderGrid(),
+          // 3x3 Composition Grid Lines
+          if (ref.watch(gridLinesProvider)) const _ViewfinderGrid(),
 
-            // Date/Time Stamp (Classic Huji/Dazz cam orange stamp)
+          // Minimalist active preset stamp (bottom-right)
+          if (activePreset != null)
             Positioned(
               bottom: 16,
               right: 16,
               child: Opacity(
-                opacity: 0.85,
+                opacity: 0.9,
                 child: Text(
-                  _getCurrentDateStamp(),
+                  activePreset.name.toUpperCase(),
                   style: const TextStyle(
                     fontFamily: 'Courier',
                     color: Color(0xFFF39C12), // Vintage orange stamp color
-                    fontSize: 18,
+                    fontSize: 13,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 2,
+                    letterSpacing: 1.2,
                     shadows: [
                       Shadow(
                         color: Colors.black54,
@@ -1056,17 +996,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 ),
               ),
             ),
-
-            // Bottom active preset & indicator overlay
-            Positioned(
-              bottom: 24,
-              left: 0,
-              right: 0,
-              child: _buildPresetOverlay(state),
-            ),
-          ],
-        ),
-      );
+        ],
+      ),
+    );
+  }
 
   Widget _buildBottomPanel(CameraState state, CameraController controller) {
     final presetsAsync = ref.watch(presetsProvider);
@@ -1276,14 +1209,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     }
   }
 
-  String _getCurrentDateStamp() {
-    final now = DateTime.now();
-    // Formats like: "26 06 22" (YY MM DD)
-    final year = now.year.toString().substring(2);
-    final month = now.month.toString().padLeft(2, '0');
-    final day = now.day.toString().padLeft(2, '0');
-    return '$year $month $day';
-  }
 
   Widget _buildShimmerLoading() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
