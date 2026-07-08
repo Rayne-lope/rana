@@ -51,6 +51,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   late final AnimationController _focusAnimationController;
   Timer? _focusResetTimer;
   double _pinchStartZoomRatio = userMinZoomRatio;
+  double _pinchTargetZoomRatio = userMinZoomRatio;
   bool _isZoomGestureActive = false;
 
   @override
@@ -137,12 +138,16 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   void _handleViewfinderScaleStart(ScaleStartDetails details) {
     _pinchStartZoomRatio = ref.read(cameraControllerProvider).zoomRatio;
+    _pinchTargetZoomRatio = _pinchStartZoomRatio;
   }
 
   void _handleViewfinderScaleUpdate(ScaleUpdateDetails details) {
     if (details.pointerCount < 2) return;
     _isZoomGestureActive = true;
-    final targetZoomRatio = _pinchStartZoomRatio * details.scale;
+    final safeScale = details.scale > 0 ? details.scale : 1.0;
+    final easedScale = math.pow(safeScale, 0.86).toDouble();
+    final targetZoomRatio = _pinchStartZoomRatio * easedScale;
+    _pinchTargetZoomRatio = targetZoomRatio;
     unawaited(
       ref
           .read(cameraControllerProvider.notifier)
@@ -153,7 +158,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   void _handleViewfinderScaleEnd(ScaleEndDetails details) {
     if (!_isZoomGestureActive) return;
     _isZoomGestureActive = false;
-    unawaited(ref.read(cameraControllerProvider.notifier).commitZoomRatio());
+    unawaited(
+      ref
+          .read(cameraControllerProvider.notifier)
+          .setZoomRatio(_pinchTargetZoomRatio),
+    );
   }
 
   void _resetFocus() {
@@ -1068,7 +1077,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               // AE/AF Lock indicator
               if (_isFocusLocked)
                 Positioned(
-                  top: 16,
+                  top: 46,
                   left: 0,
                   right: 0,
                   child: Center(
@@ -1109,22 +1118,25 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                   ),
                 ),
 
-              // Compact native zoom indicator and reset affordance.
+              // Native zoom indicator and reset affordance.
               if (state.isCameraInitialized)
                 Positioned(
-                  bottom: 14,
-                  left: 14,
-                  child: _ZoomIndicator(
-                    zoomRatio: state.zoomRatio,
-                    isEnabled:
-                        state.captureStatus == CaptureStatus.idle &&
-                        !state.isSelfTimerRunning,
-                    isLimited:
-                        state.isZoomLimited &&
-                        state.zoomRatio >= state.effectiveMaxZoomRatio - 0.01,
-                    onReset: () {
-                      unawaited(controller.setZoomRatio(userMinZoomRatio));
-                    },
+                  top: 12,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: _ZoomIndicator(
+                      zoomRatio: state.zoomRatio,
+                      isEnabled:
+                          state.captureStatus == CaptureStatus.idle &&
+                          !state.isSelfTimerRunning,
+                      isLimited:
+                          state.isZoomLimited &&
+                          state.zoomRatio >= state.effectiveMaxZoomRatio - 0.01,
+                      onReset: () {
+                        unawaited(controller.setZoomRatio(userMinZoomRatio));
+                      },
+                    ),
                   ),
                 ),
 
@@ -1580,56 +1592,33 @@ class _ZoomIndicator extends StatelessWidget {
         label: 'Zoom $label',
         child: Material(
           color: Colors.transparent,
-          child: InkWell(
+          child: InkResponse(
             onTap: isEnabled && isZoomed ? onReset : null,
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              width: 84,
-              height: 34,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.54),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: isZoomed
-                      ? const Color(0xFFF39C12)
-                      : Colors.white.withValues(alpha: 0.22),
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black45,
-                    blurRadius: 8,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.search_rounded, size: 14, color: foreground),
-                  const SizedBox(width: 5),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: foreground,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.6,
+            radius: 28,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 90),
+                curve: Curves.easeOutCubic,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
+                  shadows: const [
+                    Shadow(
+                      color: Colors.black87,
+                      blurRadius: 10,
+                      offset: Offset(0, 1),
                     ),
-                  ),
-                  if (isLimited) ...[
-                    const SizedBox(width: 3),
-                    Text(
-                      'MAX',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.38),
-                        fontSize: 7,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.4,
-                      ),
+                    Shadow(
+                      color: Colors.black54,
+                      blurRadius: 2,
+                      offset: Offset(0, 1),
                     ),
                   ],
-                ],
+                ),
+                child: Text(isLimited ? '$label  MAX' : label),
               ),
             ),
           ),

@@ -24,6 +24,7 @@ class CameraController extends _$CameraController {
   Timer? _zoomDispatchTimer;
   double? _pendingZoomRatio;
   int _zoomGeneration = 0;
+  static const _zoomDispatchInterval = Duration(milliseconds: 16);
 
   int _randomizeVariant() => Random().nextInt(4); // 0 to 3
 
@@ -635,7 +636,7 @@ class CameraController extends _$CameraController {
 
   void _scheduleZoomDispatch() {
     if (_zoomDispatchTimer != null) return;
-    _zoomDispatchTimer = Timer(const Duration(milliseconds: 40), () {
+    _zoomDispatchTimer = Timer(_zoomDispatchInterval, () {
       _zoomDispatchTimer = null;
       final targetZoomRatio = _pendingZoomRatio;
       if (targetZoomRatio == null || !_canAdjustZoom) {
