@@ -11,6 +11,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.view.Display
 import android.view.OrientationEventListener
 import android.view.Surface
 import android.view.TextureView
@@ -25,7 +26,7 @@ import androidx.camera.core.UseCaseGroup
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.core.Camera
 import androidx.camera.core.FocusMeteringAction
-import androidx.camera.view.TextureViewMeteringPointFactory
+import androidx.camera.core.DisplayOrientedMeteringPointFactory
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import io.flutter.plugin.platform.PlatformView
@@ -695,7 +696,13 @@ class CameraPreviewView(
                 val cameraInstance = camera ?: return@runOnUiThread
                 val control = cameraInstance.cameraControl ?: return@runOnUiThread
                 
-                val factory = TextureViewMeteringPointFactory(textureView)
+                val display = textureView.display ?: @Suppress("DEPRECATION") activity.windowManager.defaultDisplay
+                val factory = DisplayOrientedMeteringPointFactory(
+                    display,
+                    cameraInstance.cameraInfo,
+                    textureView.width.toFloat(),
+                    textureView.height.toFloat()
+                )
                 val px = x * textureView.width
                 val py = y * textureView.height
                 val meteringPoint = factory.createPoint(px, py)
@@ -704,7 +711,7 @@ class CameraPreviewView(
                     meteringPoint,
                     FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
                 )
-                .setAutoCancelEnabled(false)
+                .disableAutoCancel()
                 .build()
                 
                 control.startFocusAndMetering(action)
