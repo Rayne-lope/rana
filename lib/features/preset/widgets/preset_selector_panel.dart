@@ -3,10 +3,16 @@ import 'package:rana/features/camera/widgets/rana_styles_controls.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/saved_rana_style.dart';
 
+/// A simple metadata container to hold grouped presets.
 class BrandGroup {
-  final String name;
-  final List<PresetModel> presets;
+  /// Main constructor.
   BrandGroup(this.name, this.presets);
+
+  /// Brand name.
+  final String name;
+
+  /// Presets under this brand.
+  final List<PresetModel> presets;
 }
 
 /// A premium, horizontal-swipe, brand-grouped preset selector panel.
@@ -56,7 +62,8 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
   @override
   void didUpdateWidget(PresetSelectorPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.presets != oldWidget.presets || widget.activePresetId != oldWidget.activePresetId) {
+    if (widget.presets != oldWidget.presets ||
+        widget.activePresetId != oldWidget.activePresetId) {
       _groupPresets();
       _determineInitialPage();
     }
@@ -128,16 +135,36 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
     }
 
     final tempGroups = <BrandGroup>[];
-    if (defaults.isNotEmpty) tempGroups.add(BrandGroup('DEFAULT', defaults));
-    if (rana.isNotEmpty) tempGroups.add(BrandGroup('RANA', rana));
-    if (kodak.isNotEmpty) tempGroups.add(BrandGroup('KODAK', kodak));
-    if (fuji.isNotEmpty) tempGroups.add(BrandGroup('FUJIFILM', fuji));
-    if (agfa.isNotEmpty) tempGroups.add(BrandGroup('AGFA', agfa));
-    if (lomography.isNotEmpty) tempGroups.add(BrandGroup('LOMOGRAPHY', lomography));
-    if (cinestill.isNotEmpty) tempGroups.add(BrandGroup('CINESTILL', cinestill));
-    if (ilford.isNotEmpty) tempGroups.add(BrandGroup('ILFORD', ilford));
-    if (myStyles.isNotEmpty) tempGroups.add(BrandGroup('MY STYLES', myStyles));
-    if (others.isNotEmpty) tempGroups.add(BrandGroup('OTHERS', others));
+    if (defaults.isNotEmpty) {
+      tempGroups.add(BrandGroup('DEFAULT', defaults));
+    }
+    if (rana.isNotEmpty) {
+      tempGroups.add(BrandGroup('RANA', rana));
+    }
+    if (kodak.isNotEmpty) {
+      tempGroups.add(BrandGroup('KODAK', kodak));
+    }
+    if (fuji.isNotEmpty) {
+      tempGroups.add(BrandGroup('FUJIFILM', fuji));
+    }
+    if (agfa.isNotEmpty) {
+      tempGroups.add(BrandGroup('AGFA', agfa));
+    }
+    if (lomography.isNotEmpty) {
+      tempGroups.add(BrandGroup('LOMOGRAPHY', lomography));
+    }
+    if (cinestill.isNotEmpty) {
+      tempGroups.add(BrandGroup('CINESTILL', cinestill));
+    }
+    if (ilford.isNotEmpty) {
+      tempGroups.add(BrandGroup('ILFORD', ilford));
+    }
+    if (myStyles.isNotEmpty) {
+      tempGroups.add(BrandGroup('MY STYLES', myStyles));
+    }
+    if (others.isNotEmpty) {
+      tempGroups.add(BrandGroup('OTHERS', others));
+    }
 
     _groups = tempGroups;
     _tabKeys.clear();
@@ -153,7 +180,9 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
     }
 
     for (var i = 0; i < _groups.length; i++) {
-      final hasActive = _groups[i].presets.any((p) => p.id == widget.activePresetId);
+      final hasActive = _groups[i].presets.any(
+            (p) => p.id == widget.activePresetId,
+          );
       if (hasActive) {
         _currentPage = i;
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -183,13 +212,19 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
     if (tabBarRenderBox == null) return;
 
     final tabWidth = renderBox.size.width;
-    final tabPosition = renderBox.localToGlobal(Offset.zero, ancestor: tabBarRenderBox);
+    final tabPosition = renderBox.localToGlobal(
+      Offset.zero,
+      ancestor: tabBarRenderBox,
+    );
     final tabOffset = tabPosition.dx;
     final viewportWidth = tabBarRenderBox.size.width;
     final currentScrollOffset = _tabScrollController.offset;
 
     // Center the tab
-    final targetScrollOffset = currentScrollOffset + tabOffset - (viewportWidth / 2) + (tabWidth / 2);
+    final targetScrollOffset = currentScrollOffset +
+        tabOffset -
+        (viewportWidth / 2) +
+        (tabWidth / 2);
     final maxScroll = _tabScrollController.position.maxScrollExtent;
     final minScroll = _tabScrollController.position.minScrollExtent;
 
@@ -247,24 +282,31 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
                         onTap: () => _onTabTapped(index),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 250),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? const Color(0xFFF39C12).withValues(alpha: 0.12)
+                                ? const Color(0xFFF39C12)
+                                    .withValues(alpha: 0.12)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: isSelected
-                                  ? const Color(0xFFF39C12).withValues(alpha: 0.3)
-                                  : Colors.white.withValues(alpha: 0.05),
-                              width: 1.0,
+                                  ? const Color(0xFFF39C12)
+                                      .withValues(alpha: 0.3)
+                                  : Colors.white
+                                      .withValues(alpha: 0.05),
                             ),
                           ),
                           child: Center(
                             child: Text(
                               group.name,
                               style: TextStyle(
-                                color: isSelected ? const Color(0xFFF39C12) : Colors.white60,
+                                color: isSelected
+                                    ? const Color(0xFFF39C12)
+                                    : Colors.white60,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 1.2,
@@ -299,29 +341,37 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
                     final group = _groups[pageIndex];
                     return ListView.builder(
                       scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
                       itemCount: group.presets.length,
                       itemBuilder: (context, index) {
                         final preset = group.presets[index];
-                        final isSelected = widget.activePresetId == preset.id;
+                        final isSelected =
+                            widget.activePresetId == preset.id;
 
                         // Clean up brand name prefixes
                         var displayName = preset.name.toUpperCase();
                         if (displayName.startsWith('KODAK ')) {
                           displayName = displayName.replaceFirst('KODAK ', '');
                         } else if (displayName.startsWith('FUJIFILM ')) {
-                          displayName = displayName.replaceFirst('FUJIFILM ', '');
+                          displayName =
+                              displayName.replaceFirst('FUJIFILM ', '');
                         } else if (displayName.startsWith('RANA ')) {
                           displayName = displayName.replaceFirst('RANA ', '');
                         } else if (displayName.startsWith('ILFORD ')) {
-                          displayName = displayName.replaceFirst('ILFORD ', '');
+                          displayName =
+                              displayName.replaceFirst('ILFORD ', '');
                         } else if (displayName.startsWith('AGFA ')) {
                           displayName = displayName.replaceFirst('AGFA ', '');
                         } else if (displayName.startsWith('LOMOGRAPHY ')) {
-                          displayName = displayName.replaceFirst('LOMOGRAPHY ', '');
+                          displayName =
+                              displayName.replaceFirst('LOMOGRAPHY ', '');
                         }
 
-                        final isSavedStyle = SavedRanaStyle.isSavedStylePresetId(preset.id);
+                        final isSavedStyle =
+                            SavedRanaStyle.isSavedStylePresetId(preset.id);
 
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -341,19 +391,26 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
                                         height: 48,
                                         decoration: BoxDecoration(
                                           color: isSelected
-                                              ? const Color(0xFFF39C12).withValues(alpha: 0.12)
+                                              ? const Color(0xFFF39C12)
+                                                  .withValues(alpha: 0.12)
                                               : const Color(0xFF16161A),
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
                                           border: Border.all(
                                             color: isSelected
                                                 ? const Color(0xFFF39C12)
-                                                : Colors.white.withValues(alpha: 0.05),
-                                            width: isSelected ? 2.0 : 1.0,
+                                                : Colors.white
+                                                    .withValues(alpha: 0.05),
+                                            width: isSelected ? 2 : 1,
                                           ),
                                           boxShadow: isSelected
                                               ? [
                                                   BoxShadow(
-                                                    color: const Color(0xFFF39C12).withValues(alpha: 0.15),
+                                                    color:
+                                                        const Color(0xFFF39C12)
+                                                            .withValues(
+                                                      alpha: 0.15,
+                                                    ),
                                                     blurRadius: 8,
                                                     offset: const Offset(0, 2),
                                                   ),
@@ -368,12 +425,14 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
                                               : Colors.white54,
                                         ),
                                       ),
-                                      if (isSavedStyle && widget.onDeletePreset != null)
+                                      if (isSavedStyle &&
+                                          widget.onDeletePreset != null)
                                         Positioned(
                                           top: -4,
                                           right: -4,
                                           child: GestureDetector(
-                                            onTap: () => widget.onDeletePreset!(preset),
+                                            onTap: () =>
+                                                widget.onDeletePreset!(preset),
                                             child: Container(
                                               padding: const EdgeInsets.all(2),
                                               decoration: const BoxDecoration(
@@ -398,9 +457,13 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
                                     overflow: TextOverflow.ellipsis,
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
-                                      color: isSelected ? const Color(0xFFF39C12) : Colors.white70,
+                                      color: isSelected
+                                          ? const Color(0xFFF39C12)
+                                          : Colors.white70,
                                       fontSize: 8.5,
-                                      fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w900
+                                          : FontWeight.w700,
                                       letterSpacing: 0.5,
                                       height: 1.1,
                                     ),
