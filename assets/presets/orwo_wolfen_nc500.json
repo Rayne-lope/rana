@@ -1,0 +1,45 @@
+{
+  "id": "orwo_wolfen_nc500",
+  "name": "ORWO WOLFEN NC500",
+  "category": "Cinematic",
+  "color": {
+    "temperature": -0.10,
+    "contrast": 0.12,
+    "saturation": -0.28
+  },
+  "grain": {
+    "intensity": 0.42
+  },
+  "vignette": {
+    "intensity": 0.08
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.79,
+      "intensity": 0.12
+    },
+    "halation": {
+      "intensity": 0.10
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  },
+  "style": {
+    "tone": 18.0,
+    "color": -28.0,
+    "styleStrength": 90.0,
+    "undertoneX": -0.12,
+    "undertoneY": -0.10
+  }
+}

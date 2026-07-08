@@ -33,6 +33,8 @@ class PresetSelectorPanel extends StatelessWidget {
     final rana = <PresetModel>[];
     final kodak = <PresetModel>[];
     final fuji = <PresetModel>[];
+    final agfa = <PresetModel>[];
+    final lomography = <PresetModel>[];
     final cinestill = <PresetModel>[];
     final ilford = <PresetModel>[];
     final defaults = <PresetModel>[];
@@ -63,8 +65,16 @@ class PresetSelectorPanel extends StatelessWidget {
       } else if (nameLower.contains('fujifilm') ||
           nameLower.contains('fuji') ||
           idLower.startsWith('fuji') ||
-          idLower.contains('pro_400h')) {
+          idLower.contains('pro_400h') ||
+          idLower.contains('velvia') ||
+          idLower.contains('superia') ||
+          idLower.contains('natura') ||
+          idLower.contains('quicksnap')) {
         fuji.add(preset);
+      } else if (nameLower.contains('agfa') || idLower.startsWith('agfa')) {
+        agfa.add(preset);
+      } else if (nameLower.contains('lomo') || idLower.startsWith('lomo')) {
+        lomography.add(preset);
       } else if (nameLower.contains('cinestill') ||
           idLower.startsWith('cinestill')) {
         cinestill.add(preset);
@@ -95,6 +105,10 @@ class PresetSelectorPanel extends StatelessWidget {
                 _buildBrandRow('KODAK', kodak),
               if (fuji.isNotEmpty)
                 _buildBrandRow('FUJIFILM', fuji),
+              if (agfa.isNotEmpty)
+                _buildBrandRow('AGFA', agfa),
+              if (lomography.isNotEmpty)
+                _buildBrandRow('LOMOGRAPHY', lomography),
               if (cinestill.isNotEmpty)
                 _buildBrandRow('CINESTILL', cinestill),
               if (ilford.isNotEmpty)
@@ -146,6 +160,10 @@ class PresetSelectorPanel extends StatelessWidget {
                   displayName = displayName.replaceFirst('RANA ', '');
                 } else if (displayName.startsWith('ILFORD ')) {
                   displayName = displayName.replaceFirst('ILFORD ', '');
+                } else if (displayName.startsWith('AGFA ')) {
+                  displayName = displayName.replaceFirst('AGFA ', '');
+                } else if (displayName.startsWith('LOMOGRAPHY ')) {
+                  displayName = displayName.replaceFirst('LOMOGRAPHY ', '');
                 }
 
                 final isSavedStyle =

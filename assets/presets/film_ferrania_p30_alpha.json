@@ -1,0 +1,45 @@
+{
+  "id": "film_ferrania_p30_alpha",
+  "name": "Film Ferrania P30 Alpha",
+  "category": "Classic",
+  "color": {
+    "temperature": 0.0,
+    "contrast": 0.48,
+    "saturation": -1.0
+  },
+  "grain": {
+    "intensity": 0.18
+  },
+  "vignette": {
+    "intensity": 0.06
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.84,
+      "intensity": 0.02
+    },
+    "halation": {
+      "intensity": 0.0
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  },
+  "style": {
+    "tone": 46.0,
+    "color": -100.0,
+    "styleStrength": 92.0,
+    "undertoneX": 0.0,
+    "undertoneY": -0.02
+  }
+}

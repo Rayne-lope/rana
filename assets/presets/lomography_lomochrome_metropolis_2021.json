@@ -1,0 +1,45 @@
+{
+  "id": "lomography_lomochrome_metropolis_2021",
+  "name": "Lomography Lomochrome Metropolis 2021",
+  "category": "Cinematic",
+  "color": {
+    "temperature": -0.04,
+    "contrast": 0.34,
+    "saturation": -0.42
+  },
+  "grain": {
+    "intensity": 0.30
+  },
+  "vignette": {
+    "intensity": 0.10
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.80,
+      "intensity": 0.06
+    },
+    "halation": {
+      "intensity": 0.03
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  },
+  "style": {
+    "tone": 30.0,
+    "color": -45.0,
+    "styleStrength": 94.0,
+    "undertoneX": -0.06,
+    "undertoneY": -0.02
+  }
+}

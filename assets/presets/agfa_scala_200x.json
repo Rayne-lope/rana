@@ -1,0 +1,45 @@
+{
+  "id": "agfa_scala_200x",
+  "name": "Agfa Scala 200x",
+  "category": "Classic",
+  "color": {
+    "temperature": 0.0,
+    "contrast": 0.55,
+    "saturation": -1.0
+  },
+  "grain": {
+    "intensity": 0.20
+  },
+  "vignette": {
+    "intensity": 0.08
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.82,
+      "intensity": 0.03
+    },
+    "halation": {
+      "intensity": 0.0
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  },
+  "style": {
+    "tone": 55.0,
+    "color": -100.0,
+    "styleStrength": 94.0,
+    "undertoneX": 0.0,
+    "undertoneY": 0.0
+  }
+}

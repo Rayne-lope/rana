@@ -1,0 +1,45 @@
+{
+  "id": "agfa_vista_plus_400",
+  "name": "Agfa Vista Plus 400",
+  "category": "Vintage",
+  "color": {
+    "temperature": 0.18,
+    "contrast": 0.08,
+    "saturation": 0.16
+  },
+  "grain": {
+    "intensity": 0.25
+  },
+  "vignette": {
+    "intensity": 0.06
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.83,
+      "intensity": 0.06
+    },
+    "halation": {
+      "intensity": 0.02
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  },
+  "style": {
+    "tone": 10.0,
+    "color": 15.0,
+    "styleStrength": 86.0,
+    "undertoneX": 0.18,
+    "undertoneY": 0.04
+  }
+}

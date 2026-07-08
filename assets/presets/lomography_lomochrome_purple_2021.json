@@ -1,0 +1,45 @@
+{
+  "id": "lomography_lomochrome_purple_2021",
+  "name": "Lomography Lomochrome Purple 2021",
+  "category": "Vintage",
+  "color": {
+    "temperature": 0.02,
+    "contrast": 0.12,
+    "saturation": 0.24
+  },
+  "grain": {
+    "intensity": 0.22
+  },
+  "vignette": {
+    "intensity": 0.05
+  },
+  "lut": "assets/luts/lomochrome_purple_2021.cube",
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.82,
+      "intensity": 0.04
+    },
+    "halation": {
+      "intensity": 0.02
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  },
+  "style": {
+    "tone": 8.0,
+    "color": 30.0,
+    "styleStrength": 96.0,
+    "undertoneX": 0.0,
+    "undertoneY": 0.60
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "id": "fujifilm_natura_1600",
+  "name": "Fujifilm Natura 1600",
+  "category": "Vintage",
+  "color": {
+    "temperature": -0.18,
+    "contrast": -0.04,
+    "saturation": -0.06
+  },
+  "grain": {
+    "intensity": 0.28
+  },
+  "vignette": {
+    "intensity": 0.08
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.78,
+      "intensity": 0.10
+    },
+    "halation": {
+      "intensity": 0.06
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  },
+  "style": {
+    "tone": -8.0,
+    "color": -10.0,
+    "styleStrength": 84.0,
+    "undertoneX": -0.14,
+    "undertoneY": -0.06
+  }
+}
