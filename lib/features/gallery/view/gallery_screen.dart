@@ -108,6 +108,19 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                   ),
                 ),
               ),
+              if (permissionState.hasStorage && !showLoader)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  sliver: SliverToBoxAdapter(
+                    child: _GalleryFilterStrip(
+                      activeFilter: galleryState.timeFilter,
+                      showFavoritesOnly: galleryState.showFavoritesOnly,
+                      onFilterChanged: controller.setTimeFilter,
+                      onFavoritesOnlyChanged: (value) =>
+                          controller.setFavoritesOnly(value: value),
+                    ),
+                  ),
+                ),
               if (showLoader)
                 const SliverFillRemaining(
                   hasScrollBody: false,
@@ -741,4 +754,106 @@ class _GalleryTileState extends State<_GalleryTile> {
       ),
     ),
   );
+}
+
+class _GalleryFilterStrip extends StatelessWidget {
+  const _GalleryFilterStrip({
+    required this.activeFilter,
+    required this.showFavoritesOnly,
+    required this.onFilterChanged,
+    required this.onFavoritesOnlyChanged,
+  });
+
+  final GalleryTimeFilter activeFilter;
+  final bool showFavoritesOnly;
+  final ValueChanged<GalleryTimeFilter> onFilterChanged;
+  final ValueChanged<bool> onFavoritesOnlyChanged;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: 38,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: [
+            _buildFilterChip(
+              label: 'ALL TIME',
+              isSelected: activeFilter == GalleryTimeFilter.all &&
+                  !showFavoritesOnly,
+              onSelected: (_) {
+                onFilterChanged(GalleryTimeFilter.all);
+                onFavoritesOnlyChanged(false);
+              },
+            ),
+            const SizedBox(width: 8),
+            _buildFilterChip(
+              label: 'TODAY',
+              isSelected: activeFilter == GalleryTimeFilter.today &&
+                  !showFavoritesOnly,
+              onSelected: (_) {
+                onFilterChanged(GalleryTimeFilter.today);
+                onFavoritesOnlyChanged(false);
+              },
+            ),
+            const SizedBox(width: 8),
+            _buildFilterChip(
+              label: 'THIS WEEK',
+              isSelected: activeFilter == GalleryTimeFilter.thisWeek &&
+                  !showFavoritesOnly,
+              onSelected: (_) {
+                onFilterChanged(GalleryTimeFilter.thisWeek);
+                onFavoritesOnlyChanged(false);
+              },
+            ),
+            const SizedBox(width: 8),
+            _buildFilterChip(
+              label: 'FAVORITES',
+              isSelected: showFavoritesOnly,
+              onSelected: (selected) {
+                onFavoritesOnlyChanged(selected);
+                if (selected) {
+                  onFilterChanged(GalleryTimeFilter.all);
+                }
+              },
+              icon: Icons.favorite_rounded,
+            ),
+          ],
+        ),
+      );
+
+  Widget _buildFilterChip({
+    required String label,
+    required bool isSelected,
+    required ValueChanged<bool> onSelected,
+    IconData? icon,
+  }) =>
+      ChoiceChip(
+        avatar: icon != null
+            ? Icon(
+                icon,
+                size: 13,
+                color: isSelected ? Colors.black : const Color(0xFFF39C12),
+              )
+            : null,
+        label: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.1,
+            color: isSelected ? Colors.black : Colors.white70,
+          ),
+        ),
+        selected: isSelected,
+        onSelected: onSelected,
+        selectedColor: const Color(0xFFF39C12),
+        backgroundColor: const Color(0xFF1E1E24),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: isSelected
+                ? const Color(0xFFF39C12)
+                : Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+      );
 }

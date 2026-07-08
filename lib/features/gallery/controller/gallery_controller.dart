@@ -1,5 +1,6 @@
 import 'package:rana/core/providers/permission_provider.dart';
 import 'package:rana/core/services/media_store_service.dart';
+import 'package:rana/features/gallery/model/gallery_media_item.dart';
 import 'package:rana/features/gallery/state/gallery_state.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,6 +32,7 @@ class GalleryController extends _$GalleryController {
         errorMessage: null,
         favoriteIds: state.favoriteIds,
         showFavoritesOnly: state.showFavoritesOnly,
+        timeFilter: state.timeFilter,
       );
       return;
     }
@@ -41,16 +43,22 @@ class GalleryController extends _$GalleryController {
       errorMessage: null,
       favoriteIds: state.favoriteIds,
       showFavoritesOnly: state.showFavoritesOnly,
+      timeFilter: state.timeFilter,
     );
 
     try {
       final items = await _mediaStoreService.loadGalleryItems();
+      final sortedItems = List<GalleryMediaItem>.from(items)
+        ..sort((a, b) => b.dateTaken.compareTo(a.dateTaken));
       state = GalleryState(
-        status: items.isEmpty ? GalleryStatus.empty : GalleryStatus.loaded,
-        items: items,
+        status: sortedItems.isEmpty
+            ? GalleryStatus.empty
+            : GalleryStatus.loaded,
+        items: sortedItems,
         errorMessage: null,
         favoriteIds: state.favoriteIds,
         showFavoritesOnly: state.showFavoritesOnly,
+        timeFilter: state.timeFilter,
       );
     } on Object catch (e) {
       state = state.copyWith(
@@ -74,6 +82,7 @@ class GalleryController extends _$GalleryController {
       errorMessage: null,
       favoriteIds: state.favoriteIds,
       showFavoritesOnly: state.showFavoritesOnly,
+      timeFilter: state.timeFilter,
     );
   }
 
@@ -93,6 +102,10 @@ class GalleryController extends _$GalleryController {
   Future<void> setFavoritesOnly({required bool value}) async {
     await _ensureFavoritesLoaded();
     state = state.copyWith(showFavoritesOnly: value);
+  }
+
+  void setTimeFilter(GalleryTimeFilter filter) {
+    state = state.copyWith(timeFilter: filter);
   }
 
   Future<void> _ensureFavoritesLoaded() async {

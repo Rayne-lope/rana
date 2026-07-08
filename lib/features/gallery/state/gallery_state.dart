@@ -4,6 +4,9 @@ import 'package:rana/features/gallery/model/gallery_media_item.dart';
 /// Loading status for the gallery screen.
 enum GalleryStatus { loading, loaded, empty, permissionDenied, error }
 
+/// Date filtering options for the gallery screen.
+enum GalleryTimeFilter { all, today, thisWeek }
+
 /// Immutable gallery state used by the gallery screen controller.
 @immutable
 class GalleryState {
@@ -13,6 +16,7 @@ class GalleryState {
     required this.errorMessage,
     required this.favoriteIds,
     required this.showFavoritesOnly,
+    required this.timeFilter,
   });
 
   factory GalleryState.initial() => const GalleryState(
@@ -21,6 +25,7 @@ class GalleryState {
     errorMessage: null,
     favoriteIds: {},
     showFavoritesOnly: false,
+    timeFilter: GalleryTimeFilter.all,
   );
 
   final GalleryStatus status;
@@ -28,12 +33,29 @@ class GalleryState {
   final String? errorMessage;
   final Set<String> favoriteIds;
   final bool showFavoritesOnly;
+  final GalleryTimeFilter timeFilter;
 
-  List<GalleryMediaItem> get visibleItems => showFavoritesOnly
-      ? items
-            .where((item) => favoriteIds.contains(item.id))
-            .toList(growable: false)
-      : items;
+  List<GalleryMediaItem> get visibleItems {
+    var filtered = showFavoritesOnly
+        ? items.where((item) => favoriteIds.contains(item.id)).toList()
+        : items.toList();
+
+    if (timeFilter == GalleryTimeFilter.today) {
+      final now = DateTime.now();
+      final todayStart = DateTime(now.year, now.month, now.day);
+      filtered = filtered
+          .where((item) => item.dateTaken.isAfter(todayStart))
+          .toList();
+    } else if (timeFilter == GalleryTimeFilter.thisWeek) {
+      final now = DateTime.now();
+      final oneWeekAgo = now.subtract(const Duration(days: 7));
+      filtered = filtered
+          .where((item) => item.dateTaken.isAfter(oneWeekAgo))
+          .toList();
+    }
+
+    return filtered;
+  }
 
   bool get isLoading => status == GalleryStatus.loading;
   bool get isPermissionDenied => status == GalleryStatus.permissionDenied;
@@ -47,12 +69,14 @@ class GalleryState {
     String? errorMessage,
     Set<String>? favoriteIds,
     bool? showFavoritesOnly,
+    GalleryTimeFilter? timeFilter,
   }) => GalleryState(
     status: status ?? this.status,
     items: items ?? this.items,
     errorMessage: errorMessage,
     favoriteIds: favoriteIds ?? this.favoriteIds,
     showFavoritesOnly: showFavoritesOnly ?? this.showFavoritesOnly,
+    timeFilter: timeFilter ?? this.timeFilter,
   );
 
   @override
@@ -63,7 +87,8 @@ class GalleryState {
         listEquals(other.items, items) &&
         other.errorMessage == errorMessage &&
         setEquals(other.favoriteIds, favoriteIds) &&
-        other.showFavoritesOnly == showFavoritesOnly;
+        other.showFavoritesOnly == showFavoritesOnly &&
+        other.timeFilter == timeFilter;
   }
 
   @override
@@ -73,5 +98,6 @@ class GalleryState {
     errorMessage,
     Object.hashAll(favoriteIds),
     showFavoritesOnly,
+    timeFilter,
   );
 }
