@@ -356,7 +356,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     CameraController controller,
   ) =>
       SizedBox(
-        height: 280,
+        height: 190,
         child: ref.watch(presetsProvider).when(
           data: (presetsList) {
             if (presetsList.isEmpty) {
