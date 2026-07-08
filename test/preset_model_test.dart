@@ -157,10 +157,13 @@ void main() {
 
       expect(model.id, 'kodak_gold_200');
       expect(model.name, 'Kodak Gold 200');
-      expect(model.style, isNull);
-      expect(model.color.temperature, 0.24);
-      expect(model.color.contrast, 0.08);
-      expect(model.color.saturation, 0.18);
+      expect(model.style, isNotNull);
+      expect(model.style!.tone, -8.0);
+      expect(model.style!.color, 14.0);
+      expect(model.style!.texture, 0.0);
+      expect(model.style!.styleStrength, 100.0);
+      expect(model.style!.undertoneX, -0.42);
+      expect(model.style!.undertoneY, -0.04);
     });
 
     test('successfully parses preset with style block', () {
