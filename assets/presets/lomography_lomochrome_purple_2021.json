@@ -13,7 +13,7 @@
   "vignette": {
     "intensity": 0.05
   },
-  "lut": "assets/luts/lomochrome_purple_2021.cube",
+  "lut": null,
   "overlay": null,
   "behavior": null,
   "effects": {

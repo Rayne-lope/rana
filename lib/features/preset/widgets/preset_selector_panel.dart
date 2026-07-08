@@ -253,8 +253,17 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
       return const SizedBox.shrink();
     }
 
-    return CustomPaint(
-      painter: StylesPanelBackgroundPainter(),
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF161616),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+        border: Border.all(
+          color: const Color(0xFF2D2D2D),
+        ),
+      ),
       child: SafeArea(
         top: false,
         child: SizedBox(
