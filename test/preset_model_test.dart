@@ -33,7 +33,12 @@ void main() {
       expect(model.effects.bloom.intensity, 0.0);
       expect(model.effects.halation.intensity, 0.0);
       expect(model.effects.lensDistortion.strength, 0.0);
-      expect(model.style, isNull);
+      expect(model.style, isNotNull);
+      expect(model.style!.tone, 0.0);
+      expect(model.style!.color, 0.0);
+      expect(model.style!.styleStrength, 100.0);
+      expect(model.style!.undertoneX, 0.0);
+      expect(model.style!.undertoneY, 0.0);
     });
 
     test('successfully parses rana_warm.json', () {
@@ -63,7 +68,12 @@ void main() {
       expect(model.effects.bloom.intensity, 0.05);
       expect(model.effects.halation.intensity, 0.03);
       expect(model.effects.lensDistortion.strength, 0.06);
-      expect(model.style, isNull);
+      expect(model.style, isNotNull);
+      expect(model.style!.tone, -6.0);
+      expect(model.style!.color, 8.0);
+      expect(model.style!.styleStrength, 100.0);
+      expect(model.style!.undertoneX, -0.35);
+      expect(model.style!.undertoneY, -0.02);
     });
 
     test('successfully parses rana_cool.json', () {
@@ -93,7 +103,12 @@ void main() {
       expect(model.effects.bloom.intensity, 0.06);
       expect(model.effects.halation.intensity, 0.03);
       expect(model.effects.lensDistortion.strength, 0.04);
-      expect(model.style, isNull);
+      expect(model.style, isNotNull);
+      expect(model.style!.tone, -8.0);
+      expect(model.style!.color, 8.0);
+      expect(model.style!.styleStrength, 100.0);
+      expect(model.style!.undertoneX, 0.45);
+      expect(model.style!.undertoneY, 0.05);
     });
 
     test('successfully parses rana_mono.json', () {
@@ -123,7 +138,32 @@ void main() {
       expect(model.effects.bloom.intensity, 0.05);
       expect(model.effects.halation.intensity, 0.0);
       expect(model.effects.lensDistortion.strength, 0.08);
-      expect(model.style, isNull);
+      expect(model.style, isNotNull);
+      expect(model.style!.tone, 10.0);
+      expect(model.style!.color, 0.0);
+      expect(model.style!.styleStrength, 100.0);
+      expect(model.style!.undertoneX, 0.0);
+      expect(model.style!.undertoneY, 0.0);
+    });
+
+    test('successfully parses Kodak Gold photographic style defaults', () {
+      final file = File('assets/presets/gold_200.json');
+      final jsonStr = file.readAsStringSync();
+      final decoded = json.decode(jsonStr);
+      expect(decoded, isA<Map<String, dynamic>>());
+      final jsonMap = decoded as Map<String, dynamic>;
+
+      final model = PresetModel.fromJson(jsonMap);
+
+      expect(model.id, 'gold_200');
+      expect(model.name, 'Kodak Gold 200');
+      expect(model.style, isNotNull);
+      expect(model.style!.tone, -8.0);
+      expect(model.style!.color, 14.0);
+      expect(model.style!.texture, 0.0);
+      expect(model.style!.styleStrength, 100.0);
+      expect(model.style!.undertoneX, -0.42);
+      expect(model.style!.undertoneY, -0.04);
     });
 
     test('successfully parses preset with style block', () {
@@ -131,26 +171,13 @@ void main() {
         'id': 'custom_styled',
         'name': 'Custom Styled',
         'category': 'Custom',
-        'color': {
-          'temperature': 0.1,
-          'contrast': -0.1,
-          'saturation': 0.2,
-        },
-        'grain': {
-          'intensity': 0.15,
-        },
-        'vignette': {
-          'intensity': 0.3,
-        },
+        'color': {'temperature': 0.1, 'contrast': -0.1, 'saturation': 0.2},
+        'grain': {'intensity': 0.15},
+        'vignette': {'intensity': 0.3},
         'lut': 'assets/luts/custom.png',
         'effects': {
-          'lightLeak': {
-            'intensity': 0.1,
-            'variant': 2,
-          },
-          'dust': {
-            'intensity': 0.05,
-          },
+          'lightLeak': {'intensity': 0.1, 'variant': 2},
+          'dust': {'intensity': 0.05},
         },
         'style': {
           'tone': 12.0,
@@ -159,7 +186,7 @@ void main() {
           'styleStrength': 85.0,
           'undertoneX': 0.35,
           'undertoneY': -0.45,
-        }
+        },
       };
 
       final model = PresetModel.fromJson(jsonMap);

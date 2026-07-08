@@ -70,6 +70,18 @@ class GlShaderConstantsTest {
     }
 
     @Test
+    fun `rana styles reduce color and undertone shifts on skin tones`() {
+        val shader = GlShaderConstants.FRAGMENT_SHADER_EXPORT
+
+        assertTrue(shader.contains("float skinToneProtection(vec3 inputColor)"))
+        assertTrue(shader.contains("float chromaStyleScale = mix(1.0, 0.35, skinProtect);"))
+        assertTrue(shader.contains("colorAmount * chromaStyleScale / 100.0"))
+        assertTrue(shader.contains("uUndertoneX * chromaStyleScale"))
+        assertTrue(shader.contains("uUndertoneY * chromaStyleScale"))
+        assertOrder(shader, "float skinProtect = skinToneProtection(inputColor);", "float toneAmount = clamp(uTone, -100.0, 100.0);")
+    }
+
+    @Test
     fun `base color shader leaves rana styles to bloom composite`() {
         val shader = GlShaderConstants.FRAGMENT_SHADER_BASE_COLOR_EXPORT
 

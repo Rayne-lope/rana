@@ -106,9 +106,27 @@ object GlShaderConstants {
         uniform float uUndertoneX;
         uniform float uUndertoneY;
 
+        float skinToneProtection(vec3 inputColor) {
+            vec3 color = clamp(inputColor, 0.0, 1.0);
+            float luma = dot(color, vec3(0.299, 0.587, 0.114));
+            float cb = -0.168736 * color.r - 0.331264 * color.g + 0.5 * color.b + 0.5;
+            float cr = 0.5 * color.r - 0.418688 * color.g - 0.081312 * color.b + 0.5;
+            float maxChannel = max(max(color.r, color.g), color.b);
+            float minChannel = min(min(color.r, color.g), color.b);
+            float chroma = maxChannel - minChannel;
+
+            float cbMask = smoothstep(0.24, 0.30, cb) * (1.0 - smoothstep(0.50, 0.56, cb));
+            float crMask = smoothstep(0.48, 0.54, cr) * (1.0 - smoothstep(0.72, 0.78, cr));
+            float lumaMask = smoothstep(0.08, 0.20, luma) * (1.0 - smoothstep(0.90, 0.98, luma));
+            float chromaMask = smoothstep(0.03, 0.08, chroma) * (1.0 - smoothstep(0.55, 0.72, chroma));
+            return clamp(cbMask * crMask * lumaMask * chromaMask, 0.0, 1.0);
+        }
+
         vec3 applyRanaStyles(vec3 inputColor) {
             vec3 color = inputColor;
             float styleBlend = clamp(uStyleStrength / 100.0, 0.0, 1.0);
+            float skinProtect = skinToneProtection(inputColor);
+            float chromaStyleScale = mix(1.0, 0.35, skinProtect);
             
             // 1. Tone curve (Luminance power curve)
             float luma = dot(color, vec3(0.299, 0.587, 0.114));
@@ -123,11 +141,11 @@ object GlShaderConstants {
             // 2. Color / Saturation
             float postLuma = dot(color, vec3(0.299, 0.587, 0.114));
             float colorAmount = clamp(uColor, -100.0, 100.0);
-            color = mix(vec3(postLuma), color, 1.0 + colorAmount / 100.0);
+            color = mix(vec3(postLuma), color, 1.0 + colorAmount * chromaStyleScale / 100.0);
             
             // 3. Undertone Grid (Color Balance Matrix)
-            float alpha = -0.15 * uUndertoneX;
-            float beta = 0.12 * uUndertoneY;
+            float alpha = -0.15 * uUndertoneX * chromaStyleScale;
+            float beta = 0.12 * uUndertoneY * chromaStyleScale;
             color.r = color.r * (1.0 + alpha + beta);
             color.g = color.g * (1.0 - beta);
             color.b = color.b * (1.0 - alpha + beta);

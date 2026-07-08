@@ -391,6 +391,43 @@ void main() {
       expect(params['undertoneY'], equals(-0.5));
     });
 
+    test('selectPreset seeds Kodak Gold photographic style defaults', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await controller.initialize();
+      log.clear();
+
+      const goldStyle = RanaStyle(
+        tone: -8,
+        color: 14,
+        undertoneX: -0.42,
+        undertoneY: -0.04,
+      );
+      const preset = PresetModel(
+        id: 'gold_200',
+        name: 'Kodak Gold 200',
+        category: 'Vintage',
+        color: PresetColor(temperature: 0.24, contrast: 0.12, saturation: 0.16),
+        grain: PresetGrain(intensity: 0.22),
+        vignette: PresetVignette(intensity: 0.04),
+        style: goldStyle,
+      );
+
+      await controller.selectPreset(preset);
+
+      expect(container.read(cameraControllerProvider).activeStyle, goldStyle);
+      final args = log.single.arguments as Map<dynamic, dynamic>;
+      final params = args['params'] as Map<dynamic, dynamic>;
+      expect(params['tone'], equals(-8.0));
+      expect(params['color'], equals(14.0));
+      expect(params['textureVal'], equals(0.0));
+      expect(params['styleStrength'], equals(100.0));
+      expect(params['undertoneX'], equals(-0.42));
+      expect(params['undertoneY'], equals(-0.04));
+    });
+
     test('updateActiveStyle clamps values and pushes preview params', () async {
       const preset = PresetModel(
         id: 'rana_warm',
@@ -452,6 +489,53 @@ void main() {
       expect(params['undertoneX'], equals(1.0));
       expect(params['undertoneY'], equals(-1.0));
     });
+
+    test(
+      'palette update maps to styleStrength without changing texture',
+      () async {
+        const preset = PresetModel(
+          id: 'gold_200',
+          name: 'Kodak Gold 200',
+          category: 'Vintage',
+          color: PresetColor(
+            temperature: 0.24,
+            contrast: 0.12,
+            saturation: 0.16,
+          ),
+          grain: PresetGrain(intensity: 0.22),
+          vignette: PresetVignette(intensity: 0.04),
+          style: RanaStyle(),
+        );
+        final container = ProviderContainer(
+          overrides: [
+            presetRepositoryProvider.overrideWithValue(
+              const _FakePresetRepository([preset]),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final controller = container.read(cameraControllerProvider.notifier);
+        await container.read(presetsProvider.future);
+        await controller.initialize();
+        await controller.selectPreset(preset);
+        log.clear();
+
+        await controller.updateActiveStyle(const RanaStyle(styleStrength: 42));
+
+        expect(
+          container.read(cameraControllerProvider).activeStyle.styleStrength,
+          equals(42),
+        );
+        final updateCall = log.singleWhere(
+          (call) => call.method == 'selectPreset',
+        );
+        final updateArgs = updateCall.arguments as Map<dynamic, dynamic>;
+        final params = updateArgs['params'] as Map<dynamic, dynamic>;
+        expect(params['styleStrength'], equals(42.0));
+        expect(params['textureVal'], equals(0.0));
+      },
+    );
 
     test(
       'initialize reapplies edited active style after camera release',

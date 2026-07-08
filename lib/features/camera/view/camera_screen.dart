@@ -41,7 +41,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   bool _isEditingStyle = false;
   bool _isEditingUndertone = false;
-  int _activeStyleTab = 0; // 0: Tone, 1: Color, 2: Texture
+  int _activeStyleTab = 0; // 0: Tone, 1: Color, 2: Palette
   RanaStyle? _originalStyle;
   double _originalUndertoneX = 0;
   double _originalUndertoneY = 0;
@@ -358,7 +358,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   Widget _buildCompactValuesRow(RanaStyle style) {
     final toneVal = style.tone.round();
     final colorVal = style.color.round();
-    final textureVal = style.texture.round();
+    final paletteVal = style.styleStrength.round();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 6, 0, 5),
@@ -369,7 +369,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           const SizedBox(width: 18),
           _buildCompactValueLabel('COLOR', colorVal),
           const SizedBox(width: 18),
-          _buildCompactValueLabel('TEXTURE', textureVal),
+          _buildCompactValueLabel('PALETTE', paletteVal),
         ],
       ),
     );
@@ -453,17 +453,17 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         );
       case 2:
         return RanaInteractiveSlider(
-          key: const Key('slider-texture'),
-          label: 'Texture',
-          valueLabel: _formatSliderValue(state.activeStyle.texture),
-          value: state.activeStyle.texture,
+          key: const Key('slider-palette'),
+          label: 'Palette',
+          valueLabel: _formatPaletteValue(state.activeStyle.styleStrength),
+          value: state.activeStyle.styleStrength,
           min: 0,
           max: 100,
           bottomPadding: 4,
           labelGap: 4,
           onChanged: (val) {
             controller.updateActiveStyle(
-              state.activeStyle.copyWith(texture: val),
+              state.activeStyle.copyWith(styleStrength: val),
             );
           },
         );
@@ -477,6 +477,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     return rounded > 0 ? '+$rounded' : '$rounded';
   }
 
+  String _formatPaletteValue(double value) => '${value.round()}';
+
   Widget _buildStylesSelectorTabBar() => Container(
     padding: const EdgeInsets.symmetric(vertical: 9),
     decoration: const BoxDecoration(
@@ -488,7 +490,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       children: [
         _buildTabButton('Tone', 0),
         _buildTabButton('Color', 1),
-        _buildTabButton('Texture', 2),
+        _buildTabButton('Palette', 2),
         _buildTabButton('Undertone', 3),
       ],
     ),
@@ -1301,7 +1303,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                         label: 'RESET',
                         icon: Icons.replay_rounded,
                         isEnabled:
-                            isReady && state.activeStyle != const RanaStyle(),
+                            isReady &&
+                            activePreset != null &&
+                            state.activeStyle !=
+                                (activePreset.style ?? const RanaStyle()),
                         onPressed: controller.resetActiveStyle,
                         tooltip: 'Reset Style',
                       ),

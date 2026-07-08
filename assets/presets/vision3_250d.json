@@ -34,5 +34,12 @@
     "lensDistortion": {
       "strength": 0.0
     }
+  },
+  "style": {
+    "tone": -16.0,
+    "color": -8.0,
+    "styleStrength": 100.0,
+    "undertoneX": -0.06,
+    "undertoneY": 0.04
   }
 }

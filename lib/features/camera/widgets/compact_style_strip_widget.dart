@@ -26,7 +26,7 @@ class CompactStyleStripWidget extends StatelessWidget {
     final style = activeStyle ?? activePreset!.style;
     final toneVal = style?.tone ?? 0.0;
     final colorVal = style?.color ?? 0.0;
-    final textureVal = style?.texture ?? 0.0;
+    final paletteVal = style?.styleStrength ?? 100.0;
 
     String formatOffsetValue(double val) {
       final rounded = val.round();
@@ -63,7 +63,7 @@ class CompactStyleStripWidget extends StatelessWidget {
               height: 12,
               color: Colors.white10,
             ),
-            _buildStripItem('TEXTURE', formatIntensityValue(textureVal)),
+            _buildStripItem('PALETTE', formatIntensityValue(paletteVal)),
           ],
         ),
       ),
