@@ -37,11 +37,11 @@ void main() {
       expect(size.width, equals(24));
       expect(size.height, equals(24));
 
-      final customPaintFinder = find.descendant(
+      final iconFinder = find.descendant(
         of: widgetFinder,
-        matching: find.byType(CustomPaint),
+        matching: find.byIcon(Icons.photo_camera_outlined),
       );
-      expect(customPaintFinder, findsOneWidget);
+      expect(iconFinder, findsOneWidget);
     });
   });
 }

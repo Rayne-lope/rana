@@ -21,6 +21,7 @@ import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:rana/features/preset/model/saved_rana_style.dart';
 import 'package:rana/features/preset/repository/saved_rana_style_repository.dart';
 import 'package:rana/features/settings/provider/settings_provider.dart';
+import 'package:rana/features/preset/widgets/preset_selector_panel.dart';
 
 /// Interactive Camera Screen — Phase 0.4 & 0.5 Implementation.
 ///
@@ -46,6 +47,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   RanaStyle? _originalStyle;
   double _originalUndertoneX = 0;
   double _originalUndertoneY = 0;
+  bool _isSelectingPreset = false;
+  String? _originalPresetId;
 
   Offset? _tapFocusPoint;
   bool _isFocusLocked = false;
@@ -217,7 +220,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
     final isEditing = _isEditingStyle || _isEditingUndertone;
     final editingTitle = _isEditingUndertone ? 'Undertone' : 'Rana Styles';
-
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F11), // Premium deep dark slate
       body: SafeArea(
@@ -225,6 +227,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           children: [
             if (isEditing)
               _buildStylesEditingHeader(editingTitle, cameraState, controller)
+            else if (_isSelectingPreset)
+              _buildPresetSelectionHeader(cameraState, controller)
             else
               const SizedBox.shrink(),
 
@@ -232,7 +236,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               child: _buildViewfinder(
                 cameraState,
                 controller,
-                layoutMode: isEditing
+                layoutMode: (isEditing || _isSelectingPreset)
                     ? _ViewfinderLayoutMode.styleEditor
                     : _ViewfinderLayoutMode.capture,
               ),
@@ -240,6 +244,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
             if (isEditing)
               _buildStylesEditingContent(cameraState, controller)
+            else if (_isSelectingPreset)
+              _buildPresetSelectionContent(cameraState, controller)
             else
               _buildBottomPanel(cameraState, controller),
           ],
@@ -286,6 +292,115 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         else
           _buildStylesSelectorTabBar(),
       ],
+    );
+  }
+
+  Widget _buildPresetSelectionHeader(
+    CameraState state,
+    CameraController controller,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            onPressed: () {
+              final presetsList = ref.read(presetsProvider).valueOrNull ?? [];
+              if (_originalPresetId != null) {
+                final originalPreset = presetsList.firstWhere(
+                  (p) => p.id == _originalPresetId,
+                  orElse: () => presetsList.first,
+                );
+                controller.selectPreset(originalPreset);
+              }
+              setState(() {
+                _isSelectingPreset = false;
+              });
+            },
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const Text(
+            'SELECT PRESET',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.5,
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _isSelectingPreset = false;
+              });
+            },
+            child: const Text(
+              'DONE',
+              style: TextStyle(
+                color: Color(0xFFF39C12),
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPresetSelectionContent(
+    CameraState state,
+    CameraController controller,
+  ) {
+    final presetsAsync = ref.watch(presetsProvider);
+
+    return SizedBox(
+      height: 280,
+      child: presetsAsync.when(
+        data: (presetsList) {
+          if (presetsList.isEmpty) {
+            return const Center(
+              child: Text(
+                'NO PRESETS FOUND',
+                style: TextStyle(
+                  color: Colors.white38,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
+          }
+
+          return PresetSelectorPanel(
+            presets: presetsList,
+            activePresetId: state.activePresetId,
+            onPresetSelected: (preset) {
+              controller.selectPreset(preset);
+            },
+          );
+        },
+        loading: () => const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF39C12)),
+          ),
+        ),
+        error: (err, stack) => Center(
+          child: Text(
+            'FAILED TO LOAD PRESETS',
+            style: TextStyle(
+              color: Colors.red.withValues(alpha: 0.8),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1212,63 +1327,54 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       padding: const EdgeInsets.only(top: 16, bottom: 24),
       child: Column(
         children: [
-          // Simplified horizontal scrollable preset carousel of chips
-          presetsAsync.when(
-            data: (presetsList) {
-              if (presetsList.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'NO PRESETS FOUND',
-                    style: TextStyle(
-                      color: Colors.white38,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                );
-              }
-
-              return SizedBox(
-                height: 48,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: presetsList.length,
-                  itemBuilder: (context, index) {
-                    final preset = presetsList[index];
-                    final isSelected = state.activePresetId == preset.id;
-
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: PresetChipWidget(
-                        preset: preset,
-                        isSelected: isSelected,
-                        isEnabled: isReady,
-                        onDeleted:
-                            SavedRanaStyle.isSavedStylePresetId(preset.id)
-                            ? () => _confirmDeleteStyle(preset)
-                            : null,
-                        onSelected: (selected) {
-                          if (selected) {
-                            controller.selectPreset(preset);
-                          }
-                        },
-                      ),
-                    );
-                  },
+          // Single clean active preset selector pill button
+          Center(
+            child: GestureDetector(
+              onTap: isReady
+                  ? () {
+                      setState(() {
+                        _originalPresetId = state.activePresetId;
+                        _isSelectingPreset = true;
+                      });
+                    }
+                  : null,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
                 ),
-              );
-            },
-            loading: _buildShimmerLoading,
-            error: (err, stack) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'FAILED TO LOAD PRESETS',
-                style: TextStyle(
-                  color: Colors.red.withValues(alpha: 0.8),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF16161A), // Match visual layout
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.photo_camera_back_outlined,
+                      size: 14,
+                      color: Color(0xFFF39C12),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      (activePreset?.name ?? 'NORMAL').toUpperCase(),
+                      style: const TextStyle(
+                        color: Color(0xFFF39C12),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.keyboard_arrow_up_rounded,
+                      size: 14,
+                      color: Colors.white54,
+                    ),
+                  ],
                 ),
               ),
             ),
