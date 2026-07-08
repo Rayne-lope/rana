@@ -8,6 +8,7 @@ import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/debug/provider/consistency_debug_provider.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
+import 'package:rana/features/preset/model/rana_style_mood.dart';
 import 'package:rana/features/preset/utils/rana_texture_mapper.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -219,6 +220,16 @@ class CameraController extends _$CameraController {
     } on Object catch (e) {
       state = state.copyWith(errorMessage: e.toString());
     }
+  }
+
+  /// Applies a quick preset-aware Mood on top of the selected preset style.
+  Future<void> applyStyleMood(RanaStyleMood mood) async {
+    if (state.isSelfTimerRunning) return;
+    final activePreset = _activePreset();
+    if (activePreset == null) {
+      return;
+    }
+    await updateActiveStyle(mood.resolve(activePreset));
   }
 
   /// Re-sends the current active preset/style to the native preview renderer.

@@ -15,6 +15,7 @@ import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/camera/view/permission_screen.dart';
 import 'package:rana/features/camera/widgets/preset_chip_widget.dart';
 import 'package:rana/features/camera/widgets/rana_styles_controls.dart';
+import 'package:rana/features/camera/widgets/style_mood_chips.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:rana/features/preset/model/saved_rana_style.dart';
@@ -250,28 +251,55 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   Widget _buildStylesEditingContent(
     CameraState state,
     CameraController controller,
-  ) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      if (_isEditingUndertone)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 2),
-          child: _buildActiveStyleControl(state, controller),
-        )
-      else ...[
-        _buildCompactValuesRow(state.activeStyle),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-          child: _buildActiveStyleControl(state, controller),
-        ),
-      ],
+  ) {
+    final presetsList = ref.watch(presetsProvider).valueOrNull ?? [];
+    final activePreset = _findActivePreset(state, presetsList);
 
-      if (_isEditingUndertone)
-        _buildUndertoneActionsRow(state, controller)
-      else
-        _buildStylesSelectorTabBar(),
-    ],
-  );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_isEditingUndertone)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 2),
+            child: _buildActiveStyleControl(state, controller),
+          )
+        else ...[
+          if (activePreset != null) ...[
+            StyleMoodChips(
+              activePreset: activePreset,
+              activeStyle: state.activeStyle,
+              onSelected: (mood) {
+                unawaited(controller.applyStyleMood(mood));
+              },
+            ),
+            const SizedBox(height: 2),
+          ],
+          _buildCompactValuesRow(state.activeStyle),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: _buildActiveStyleControl(state, controller),
+          ),
+        ],
+
+        if (_isEditingUndertone)
+          _buildUndertoneActionsRow(state, controller)
+        else
+          _buildStylesSelectorTabBar(),
+      ],
+    );
+  }
+
+  PresetModel? _findActivePreset(
+    CameraState state,
+    List<PresetModel> presetsList,
+  ) {
+    for (final preset in presetsList) {
+      if (preset.id == state.activePresetId) {
+        return preset;
+      }
+    }
+    return null;
+  }
 
   Widget _buildStylesEditingHeader(
     String title,
@@ -1031,13 +1059,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   Widget _buildPreviewGate(CameraState state, CameraController controller) {
     final presetsAsync = ref.watch(presetsProvider);
     final presetsList = presetsAsync.valueOrNull ?? [];
-    PresetModel? activePreset;
-    for (final p in presetsList) {
-      if (p.id == state.activePresetId) {
-        activePreset = p;
-        break;
-      }
-    }
+    final activePreset = _findActivePreset(state, presetsList);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
@@ -1184,13 +1206,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         !state.isSelfTimerRunning;
 
     final presetsList = presetsAsync.valueOrNull ?? [];
-    PresetModel? activePreset;
-    for (final p in presetsList) {
-      if (p.id == state.activePresetId) {
-        activePreset = p;
-        break;
-      }
-    }
+    final activePreset = _findActivePreset(state, presetsList);
 
     return Container(
       padding: const EdgeInsets.only(top: 16, bottom: 24),

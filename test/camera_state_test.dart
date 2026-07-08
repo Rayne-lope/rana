@@ -9,6 +9,7 @@ import 'package:rana/features/camera/controller/camera_controller.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
+import 'package:rana/features/preset/model/rana_style_mood.dart';
 import 'package:rana/features/preset/repository/preset_repository.dart';
 
 void main() {
@@ -534,6 +535,178 @@ void main() {
         final params = updateArgs['params'] as Map<dynamic, dynamic>;
         expect(params['styleStrength'], equals(42.0));
         expect(params['textureVal'], equals(0.0));
+      },
+    );
+
+    test(
+      'applyStyleMood keeps preset params and sends mood style params',
+      () async {
+        const goldStyle = RanaStyle(
+          tone: -8,
+          color: 14,
+          undertoneX: -0.42,
+          undertoneY: -0.04,
+        );
+        const preset = PresetModel(
+          id: 'gold_200',
+          name: 'Kodak Gold 200',
+          category: 'Vintage',
+          color: PresetColor(
+            temperature: 0.24,
+            contrast: 0.12,
+            saturation: 0.16,
+          ),
+          grain: PresetGrain(intensity: 0.22),
+          vignette: PresetVignette(intensity: 0.04),
+          style: goldStyle,
+        );
+        final container = ProviderContainer(
+          overrides: [
+            presetRepositoryProvider.overrideWithValue(
+              const _FakePresetRepository([preset]),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final controller = container.read(cameraControllerProvider.notifier);
+        await container.read(presetsProvider.future);
+        await controller.initialize();
+        await controller.selectPreset(preset);
+        log.clear();
+
+        await controller.applyStyleMood(RanaStyleMood.coolRose);
+
+        final expectedStyle = RanaStyleMood.coolRose.resolve(preset);
+        expect(
+          container.read(cameraControllerProvider).activeStyle,
+          expectedStyle,
+        );
+        final updateCall = log.singleWhere(
+          (call) => call.method == 'selectPreset',
+        );
+        final updateArgs = updateCall.arguments as Map<dynamic, dynamic>;
+        expect(updateArgs['presetId'], equals('gold_200'));
+        final params = updateArgs['params'] as Map<dynamic, dynamic>;
+        expect(params['temperature'], equals(0.24));
+        expect(params['contrast'], equals(0.12));
+        expect(params['saturation'], equals(0.16));
+        expect(params['tone'], equals(-8.0));
+        expect(params['color'], equals(12.0));
+        expect(params['styleStrength'], equals(100.0));
+        expect(params['textureVal'], equals(0.0));
+        expect(params['undertoneX'], closeTo(0.13, 0.001));
+        expect(params['undertoneY'], closeTo(0.14, 0.001));
+      },
+    );
+
+    test('manual edits still work after applying a style mood', () async {
+      const preset = PresetModel(
+        id: 'gold_200',
+        name: 'Kodak Gold 200',
+        category: 'Vintage',
+        color: PresetColor(temperature: 0.24, contrast: 0.12, saturation: 0.16),
+        grain: PresetGrain(intensity: 0.22),
+        vignette: PresetVignette(intensity: 0.04),
+        style: RanaStyle(tone: -8, color: 14, undertoneX: -0.42),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          presetRepositoryProvider.overrideWithValue(
+            const _FakePresetRepository([preset]),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await container.read(presetsProvider.future);
+      await controller.initialize();
+      await controller.selectPreset(preset);
+      await controller.applyStyleMood(RanaStyleMood.gold);
+      log.clear();
+
+      await controller.updateActiveStyle(
+        container
+            .read(cameraControllerProvider)
+            .activeStyle
+            .copyWith(styleStrength: 56),
+      );
+
+      final updateCall = log.singleWhere(
+        (call) => call.method == 'selectPreset',
+      );
+      final updateArgs = updateCall.arguments as Map<dynamic, dynamic>;
+      final params = updateArgs['params'] as Map<dynamic, dynamic>;
+      expect(params['styleStrength'], equals(56.0));
+      expect(params['textureVal'], equals(0.0));
+      expect(
+        RanaStyleMood.matchForStyle(
+          preset,
+          container.read(cameraControllerProvider).activeStyle,
+        ),
+        isNull,
+      );
+    });
+
+    test(
+      'capture exports the same style params after applying a mood',
+      () async {
+        const preset = PresetModel(
+          id: 'gold_200',
+          name: 'Kodak Gold 200',
+          category: 'Vintage',
+          color: PresetColor(
+            temperature: 0.24,
+            contrast: 0.12,
+            saturation: 0.16,
+          ),
+          grain: PresetGrain(intensity: 0.22),
+          vignette: PresetVignette(intensity: 0.04),
+          style: RanaStyle(tone: -8, color: 14, undertoneX: -0.42),
+        );
+        final container = ProviderContainer(
+          overrides: [
+            presetRepositoryProvider.overrideWithValue(
+              const _FakePresetRepository([preset]),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final controller = container.read(cameraControllerProvider.notifier);
+        await container.read(presetsProvider.future);
+        await controller.initialize();
+        await controller.selectPreset(preset);
+        log.clear();
+
+        await controller.applyStyleMood(RanaStyleMood.coolRose);
+        final previewCall = log.singleWhere(
+          (call) => call.method == 'selectPreset',
+        );
+        final previewArgs = previewCall.arguments as Map<dynamic, dynamic>;
+        final previewParams = previewArgs['params'] as Map<dynamic, dynamic>;
+        log.clear();
+
+        await controller.capture();
+
+        final captureCall = log.singleWhere(
+          (call) => call.method == 'executeCapture',
+        );
+        final exportParams = captureCall.arguments as Map<dynamic, dynamic>;
+        for (final key in [
+          'temperature',
+          'contrast',
+          'saturation',
+          'tone',
+          'color',
+          'textureVal',
+          'styleStrength',
+          'undertoneX',
+          'undertoneY',
+        ]) {
+          expect(exportParams[key], equals(previewParams[key]), reason: key);
+        }
       },
     );
 
