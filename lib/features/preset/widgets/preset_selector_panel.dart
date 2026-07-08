@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:rana/features/camera/widgets/rana_styles_controls.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/saved_rana_style.dart';
-import 'package:rana/features/camera/widgets/rana_styles_controls.dart';
 
 /// A premium, brand-grouped preset selector panel.
 class PresetSelectorPanel extends StatelessWidget {
@@ -10,6 +10,7 @@ class PresetSelectorPanel extends StatelessWidget {
     required this.presets,
     required this.activePresetId,
     required this.onPresetSelected,
+    this.onDeletePreset,
     super.key,
   });
 
@@ -22,17 +23,20 @@ class PresetSelectorPanel extends StatelessWidget {
   /// Callback when a preset is selected.
   final ValueChanged<PresetModel> onPresetSelected;
 
+  /// Optional callback to delete a user style preset.
+  final ValueChanged<PresetModel>? onDeletePreset;
+
   @override
   Widget build(BuildContext context) {
-    // 1. Group the presets by brand
-    final List<PresetModel> myStyles = [];
-    final List<PresetModel> rana = [];
-    final List<PresetModel> kodak = [];
-    final List<PresetModel> fuji = [];
-    final List<PresetModel> cinestill = [];
-    final List<PresetModel> ilford = [];
-    final List<PresetModel> defaults = [];
-    final List<PresetModel> others = [];
+    // 1. Group the presets by brand using type inference
+    final myStyles = <PresetModel>[];
+    final rana = <PresetModel>[];
+    final kodak = <PresetModel>[];
+    final fuji = <PresetModel>[];
+    final cinestill = <PresetModel>[];
+    final ilford = <PresetModel>[];
+    final defaults = <PresetModel>[];
+    final others = <PresetModel>[];
 
     // Filter out placeholders and group
     for (final preset in presets) {
@@ -106,115 +110,143 @@ class PresetSelectorPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildBrandRow(String brandName, List<PresetModel> brandPresets) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: Text(
-            brandName,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.5,
+  Widget _buildBrandRow(String brandName, List<PresetModel> brandPresets) =>
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Text(
+              brandName,
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.5,
+              ),
             ),
           ),
-        ),
-        SizedBox(
-          height: 100,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            itemCount: brandPresets.length,
-            itemBuilder: (context, index) {
-              final preset = brandPresets[index];
-              final isSelected = activePresetId == preset.id;
+          SizedBox(
+            height: 100,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              itemCount: brandPresets.length,
+              itemBuilder: (context, index) {
+                final preset = brandPresets[index];
+                final isSelected = activePresetId == preset.id;
 
-              // Extract short name for display
-              String displayName = preset.name.toUpperCase();
-              if (displayName.startsWith('KODAK ')) {
-                displayName = displayName.replaceFirst('KODAK ', '');
-              } else if (displayName.startsWith('FUJIFILM ')) {
-                displayName = displayName.replaceFirst('FUJIFILM ', '');
-              } else if (displayName.startsWith('RANA ')) {
-                displayName = displayName.replaceFirst('RANA ', '');
-              } else if (displayName.startsWith('ILFORD ')) {
-                displayName = displayName.replaceFirst('ILFORD ', '');
-              }
+                // Extract short name for display
+                var displayName = preset.name.toUpperCase();
+                if (displayName.startsWith('KODAK ')) {
+                  displayName = displayName.replaceFirst('KODAK ', '');
+                } else if (displayName.startsWith('FUJIFILM ')) {
+                  displayName = displayName.replaceFirst('FUJIFILM ', '');
+                } else if (displayName.startsWith('RANA ')) {
+                  displayName = displayName.replaceFirst('RANA ', '');
+                } else if (displayName.startsWith('ILFORD ')) {
+                  displayName = displayName.replaceFirst('ILFORD ', '');
+                }
 
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: GestureDetector(
-                  onTap: () => onPresetSelected(preset),
-                  child: SizedBox(
-                    width: 76,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Icon Container
-                        Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? const Color(0xFFF39C12).withOpacity(0.12)
-                                : const Color(0xFF16161A),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
+                final isSavedStyle =
+                    SavedRanaStyle.isSavedStylePresetId(preset.id);
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: GestureDetector(
+                    onTap: () => onPresetSelected(preset),
+                    child: SizedBox(
+                      width: 76,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Icon Container
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? const Color(0xFFF39C12)
+                                          .withValues(alpha: 0.12)
+                                      : const Color(0xFF16161A),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? const Color(0xFFF39C12)
+                                        : Colors.white.withValues(alpha: 0.05),
+                                    width: isSelected ? 2.0 : 1.0,
+                                  ),
+                                  boxShadow: isSelected
+                                      ? [
+                                          BoxShadow(
+                                            color: const Color(0xFFF39C12)
+                                                .withValues(alpha: 0.15),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: Icon(
+                                  Icons.photo_camera_back_outlined,
+                                  size: 24,
+                                  color: isSelected
+                                      ? const Color(0xFFF39C12)
+                                      : Colors.white54,
+                                ),
+                              ),
+                              if (isSavedStyle && onDeletePreset != null)
+                                Positioned(
+                                  top: -4,
+                                  right: -4,
+                                  child: GestureDetector(
+                                    onTap: () => onDeletePreset!(preset),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.close_rounded,
+                                        size: 10,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          // Text Label
+                          Text(
+                            displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
                               color: isSelected
                                   ? const Color(0xFFF39C12)
-                                  : Colors.white.withOpacity(0.05),
-                              width: isSelected ? 2.0 : 1.0,
+                                  : Colors.white70,
+                              fontSize: 8.5,
+                              fontWeight: isSelected
+                                  ? FontWeight.w900
+                                  : FontWeight.w700,
+                              letterSpacing: 0.5,
                             ),
-                            boxShadow: isSelected
-                                ? [
-                                    BoxShadow(
-                                      color: const Color(0xFFF39C12)
-                                          .withOpacity(0.15),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ]
-                                : null,
                           ),
-                          child: Icon(
-                            Icons.photo_camera_back_outlined,
-                            size: 24,
-                            color: isSelected
-                                ? const Color(0xFFF39C12)
-                                : Colors.white54,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        // Text Label
-                        Text(
-                          displayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: isSelected
-                                ? const Color(0xFFF39C12)
-                                : Colors.white70,
-                            fontSize: 8.5,
-                            fontWeight: isSelected
-                                ? FontWeight.w900
-                                : FontWeight.w700,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-      ],
-    );
-  }
+          const SizedBox(height: 8),
+        ],
+      );
 }

@@ -17,11 +17,9 @@ class PresetThumbnailWidget extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) {
-    return Icon(
-      Icons.photo_camera_outlined,
-      size: size,
-      color: Colors.white60,
-    );
-  }
+  Widget build(BuildContext context) => Icon(
+        Icons.photo_camera_outlined,
+        size: size,
+        color: Colors.white60,
+      );
 }

@@ -13,15 +13,13 @@ import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/camera/controller/camera_controller.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/camera/view/permission_screen.dart';
-import 'package:rana/features/camera/widgets/preset_chip_widget.dart';
 import 'package:rana/features/camera/widgets/rana_styles_controls.dart';
 import 'package:rana/features/camera/widgets/style_mood_chips.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
-import 'package:rana/features/preset/model/saved_rana_style.dart';
 import 'package:rana/features/preset/repository/saved_rana_style_repository.dart';
-import 'package:rana/features/settings/provider/settings_provider.dart';
 import 'package:rana/features/preset/widgets/preset_selector_panel.dart';
+import 'package:rana/features/settings/provider/settings_provider.dart';
 
 /// Interactive Camera Screen — Phase 0.4 & 0.5 Implementation.
 ///
@@ -298,111 +296,106 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   Widget _buildPresetSelectionHeader(
     CameraState state,
     CameraController controller,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            onPressed: () {
-              final presetsList = ref.read(presetsProvider).valueOrNull ?? [];
-              if (_originalPresetId != null) {
-                final originalPreset = presetsList.firstWhere(
-                  (p) => p.id == _originalPresetId,
-                  orElse: () => presetsList.first,
-                );
-                controller.selectPreset(originalPreset);
-              }
-              setState(() {
-                _isSelectingPreset = false;
-              });
-            },
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-          ),
-          const Text(
-            'SELECT PRESET',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.5,
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _isSelectingPreset = false;
-              });
-            },
-            child: const Text(
-              'DONE',
-              style: TextStyle(
-                color: Color(0xFFF39C12),
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1,
+  ) =>
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(
+              onPressed: () {
+                final presetsList = ref.read(presetsProvider).valueOrNull ?? [];
+                if (_originalPresetId != null) {
+                  final originalPreset = presetsList.firstWhere(
+                    (p) => p.id == _originalPresetId,
+                    orElse: () => presetsList.first,
+                  );
+                  controller.selectPreset(originalPreset);
+                }
+                setState(() {
+                  _isSelectingPreset = false;
+                });
+              },
+              icon: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.white,
+                size: 20,
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
+            const Text(
+              'SELECT PRESET',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.5,
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _isSelectingPreset = false;
+                });
+              },
+              child: const Text(
+                'DONE',
+                style: TextStyle(
+                  color: Color(0xFFF39C12),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 
   Widget _buildPresetSelectionContent(
     CameraState state,
     CameraController controller,
-  ) {
-    final presetsAsync = ref.watch(presetsProvider);
-
-    return SizedBox(
-      height: 280,
-      child: presetsAsync.when(
-        data: (presetsList) {
-          if (presetsList.isEmpty) {
-            return const Center(
-              child: Text(
-                'NO PRESETS FOUND',
-                style: TextStyle(
-                  color: Colors.white38,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+  ) =>
+      SizedBox(
+        height: 280,
+        child: ref.watch(presetsProvider).when(
+          data: (presetsList) {
+            if (presetsList.isEmpty) {
+              return const Center(
+                child: Text(
+                  'NO PRESETS FOUND',
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-            );
-          }
+              );
+            }
 
-          return PresetSelectorPanel(
-            presets: presetsList,
-            activePresetId: state.activePresetId,
-            onPresetSelected: (preset) {
-              controller.selectPreset(preset);
-            },
-          );
-        },
-        loading: () => const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF39C12)),
+            return PresetSelectorPanel(
+              presets: presetsList,
+              activePresetId: state.activePresetId,
+              onPresetSelected: controller.selectPreset,
+              onDeletePreset: _confirmDeleteStyle,
+            );
+          },
+          loading: () => const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF39C12)),
+            ),
           ),
-        ),
-        error: (err, stack) => Center(
-          child: Text(
-            'FAILED TO LOAD PRESETS',
-            style: TextStyle(
-              color: Colors.red.withValues(alpha: 0.8),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+          error: (err, stack) => Center(
+            child: Text(
+              'FAILED TO LOAD PRESETS',
+              style: TextStyle(
+                color: Colors.red.withValues(alpha: 0.8),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
 
   PresetModel? _findActivePreset(
     CameraState state,
@@ -1508,38 +1501,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       );
     }
   }
-
-  Widget _buildShimmerLoading() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 22, vertical: 6),
-        child: SizedBox(
-          width: 60,
-          height: 10,
-          child: DecoratedBox(decoration: BoxDecoration(color: Colors.white10)),
-        ),
-      ),
-      SizedBox(
-        height: 48,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: 3,
-          itemBuilder: (context, index) => Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: Chip(
-              backgroundColor: const Color(0xFF1E1E24),
-              label: const SizedBox(width: 50, height: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-          ),
-        ),
-      ),
-    ],
-  );
 }
 
 class _BottomPanelActionButton extends StatelessWidget {
