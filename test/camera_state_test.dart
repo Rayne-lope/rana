@@ -19,18 +19,31 @@ void main() {
     final log = <MethodCall>[];
     Future<Map<String, dynamic>> Function(MethodCall methodCall)?
     executeCaptureHandler;
+    var nativeMaxZoomRatio = userMaxZoomRatio;
 
     setUp(() {
       log.clear();
       executeCaptureHandler = null;
+      nativeMaxZoomRatio = userMaxZoomRatio;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(methodChannel, (
             MethodCall methodCall,
           ) async {
+            final effectiveMaxZoomRatio = nativeMaxZoomRatio < userMaxZoomRatio
+                ? nativeMaxZoomRatio
+                : userMaxZoomRatio;
             log.add(methodCall);
             switch (methodCall.method) {
               case 'initializeCamera':
-                return {'status': 'initialized', 'lens': 'back'};
+                return {
+                  'status': 'initialized',
+                  'lens': 'back',
+                  'zoomRatio': userMinZoomRatio,
+                  'minZoomRatio': userMinZoomRatio,
+                  'maxZoomRatio': nativeMaxZoomRatio,
+                  'effectiveMaxZoomRatio': effectiveMaxZoomRatio,
+                  'isZoomLimited': nativeMaxZoomRatio < userMaxZoomRatio,
+                };
               case 'selectPreset':
                 final args = methodCall.arguments as Map<dynamic, dynamic>;
                 return {
@@ -44,7 +57,32 @@ void main() {
                 final args = methodCall.arguments as Map<dynamic, dynamic>;
                 final currentLens = args['lens'] as String;
                 final nextLens = currentLens == 'back' ? 'front' : 'back';
-                return {'status': 'lens_toggled', 'lens': nextLens};
+                return {
+                  'status': 'lens_toggled',
+                  'lens': nextLens,
+                  'zoomRatio': userMinZoomRatio,
+                  'minZoomRatio': userMinZoomRatio,
+                  'maxZoomRatio': nativeMaxZoomRatio,
+                  'effectiveMaxZoomRatio': effectiveMaxZoomRatio,
+                  'isZoomLimited': nativeMaxZoomRatio < userMaxZoomRatio,
+                };
+              case 'setZoomRatio':
+                final args = methodCall.arguments as Map<dynamic, dynamic>;
+                final requestedZoomRatio = (args['zoomRatio'] as num)
+                    .toDouble();
+                final appliedZoomRatio = requestedZoomRatio.clamp(
+                  userMinZoomRatio,
+                  effectiveMaxZoomRatio,
+                );
+                return {
+                  'status': 'zoom_set',
+                  'requestedZoomRatio': requestedZoomRatio,
+                  'zoomRatio': appliedZoomRatio,
+                  'minZoomRatio': userMinZoomRatio,
+                  'maxZoomRatio': nativeMaxZoomRatio,
+                  'effectiveMaxZoomRatio': effectiveMaxZoomRatio,
+                  'isZoomLimited': nativeMaxZoomRatio < userMaxZoomRatio,
+                };
               case 'executeCapture':
                 return executeCaptureHandler?.call(methodCall) ??
                     {'status': 'captured', 'filePath': '/mock/path/photo.jpg'};
@@ -73,6 +111,10 @@ void main() {
       expect(state.selfTimerRemainingSeconds, equals(0));
       expect(state.isSelfTimerRunning, isFalse);
       expect(state.activeStyle, equals(const RanaStyle()));
+      expect(state.zoomRatio, equals(userMinZoomRatio));
+      expect(state.minZoomRatio, equals(userMinZoomRatio));
+      expect(state.maxZoomRatio, equals(userMaxZoomRatio));
+      expect(state.effectiveMaxZoomRatio, equals(userMaxZoomRatio));
     });
 
     test('initialize registers and connects channels successfully', () async {
@@ -85,6 +127,7 @@ void main() {
       final state = container.read(cameraControllerProvider);
       expect(state.isCameraInitialized, isTrue);
       expect(state.activeLens, equals(CameraLens.back));
+      expect(state.zoomRatio, equals(userMinZoomRatio));
       expect(log, hasLength(2));
       expect(log[0].method, equals('initializeCamera'));
       expect(log[1].method, equals('setAspectRatio'));
@@ -157,6 +200,112 @@ void main() {
       await controller.toggleLens();
       state = container.read(cameraControllerProvider);
       expect(state.activeLens, equals(CameraLens.back));
+    });
+
+    test(
+      'setZoomRatio updates native zoom within the 1x to 3x range',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final controller = container.read(cameraControllerProvider.notifier);
+        await controller.initialize();
+        log.clear();
+
+        await controller.setZoomRatio(2.4);
+
+        final state = container.read(cameraControllerProvider);
+        expect(state.zoomRatio, equals(2.4));
+        expect(log, hasLength(1));
+        expect(log.single.method, equals('setZoomRatio'));
+        final args = log.single.arguments as Map<dynamic, dynamic>;
+        expect(args['zoomRatio'], equals(2.4));
+      },
+    );
+
+    test('setZoomRatio clamps requested zoom above 3x', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await controller.initialize();
+      log.clear();
+
+      await controller.setZoomRatio(5);
+
+      final state = container.read(cameraControllerProvider);
+      expect(state.zoomRatio, equals(userMaxZoomRatio));
+      final args = log.single.arguments as Map<dynamic, dynamic>;
+      expect(args['zoomRatio'], equals(userMaxZoomRatio));
+    });
+
+    test('setZoomRatio respects device max zoom below 3x', () async {
+      nativeMaxZoomRatio = 2.2;
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await controller.initialize();
+      log.clear();
+
+      await controller.setZoomRatio(3);
+
+      final state = container.read(cameraControllerProvider);
+      expect(state.zoomRatio, equals(2.2));
+      expect(state.maxZoomRatio, equals(2.2));
+      expect(state.effectiveMaxZoomRatio, equals(2.2));
+      expect(state.isZoomLimited, isTrue);
+      final args = log.single.arguments as Map<dynamic, dynamic>;
+      expect(args['zoomRatio'], equals(2.2));
+    });
+
+    test('toggleLens resets zoom ratio to 1x', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await controller.initialize();
+      await controller.setZoomRatio(2);
+      log.clear();
+
+      await controller.toggleLens();
+
+      final state = container.read(cameraControllerProvider);
+      expect(state.activeLens, equals(CameraLens.front));
+      expect(state.zoomRatio, equals(userMinZoomRatio));
+      expect(log.single.method, equals('toggleLens'));
+    });
+
+    test('aspect ratio changes preserve zoom ratio', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await controller.initialize();
+      await controller.setZoomRatio(2);
+      log.clear();
+
+      await controller.setAspectRatio(CameraAspectRatio.square11);
+
+      final state = container.read(cameraControllerProvider);
+      expect(state.aspectRatio, equals(CameraAspectRatio.square11));
+      expect(state.zoomRatio, equals(2));
+      expect(log.first.method, equals('setAspectRatio'));
+    });
+
+    test('setZoomRatio no-ops while self timer is running', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await controller.initialize();
+      controller.startSelfTimer(SelfTimerMode.threeSeconds);
+      log.clear();
+
+      await controller.setZoomRatio(2);
+
+      expect(container.read(cameraControllerProvider).zoomRatio, equals(1));
+      expect(log, isEmpty);
     });
 
     test('selectPreset selects preset ID and invokes channel', () async {

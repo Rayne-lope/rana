@@ -51,7 +51,12 @@ class MainActivity : FlutterActivity() {
                         preview.bindPreview()
                     }
                     val lensStr = if (preview?.getCurrentLensFacing() == CameraSelector.LENS_FACING_FRONT) "front" else "back"
-                    result.success(mapOf("status" to "initialized", "lens" to lensStr))
+                    val response = mutableMapOf<String, Any>(
+                        "status" to "initialized",
+                        "lens" to lensStr
+                    )
+                    preview?.zoomStateFields()?.let { response.putAll(it) }
+                    result.success(response)
                 }
                 "setFocusAndMetering" -> {
                     val x = call.argument<Double>("x") ?: 0.5
@@ -216,13 +221,33 @@ class MainActivity : FlutterActivity() {
                         val aspectRatio = call.argument<String>("aspectRatio") ?: "portrait_3_4"
                         preview.setAspectRatio(aspectRatio)
                         val label = CameraAspectRatio.fromChannelValue(aspectRatio).label
-                        result.success(
-                            mapOf(
-                                "status" to "aspect_ratio_set",
-                                "aspectRatio" to aspectRatio,
-                                "label" to label
-                            )
+                        val response = mutableMapOf<String, Any>(
+                            "status" to "aspect_ratio_set",
+                            "aspectRatio" to aspectRatio,
+                            "label" to label
                         )
+                        response.putAll(preview.zoomStateFields())
+                        result.success(response)
+                    } else {
+                        result.error("CAMERA_NOT_READY", "Camera preview not initialized", null)
+                    }
+                }
+                "setZoomRatio" -> {
+                    val preview = activePreviewView
+                    if (preview != null) {
+                        val zoomRatio = (call.argument<Number>("zoomRatio"))
+                            ?.toFloat() ?: USER_MIN_ZOOM_RATIO
+                        preview.setZoomRatio(zoomRatio) { payload, errorCode, errorMsg ->
+                            if (payload != null) {
+                                result.success(payload)
+                            } else {
+                                result.error(
+                                    errorCode ?: "ZOOM_FAILED",
+                                    errorMsg ?: "Unable to set camera zoom",
+                                    null
+                                )
+                            }
+                        }
                     } else {
                         result.error("CAMERA_NOT_READY", "Camera preview not initialized", null)
                     }
@@ -238,7 +263,12 @@ class MainActivity : FlutterActivity() {
                         }
                         preview.setLensFacing(targetLensFacing)
                         val nextLensStr = if (targetLensFacing == CameraSelector.LENS_FACING_BACK) "back" else "front"
-                        result.success(mapOf("status" to "lens_toggled", "lens" to nextLensStr))
+                        val response = mutableMapOf<String, Any>(
+                            "status" to "lens_toggled",
+                            "lens" to nextLensStr
+                        )
+                        response.putAll(preview.zoomStateFields(USER_MIN_ZOOM_RATIO))
+                        result.success(response)
                     } else {
                         result.error("CAMERA_NOT_READY", "Camera preview not initialized", null)
                     }

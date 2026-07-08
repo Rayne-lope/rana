@@ -50,6 +50,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   bool _isFocusLocked = false;
   late final AnimationController _focusAnimationController;
   Timer? _focusResetTimer;
+  double _pinchStartZoomRatio = userMinZoomRatio;
+  bool _isZoomGestureActive = false;
 
   @override
   void initState() {
@@ -97,10 +99,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     super.dispose();
   }
 
-  void _handleViewfinderTap(
-    TapDownDetails details,
-    BoxConstraints constraints,
-  ) {
+  void _handleViewfinderTap(TapUpDetails details, BoxConstraints constraints) {
+    if (_isZoomGestureActive) return;
+
     final cameraState = ref.read(cameraControllerProvider);
     if (!cameraState.isCameraInitialized ||
         cameraState.captureStatus != CaptureStatus.idle) {
@@ -132,6 +133,27 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         _resetFocus();
       }
     });
+  }
+
+  void _handleViewfinderScaleStart(ScaleStartDetails details) {
+    _pinchStartZoomRatio = ref.read(cameraControllerProvider).zoomRatio;
+  }
+
+  void _handleViewfinderScaleUpdate(ScaleUpdateDetails details) {
+    if (details.pointerCount < 2) return;
+    _isZoomGestureActive = true;
+    final targetZoomRatio = _pinchStartZoomRatio * details.scale;
+    unawaited(
+      ref
+          .read(cameraControllerProvider.notifier)
+          .setZoomRatio(targetZoomRatio, commit: false),
+    );
+  }
+
+  void _handleViewfinderScaleEnd(ScaleEndDetails details) {
+    if (!_isZoomGestureActive) return;
+    _isZoomGestureActive = false;
+    unawaited(ref.read(cameraControllerProvider.notifier).commitZoomRatio());
   }
 
   void _resetFocus() {
@@ -744,8 +766,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     );
   }
 
-
-
   Widget _buildThumbnailButton(CameraState state) {
     final path = state.lastCapturedPath;
     final fileExists = path != null && File(path).existsSync();
@@ -1012,8 +1032,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       borderRadius: BorderRadius.circular(14),
       child: LayoutBuilder(
         builder: (context, constraints) => GestureDetector(
-          onTapDown: (details) =>
-              _handleViewfinderTap(details, constraints),
+          behavior: HitTestBehavior.opaque,
+          onTapUp: (details) => _handleViewfinderTap(details, constraints),
+          onScaleStart: _handleViewfinderScaleStart,
+          onScaleUpdate: _handleViewfinderScaleUpdate,
+          onScaleEnd: _handleViewfinderScaleEnd,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -1025,6 +1048,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 aspectRatio: state.aspectRatio,
                 lens: state.activeLens,
                 flashMode: state.flashMode,
+                zoomRatio: state.zoomRatio,
                 onPlatformViewCreated: (_) {
                   unawaited(controller.reapplyActivePreviewParams());
                 },
@@ -1038,9 +1062,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 Positioned(
                   left: _tapFocusPoint!.dx - 30,
                   top: _tapFocusPoint!.dy - 30,
-                  child: _FocusRing(
-                    controller: _focusAnimationController,
-                  ),
+                  child: _FocusRing(controller: _focusAnimationController),
                 ),
 
               // AE/AF Lock indicator
@@ -1060,9 +1082,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.6),
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: const Color(0xFFF39C12),
-                          ),
+                          border: Border.all(color: const Color(0xFFF39C12)),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
@@ -1086,6 +1106,25 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                         ),
                       ),
                     ),
+                  ),
+                ),
+
+              // Compact native zoom indicator and reset affordance.
+              if (state.isCameraInitialized)
+                Positioned(
+                  bottom: 14,
+                  left: 14,
+                  child: _ZoomIndicator(
+                    zoomRatio: state.zoomRatio,
+                    isEnabled:
+                        state.captureStatus == CaptureStatus.idle &&
+                        !state.isSelfTimerRunning,
+                    isLimited:
+                        state.isZoomLimited &&
+                        state.zoomRatio >= state.effectiveMaxZoomRatio - 0.01,
+                    onReset: () {
+                      unawaited(controller.setZoomRatio(userMinZoomRatio));
+                    },
                   ),
                 ),
 
@@ -1249,8 +1288,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                       child: _BottomPanelActionButton(
                         label: 'RESET',
                         icon: Icons.replay_rounded,
-                        isEnabled: isReady &&
-                            state.activeStyle != const RanaStyle(),
+                        isEnabled:
+                            isReady && state.activeStyle != const RanaStyle(),
                         onPressed: controller.resetActiveStyle,
                         tooltip: 'Reset Style',
                       ),
@@ -1330,7 +1369,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       );
     }
   }
-
 
   Widget _buildShimmerLoading() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1489,6 +1527,7 @@ class _AndroidCameraPreview extends StatelessWidget {
     required this.aspectRatio,
     required this.lens,
     required this.flashMode,
+    required this.zoomRatio,
     super.key,
     this.onPlatformViewCreated,
   });
@@ -1496,6 +1535,7 @@ class _AndroidCameraPreview extends StatelessWidget {
   final CameraAspectRatio aspectRatio;
   final CameraLens lens;
   final FlashMode flashMode;
+  final double zoomRatio;
   final PlatformViewCreatedCallback? onPlatformViewCreated;
 
   @override
@@ -1506,10 +1546,97 @@ class _AndroidCameraPreview extends StatelessWidget {
       'aspectRatio': aspectRatio.platformValue,
       'lens': lens.value,
       'flashMode': flashMode.name,
+      'zoomRatio': zoomRatio,
     },
     creationParamsCodec: const StandardMessageCodec(),
     onPlatformViewCreated: onPlatformViewCreated,
   );
+}
+
+class _ZoomIndicator extends StatelessWidget {
+  const _ZoomIndicator({
+    required this.zoomRatio,
+    required this.isEnabled,
+    required this.isLimited,
+    required this.onReset,
+  });
+
+  final double zoomRatio;
+  final bool isEnabled;
+  final bool isLimited;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final isZoomed = zoomRatio > userMinZoomRatio + 0.01;
+    final foreground = isZoomed ? const Color(0xFFF39C12) : Colors.white70;
+    final label = '${zoomRatio.toStringAsFixed(1)}x';
+    final tooltip = isZoomed ? 'Reset Zoom' : 'Zoom';
+
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        label: 'Zoom $label',
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: isEnabled && isZoomed ? onReset : null,
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              width: 84,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.54),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isZoomed
+                      ? const Color(0xFFF39C12)
+                      : Colors.white.withValues(alpha: 0.22),
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black45,
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search_rounded, size: 14, color: foreground),
+                  const SizedBox(width: 5),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: foreground,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                  if (isLimited) ...[
+                    const SizedBox(width: 3),
+                    Text(
+                      'MAX',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.38),
+                        fontSize: 7,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _FocusRing extends StatelessWidget {
@@ -1519,54 +1646,52 @@ class _FocusRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: controller,
-        builder: (context, child) {
-          final scale = Tween<double>(begin: 1.6, end: 1)
-              .animate(CurvedAnimation(
-                parent: controller,
-                curve: Curves.easeOutBack,
-              ))
-              .value;
-          final opacity = TweenSequence<double>([
-            TweenSequenceItem(
-              tween: Tween<double>(begin: 1, end: 1),
-              weight: 40,
-            ),
-            TweenSequenceItem(
-              tween: Tween<double>(begin: 1, end: 0.4),
-              weight: 60,
-            ),
-          ]).animate(CurvedAnimation(
-            parent: controller,
-            curve: Curves.easeInOut,
-          )).value;
-
-          return Opacity(
-            opacity: opacity,
-            child: Transform.scale(
-              scale: scale,
-              child: Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: const Color(0xFFF39C12),
-                    width: 1.5,
-                  ),
+    animation: controller,
+    builder: (context, child) {
+      final scale = Tween<double>(begin: 1.6, end: 1)
+          .animate(
+            CurvedAnimation(parent: controller, curve: Curves.easeOutBack),
+          )
+          .value;
+      final opacity =
+          TweenSequence<double>([
+                TweenSequenceItem(
+                  tween: Tween<double>(begin: 1, end: 1),
+                  weight: 40,
                 ),
-                child: Center(
-                  child: Container(
-                    width: 4,
-                    height: 4,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Color(0xFFF39C12),
-                    ),
-                  ),
+                TweenSequenceItem(
+                  tween: Tween<double>(begin: 1, end: 0.4),
+                  weight: 60,
+                ),
+              ])
+              .animate(
+                CurvedAnimation(parent: controller, curve: Curves.easeInOut),
+              )
+              .value;
+
+      return Opacity(
+        opacity: opacity,
+        child: Transform.scale(
+          scale: scale,
+          child: Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFF39C12), width: 1.5),
+            ),
+            child: Center(
+              child: Container(
+                width: 4,
+                height: 4,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFFF39C12),
                 ),
               ),
             ),
-          );
-        },
+          ),
+        ),
       );
+    },
+  );
 }

@@ -34,6 +34,7 @@ import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -69,6 +70,13 @@ class CameraPreviewView(
         "auto" -> ImageCapture.FLASH_MODE_AUTO
         else -> ImageCapture.FLASH_MODE_OFF
     }
+    private var currentZoomRatio = clampUserZoomRatio(
+        requestedZoomRatio =
+            (creationParams?.get("zoomRatio") as? Number)?.toFloat()
+                ?: USER_MIN_ZOOM_RATIO,
+        nativeMinZoomRatio = null,
+        nativeMaxZoomRatio = null
+    )
     private var currentRotation: Int = Surface.ROTATION_0
     private val captureExecutor = Executors.newSingleThreadExecutor()
     private val isCapturing = AtomicBoolean(false)
@@ -240,6 +248,7 @@ class CameraPreviewView(
                     cameraSelector,
                     useCaseGroup
                 )
+                applyCurrentZoomRatio()
 
                 syncCurrentRotationFromDisplay()
 
@@ -255,6 +264,7 @@ class CameraPreviewView(
     fun setLensFacing(lensFacing: Int) {
         if (currentLensFacing == lensFacing) return
         currentLensFacing = lensFacing
+        currentZoomRatio = USER_MIN_ZOOM_RATIO
         bindPreview()
     }
 
@@ -269,6 +279,111 @@ class CameraPreviewView(
 
         currentAspectRatio = nextAspectRatio
         bindPreview()
+    }
+
+    fun setZoomRatio(
+        zoomRatio: Float,
+        callback: (
+            payload: Map<String, Any>?,
+            errorCode: String?,
+            errorMsg: String?
+        ) -> Unit
+    ) {
+        activity.runOnUiThread {
+            try {
+                val cameraInstance = camera
+                if (cameraInstance == null) {
+                    currentZoomRatio = clampUserZoomRatio(
+                        requestedZoomRatio = zoomRatio,
+                        nativeMinZoomRatio = null,
+                        nativeMaxZoomRatio = null
+                    )
+                    callback(zoomStatePayload("zoom_deferred", zoomRatio), null, null)
+                    return@runOnUiThread
+                }
+
+                val zoomState = cameraInstance.cameraInfo.zoomState.value
+                val appliedZoomRatio = clampUserZoomRatio(
+                    requestedZoomRatio = zoomRatio,
+                    nativeMinZoomRatio = zoomState?.minZoomRatio,
+                    nativeMaxZoomRatio = zoomState?.maxZoomRatio
+                )
+                currentZoomRatio = appliedZoomRatio
+
+                val future = cameraInstance.cameraControl.setZoomRatio(appliedZoomRatio)
+                future.addListener(
+                    {
+                        try {
+                            future.get()
+                            callback(zoomStatePayload("zoom_set", zoomRatio), null, null)
+                        } catch (e: Exception) {
+                            val cause = e.cause ?: e
+                            if (cause.isZoomOperationCanceled()) {
+                                callback(
+                                    zoomStatePayload("zoom_superseded", zoomRatio),
+                                    null,
+                                    null
+                                )
+                            } else {
+                                callback(
+                                    null,
+                                    "ZOOM_FAILED",
+                                    cause.message ?: "Unable to set camera zoom"
+                                )
+                            }
+                        }
+                    },
+                    ContextCompat.getMainExecutor(context)
+                )
+            } catch (e: Exception) {
+                callback(null, "ZOOM_FAILED", e.message ?: "Unable to set camera zoom")
+            }
+        }
+    }
+
+    fun zoomStateFields(requestedZoomRatio: Float = currentZoomRatio): Map<String, Any> {
+        val zoomState = camera?.cameraInfo?.zoomState?.value
+        val bounds = cameraZoomBounds(
+            nativeMinZoomRatio = zoomState?.minZoomRatio,
+            nativeMaxZoomRatio = zoomState?.maxZoomRatio
+        )
+        currentZoomRatio = clampUserZoomRatio(
+            requestedZoomRatio = currentZoomRatio,
+            nativeMinZoomRatio = zoomState?.minZoomRatio,
+            nativeMaxZoomRatio = zoomState?.maxZoomRatio
+        )
+
+        return mapOf(
+            "requestedZoomRatio" to requestedZoomRatio.toDouble(),
+            "zoomRatio" to currentZoomRatio.toDouble(),
+            "minZoomRatio" to bounds.minZoomRatio.toDouble(),
+            "maxZoomRatio" to bounds.maxZoomRatio.toDouble(),
+            "effectiveMaxZoomRatio" to bounds.effectiveMaxZoomRatio.toDouble(),
+            "isZoomLimited" to bounds.isZoomLimited
+        )
+    }
+
+    private fun zoomStatePayload(
+        status: String,
+        requestedZoomRatio: Float = currentZoomRatio
+    ): Map<String, Any> {
+        return mapOf("status" to status) + zoomStateFields(requestedZoomRatio)
+    }
+
+    private fun applyCurrentZoomRatio() {
+        val cameraInstance = camera ?: return
+        val zoomState = cameraInstance.cameraInfo.zoomState.value
+        currentZoomRatio = clampUserZoomRatio(
+            requestedZoomRatio = currentZoomRatio,
+            nativeMinZoomRatio = zoomState?.minZoomRatio,
+            nativeMaxZoomRatio = zoomState?.maxZoomRatio
+        )
+        cameraInstance.cameraControl.setZoomRatio(currentZoomRatio)
+    }
+
+    private fun Throwable.isZoomOperationCanceled(): Boolean {
+        return this is CancellationException ||
+            javaClass.simpleName == "OperationCanceledException"
     }
 
     fun setPresetParams(params: Map<String, Any>) {

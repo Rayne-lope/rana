@@ -190,13 +190,33 @@ class CameraPlatformService {
       _eventChannel.receiveBroadcastStream().map(
         (event) => Map<String, dynamic>.from(event as Map<dynamic, dynamic>),
       );
+
+  /// Sets the active native camera zoom ratio.
+  Future<Map<String, dynamic>> setZoomRatio(double zoomRatio) async {
+    try {
+      final result = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>(
+        'setZoomRatio',
+        {'zoomRatio': zoomRatio},
+      );
+      return Map<String, dynamic>.from(result ?? {});
+    } on PlatformException catch (e, stack) {
+      AppLogger.e(
+        'CameraPlatformService',
+        'Failed to set camera zoom ratio: $zoomRatio',
+        e,
+        stack,
+      );
+      rethrow;
+    }
+  }
+
   /// Sets focus and metering point coordinates (normalized 0.0 to 1.0)
   Future<void> setFocusAndMetering(double x, double y) async {
     try {
-      await _methodChannel.invokeMethod<void>(
-        'setFocusAndMetering',
-        {'x': x, 'y': y},
-      );
+      await _methodChannel.invokeMethod<void>('setFocusAndMetering', {
+        'x': x,
+        'y': y,
+      });
     } on PlatformException catch (e, stack) {
       AppLogger.e(
         'CameraPlatformService',

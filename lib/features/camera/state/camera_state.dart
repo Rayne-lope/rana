@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
 
+const double userMinZoomRatio = 1;
+const double userMaxZoomRatio = 3;
+
 /// Available camera flash modes.
 enum FlashMode {
   off,
@@ -91,6 +94,9 @@ class CameraState {
     required this.currentFps,
     required this.isCameraInitialized,
     required this.activeStyle,
+    required this.zoomRatio,
+    required this.minZoomRatio,
+    required this.maxZoomRatio,
     this.lastCapturedPath,
     this.errorMessage,
   });
@@ -107,6 +113,9 @@ class CameraState {
     currentFps: 0,
     isCameraInitialized: false,
     activeStyle: RanaStyle(),
+    zoomRatio: userMinZoomRatio,
+    minZoomRatio: userMinZoomRatio,
+    maxZoomRatio: userMaxZoomRatio,
   );
 
   static const Object _unset = Object();
@@ -121,10 +130,23 @@ class CameraState {
   final int currentFps;
   final bool isCameraInitialized;
   final RanaStyle activeStyle;
+  final double zoomRatio;
+  final double minZoomRatio;
+  final double maxZoomRatio;
   final String? lastCapturedPath;
   final String? errorMessage;
 
   bool get isSelfTimerRunning => selfTimerRemainingSeconds > 0;
+  double get effectiveMaxZoomRatio {
+    final cappedMaxZoomRatio = maxZoomRatio < userMaxZoomRatio
+        ? maxZoomRatio
+        : userMaxZoomRatio;
+    return cappedMaxZoomRatio < minZoomRatio
+        ? minZoomRatio
+        : cappedMaxZoomRatio;
+  }
+
+  bool get isZoomLimited => maxZoomRatio < userMaxZoomRatio;
 
   /// Copies this instance, replacing specified fields.
   CameraState copyWith({
@@ -138,6 +160,9 @@ class CameraState {
     int? currentFps,
     bool? isCameraInitialized,
     RanaStyle? activeStyle,
+    double? zoomRatio,
+    double? minZoomRatio,
+    double? maxZoomRatio,
     Object? lastCapturedPath = _unset,
     Object? errorMessage = _unset,
   }) => CameraState(
@@ -152,6 +177,9 @@ class CameraState {
     currentFps: currentFps ?? this.currentFps,
     isCameraInitialized: isCameraInitialized ?? this.isCameraInitialized,
     activeStyle: activeStyle ?? this.activeStyle,
+    zoomRatio: zoomRatio ?? this.zoomRatio,
+    minZoomRatio: minZoomRatio ?? this.minZoomRatio,
+    maxZoomRatio: maxZoomRatio ?? this.maxZoomRatio,
     lastCapturedPath: identical(lastCapturedPath, _unset)
         ? this.lastCapturedPath
         : lastCapturedPath as String?,
@@ -174,6 +202,9 @@ class CameraState {
         other.currentFps == currentFps &&
         other.isCameraInitialized == isCameraInitialized &&
         other.activeStyle == activeStyle &&
+        other.zoomRatio == zoomRatio &&
+        other.minZoomRatio == minZoomRatio &&
+        other.maxZoomRatio == maxZoomRatio &&
         other.lastCapturedPath == lastCapturedPath &&
         other.errorMessage == errorMessage;
   }
@@ -190,6 +221,9 @@ class CameraState {
     currentFps,
     isCameraInitialized,
     activeStyle,
+    zoomRatio,
+    minZoomRatio,
+    maxZoomRatio,
     lastCapturedPath,
     errorMessage,
   );
@@ -203,5 +237,7 @@ class CameraState {
       'currentFps: $currentFps, '
       'isCameraInitialized: $isCameraInitialized, '
       'activeStyle: $activeStyle, '
+      'zoomRatio: $zoomRatio, minZoomRatio: $minZoomRatio, '
+      'maxZoomRatio: $maxZoomRatio, '
       'lastCapturedPath: $lastCapturedPath, errorMessage: $errorMessage)';
 }

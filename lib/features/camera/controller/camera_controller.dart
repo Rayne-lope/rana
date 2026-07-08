@@ -21,6 +21,9 @@ class CameraController extends _$CameraController {
   int _selfTimerGeneration = 0;
   int? _currentPreviewVariant;
   PresetModel? _selectedPreset;
+  Timer? _zoomDispatchTimer;
+  double? _pendingZoomRatio;
+  int _zoomGeneration = 0;
 
   int _randomizeVariant() => Random().nextInt(4); // 0 to 3
 
@@ -34,6 +37,9 @@ class CameraController extends _$CameraController {
       _selfTimerGeneration += 1;
       _selfTimerCountdown?.cancel();
       _selfTimerCountdown = null;
+      _zoomGeneration += 1;
+      _zoomDispatchTimer?.cancel();
+      _zoomDispatchTimer = null;
     });
 
     return CameraState.initial();
@@ -51,11 +57,15 @@ class CameraController extends _$CameraController {
         orElse: () => CameraLens.back,
       );
 
-      state = state.copyWith(
-        isCameraInitialized: true,
-        activeLens: initialLens,
-        // ignore: avoid_redundant_argument_values
-        errorMessage: null,
+      state = _withZoomState(
+        state.copyWith(
+          isCameraInitialized: true,
+          activeLens: initialLens,
+          // ignore: avoid_redundant_argument_values
+          errorMessage: null,
+        ),
+        result,
+        fallbackZoomRatio: state.zoomRatio,
       );
 
       unawaited(_statusSubscription?.cancel());
@@ -72,7 +82,14 @@ class CameraController extends _$CameraController {
       );
 
       try {
-        await _platformService.setAspectRatio(state.aspectRatio.platformValue);
+        final aspectRatioResult = await _platformService.setAspectRatio(
+          state.aspectRatio.platformValue,
+        );
+        state = _withZoomState(
+          state,
+          aspectRatioResult,
+          fallbackZoomRatio: state.zoomRatio,
+        );
       } on Object catch (e) {
         state = state.copyWith(errorMessage: e.toString());
       }
@@ -108,7 +125,14 @@ class CameraController extends _$CameraController {
         (l) => l.value == nextLensValue,
         orElse: () => CameraLens.back,
       );
-      state = state.copyWith(activeLens: nextLens);
+      _pendingZoomRatio = userMinZoomRatio;
+      _zoomDispatchTimer?.cancel();
+      _zoomDispatchTimer = null;
+      state = _withZoomState(
+        state.copyWith(activeLens: nextLens, zoomRatio: userMinZoomRatio),
+        result,
+        fallbackZoomRatio: userMinZoomRatio,
+      );
     } on Object catch (e) {
       state = state.copyWith(errorMessage: e.toString());
     }
@@ -128,8 +152,14 @@ class CameraController extends _$CameraController {
     }
 
     try {
-      await _platformService.setAspectRatio(aspectRatio.platformValue);
-      state = state.copyWith(aspectRatio: aspectRatio);
+      final result = await _platformService.setAspectRatio(
+        aspectRatio.platformValue,
+      );
+      state = _withZoomState(
+        state.copyWith(aspectRatio: aspectRatio),
+        result,
+        fallbackZoomRatio: state.zoomRatio,
+      );
       await reapplyActivePreviewParams();
     } on Object catch (e) {
       state = state.copyWith(errorMessage: e.toString());
@@ -542,6 +572,9 @@ class CameraController extends _$CameraController {
     if (!state.isCameraInitialized) return;
     try {
       cancelSelfTimer();
+      _zoomGeneration += 1;
+      _zoomDispatchTimer?.cancel();
+      _zoomDispatchTimer = null;
       unawaited(_statusSubscription?.cancel());
       _statusSubscription = null;
       await _platformService.releaseCamera();
@@ -560,6 +593,120 @@ class CameraController extends _$CameraController {
       case FlashMode.auto:
         return FlashMode.off;
     }
+  }
+
+  /// Sets native camera zoom, clamped to Rana's 1x-3x user-facing range.
+  Future<void> setZoomRatio(double zoomRatio, {bool commit = true}) async {
+    if (!_canAdjustZoom) return;
+
+    final targetZoomRatio = _clampZoomRatio(zoomRatio);
+    _pendingZoomRatio = targetZoomRatio;
+    if ((state.zoomRatio - targetZoomRatio).abs() > 0.001) {
+      state = state.copyWith(
+        zoomRatio: targetZoomRatio,
+        // ignore: avoid_redundant_argument_values
+        errorMessage: null,
+      );
+    }
+
+    if (commit) {
+      _zoomDispatchTimer?.cancel();
+      _zoomDispatchTimer = null;
+      await _sendZoomRatio(targetZoomRatio);
+      return;
+    }
+
+    _scheduleZoomDispatch();
+  }
+
+  /// Flushes a pending pinch zoom update immediately.
+  Future<void> commitZoomRatio() async {
+    if (!_canAdjustZoom) return;
+    final targetZoomRatio = _pendingZoomRatio ?? state.zoomRatio;
+    _zoomDispatchTimer?.cancel();
+    _zoomDispatchTimer = null;
+    await _sendZoomRatio(targetZoomRatio);
+  }
+
+  bool get _canAdjustZoom =>
+      state.isCameraInitialized &&
+      state.captureStatus == CaptureStatus.idle &&
+      !state.isSelfTimerRunning;
+
+  void _scheduleZoomDispatch() {
+    if (_zoomDispatchTimer != null) return;
+    _zoomDispatchTimer = Timer(const Duration(milliseconds: 40), () {
+      _zoomDispatchTimer = null;
+      final targetZoomRatio = _pendingZoomRatio;
+      if (targetZoomRatio == null || !_canAdjustZoom) {
+        return;
+      }
+      unawaited(_sendZoomRatio(targetZoomRatio));
+    });
+  }
+
+  Future<void> _sendZoomRatio(double zoomRatio) async {
+    final generation = ++_zoomGeneration;
+    try {
+      final result = await _platformService.setZoomRatio(zoomRatio);
+      if (generation != _zoomGeneration) return;
+      state = _withZoomState(state, result, fallbackZoomRatio: zoomRatio);
+    } on Object catch (e) {
+      if (generation != _zoomGeneration) return;
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  CameraState _withZoomState(
+    CameraState baseState,
+    Map<String, dynamic> result, {
+    double? fallbackZoomRatio,
+  }) {
+    final minZoomRatio = _readDouble(
+      result,
+      'minZoomRatio',
+      baseState.minZoomRatio,
+    );
+    final maxZoomRatio = _readDouble(
+      result,
+      'maxZoomRatio',
+      baseState.maxZoomRatio,
+    );
+    final zoomRatio = _clampZoomRatio(
+      _readDouble(
+        result,
+        'zoomRatio',
+        fallbackZoomRatio ?? baseState.zoomRatio,
+      ),
+      minZoomRatio: minZoomRatio,
+      maxZoomRatio: maxZoomRatio,
+    );
+
+    return baseState.copyWith(
+      zoomRatio: zoomRatio,
+      minZoomRatio: minZoomRatio,
+      maxZoomRatio: maxZoomRatio,
+    );
+  }
+
+  double _readDouble(Map<String, dynamic> result, String key, double fallback) {
+    final value = result[key];
+    return value is num && value.isFinite ? value.toDouble() : fallback;
+  }
+
+  double _clampZoomRatio(
+    double zoomRatio, {
+    double? minZoomRatio,
+    double? maxZoomRatio,
+  }) {
+    final lowerBound = max(
+      userMinZoomRatio,
+      minZoomRatio ?? state.minZoomRatio,
+    );
+    final nativeUpperBound = maxZoomRatio ?? state.maxZoomRatio;
+    final upperBound = max(lowerBound, min(userMaxZoomRatio, nativeUpperBound));
+    if (!zoomRatio.isFinite) return lowerBound;
+    return zoomRatio.clamp(lowerBound, upperBound);
   }
 
   /// Sets focus and metering point coordinates (normalized 0.0 to 1.0)
