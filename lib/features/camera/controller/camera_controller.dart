@@ -561,4 +561,24 @@ class CameraController extends _$CameraController {
         return FlashMode.off;
     }
   }
+
+  /// Sets focus and metering point coordinates (normalized 0.0 to 1.0)
+  Future<void> setFocusAndMetering(double x, double y) async {
+    if (!state.isCameraInitialized) return;
+    try {
+      await _platformService.setFocusAndMetering(x, y);
+    } on Object catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  /// Cancels focus and metering lock, returning to continuous auto focus
+  Future<void> cancelFocusAndMetering() async {
+    if (!state.isCameraInitialized) return;
+    try {
+      await _platformService.cancelFocusAndMetering();
+    } on Object catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
 }

@@ -23,6 +23,9 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.core.UseCaseGroup
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.core.Camera
+import androidx.camera.core.FocusMeteringAction
+import androidx.camera.view.TextureViewMeteringPointFactory
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import io.flutter.plugin.platform.PlatformView
@@ -47,6 +50,7 @@ class CameraPreviewView(
         )
     }
     private var cameraProvider: ProcessCameraProvider? = null
+    private var camera: Camera? = null
     private var imageCapture: ImageCapture? = null
     private var previewUseCase: Preview? = null
     private var glRenderer: CameraGlRenderer? = null
@@ -230,7 +234,7 @@ class CameraPreviewView(
                     .setViewPort(viewPort)
                     .build()
 
-                provider.bindToLifecycle(
+                this.camera = provider.bindToLifecycle(
                     activity as LifecycleOwner,
                     cameraSelector,
                     useCaseGroup
@@ -678,6 +682,43 @@ class CameraPreviewView(
                 previewBindGeneration += 1
                 orientationEventListener.disable()
                 cameraProvider?.unbindAll()
+                camera = null
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+    }
+
+    fun setFocusAndMetering(x: Float, y: Float) {
+        activity.runOnUiThread {
+            try {
+                val cameraInstance = camera ?: return@runOnUiThread
+                val control = cameraInstance.cameraControl ?: return@runOnUiThread
+                
+                val factory = TextureViewMeteringPointFactory(textureView)
+                val px = x * textureView.width
+                val py = y * textureView.height
+                val meteringPoint = factory.createPoint(px, py)
+                
+                val action = FocusMeteringAction.Builder(
+                    meteringPoint,
+                    FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
+                )
+                .setAutoCancelEnabled(false)
+                .build()
+                
+                control.startFocusAndMetering(action)
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+    }
+
+    fun cancelFocusAndMetering() {
+        activity.runOnUiThread {
+            try {
+                val cameraInstance = camera ?: return@runOnUiThread
+                cameraInstance.cameraControl?.cancelFocusAndMetering()
             } catch (e: Exception) {
                 // Ignore
             }

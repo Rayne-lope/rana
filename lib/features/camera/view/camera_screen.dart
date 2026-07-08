@@ -36,7 +36,7 @@ class CameraScreen extends ConsumerStatefulWidget {
 enum _ViewfinderLayoutMode { capture, styleEditor }
 
 class _CameraScreenState extends ConsumerState<CameraScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   late final ProviderSubscription<CameraState> _cameraStateSubscription;
 
   bool _isEditingStyle = false;
@@ -46,9 +46,18 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   double _originalUndertoneX = 0;
   double _originalUndertoneY = 0;
 
+  Offset? _tapFocusPoint;
+  bool _isFocusLocked = false;
+  late final AnimationController _focusAnimationController;
+  Timer? _focusResetTimer;
+
   @override
   void initState() {
     super.initState();
+    _focusAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
     WidgetsBinding.instance.addObserver(this);
     _cameraStateSubscription = ref.listenManual<CameraState>(
       cameraControllerProvider,
@@ -83,7 +92,57 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   void dispose() {
     _cameraStateSubscription.close();
     WidgetsBinding.instance.removeObserver(this);
+    _focusResetTimer?.cancel();
+    _focusAnimationController.dispose();
     super.dispose();
+  }
+
+  void _handleViewfinderTap(
+    TapDownDetails details,
+    BoxConstraints constraints,
+  ) {
+    final cameraState = ref.read(cameraControllerProvider);
+    if (!cameraState.isCameraInitialized ||
+        cameraState.captureStatus != CaptureStatus.idle) {
+      return;
+    }
+
+    final x = details.localPosition.dx;
+    final y = details.localPosition.dy;
+
+    final normX = x / constraints.maxWidth;
+    final normY = y / constraints.maxHeight;
+
+    setState(() {
+      _tapFocusPoint = Offset(x, y);
+      _isFocusLocked = true;
+    });
+
+    _focusAnimationController.forward(from: 0);
+
+    unawaited(
+      ref
+          .read(cameraControllerProvider.notifier)
+          .setFocusAndMetering(normX, normY),
+    );
+
+    _focusResetTimer?.cancel();
+    _focusResetTimer = Timer(const Duration(seconds: 10), () {
+      if (mounted && _isFocusLocked) {
+        _resetFocus();
+      }
+    });
+  }
+
+  void _resetFocus() {
+    _focusResetTimer?.cancel();
+    setState(() {
+      _tapFocusPoint = null;
+      _isFocusLocked = false;
+    });
+    unawaited(
+      ref.read(cameraControllerProvider.notifier).cancelFocusAndMetering(),
+    );
   }
 
   @override
@@ -951,52 +1010,115 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Live Camera Viewfinder Preview
-          _AndroidCameraPreview(
-            key: ValueKey<String>(
-              'camera-preview-${state.aspectRatio.platformValue}',
-            ),
-            aspectRatio: state.aspectRatio,
-            lens: state.activeLens,
-            flashMode: state.flashMode,
-            onPlatformViewCreated: (_) {
-              unawaited(controller.reapplyActivePreviewParams());
-            },
-          ),
+      child: LayoutBuilder(
+        builder: (context, constraints) => GestureDetector(
+          onTapDown: (details) =>
+              _handleViewfinderTap(details, constraints),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Live Camera Viewfinder Preview
+              _AndroidCameraPreview(
+                key: ValueKey<String>(
+                  'camera-preview-${state.aspectRatio.platformValue}',
+                ),
+                aspectRatio: state.aspectRatio,
+                lens: state.activeLens,
+                flashMode: state.flashMode,
+                onPlatformViewCreated: (_) {
+                  unawaited(controller.reapplyActivePreviewParams());
+                },
+              ),
 
-          // 3x3 Composition Grid Lines
-          if (ref.watch(gridLinesProvider)) const _ViewfinderGrid(),
+              // 3x3 Composition Grid Lines
+              if (ref.watch(gridLinesProvider)) const _ViewfinderGrid(),
 
-          // Minimalist active preset stamp (bottom-right)
-          if (activePreset != null)
-            Positioned(
-              bottom: 16,
-              right: 16,
-              child: Opacity(
-                opacity: 0.9,
-                child: Text(
-                  activePreset.name.toUpperCase(),
-                  style: const TextStyle(
-                    fontFamily: 'Courier',
-                    color: Color(0xFFF39C12), // Vintage orange stamp color
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black54,
-                        blurRadius: 2,
-                        offset: Offset(1, 1),
-                      ),
-                    ],
+              // Focus lock point indicator (Focus Ring)
+              if (_tapFocusPoint != null)
+                Positioned(
+                  left: _tapFocusPoint!.dx - 30,
+                  top: _tapFocusPoint!.dy - 30,
+                  child: _FocusRing(
+                    controller: _focusAnimationController,
                   ),
                 ),
-              ),
-            ),
-        ],
+
+              // AE/AF Lock indicator
+              if (_isFocusLocked)
+                Positioned(
+                  top: 16,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: _resetFocus,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: const Color(0xFFF39C12),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.lock_outline_rounded,
+                              color: Color(0xFFF39C12),
+                              size: 12,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'AE/AF LOCK',
+                              style: TextStyle(
+                                color: Color(0xFFF39C12),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Minimalist active preset stamp (bottom-right)
+              if (activePreset != null)
+                Positioned(
+                  bottom: 16,
+                  right: 16,
+                  child: Opacity(
+                    opacity: 0.9,
+                    child: Text(
+                      activePreset.name.toUpperCase(),
+                      style: const TextStyle(
+                        fontFamily: 'Courier',
+                        // Vintage orange stamp color
+                        color: Color(0xFFF39C12),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black54,
+                            blurRadius: 2,
+                            offset: Offset(1, 1),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1388,4 +1510,63 @@ class _AndroidCameraPreview extends StatelessWidget {
     creationParamsCodec: const StandardMessageCodec(),
     onPlatformViewCreated: onPlatformViewCreated,
   );
+}
+
+class _FocusRing extends StatelessWidget {
+  const _FocusRing({required this.controller});
+
+  final AnimationController controller;
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: controller,
+        builder: (context, child) {
+          final scale = Tween<double>(begin: 1.6, end: 1)
+              .animate(CurvedAnimation(
+                parent: controller,
+                curve: Curves.easeOutBack,
+              ))
+              .value;
+          final opacity = TweenSequence<double>([
+            TweenSequenceItem(
+              tween: Tween<double>(begin: 1, end: 1),
+              weight: 40,
+            ),
+            TweenSequenceItem(
+              tween: Tween<double>(begin: 1, end: 0.4),
+              weight: 60,
+            ),
+          ]).animate(CurvedAnimation(
+            parent: controller,
+            curve: Curves.easeInOut,
+          )).value;
+
+          return Opacity(
+            opacity: opacity,
+            child: Transform.scale(
+              scale: scale,
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: const Color(0xFFF39C12),
+                    width: 1.5,
+                  ),
+                ),
+                child: Center(
+                  child: Container(
+                    width: 4,
+                    height: 4,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFFF39C12),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
 }

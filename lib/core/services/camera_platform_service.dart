@@ -190,4 +190,36 @@ class CameraPlatformService {
       _eventChannel.receiveBroadcastStream().map(
         (event) => Map<String, dynamic>.from(event as Map<dynamic, dynamic>),
       );
+  /// Sets focus and metering point coordinates (normalized 0.0 to 1.0)
+  Future<void> setFocusAndMetering(double x, double y) async {
+    try {
+      await _methodChannel.invokeMethod<void>(
+        'setFocusAndMetering',
+        {'x': x, 'y': y},
+      );
+    } on PlatformException catch (e, stack) {
+      AppLogger.e(
+        'CameraPlatformService',
+        'Failed to set focus and metering coordinates: $x, $y',
+        e,
+        stack,
+      );
+      rethrow;
+    }
+  }
+
+  /// Cancels focus and metering lock, returning to continuous auto focus
+  Future<void> cancelFocusAndMetering() async {
+    try {
+      await _methodChannel.invokeMethod<void>('cancelFocusAndMetering');
+    } on PlatformException catch (e, stack) {
+      AppLogger.e(
+        'CameraPlatformService',
+        'Failed to cancel focus and metering',
+        e,
+        stack,
+      );
+      rethrow;
+    }
+  }
 }

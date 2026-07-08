@@ -53,6 +53,26 @@ class MainActivity : FlutterActivity() {
                     val lensStr = if (preview?.getCurrentLensFacing() == CameraSelector.LENS_FACING_FRONT) "front" else "back"
                     result.success(mapOf("status" to "initialized", "lens" to lensStr))
                 }
+                "setFocusAndMetering" -> {
+                    val x = call.argument<Double>("x") ?: 0.5
+                    val y = call.argument<Double>("y") ?: 0.5
+                    val preview = activePreviewView
+                    if (preview != null) {
+                        preview.setFocusAndMetering(x.toFloat(), y.toFloat())
+                        result.success(null)
+                    } else {
+                        result.error("CAMERA_NOT_READY", "Camera preview not initialized", null)
+                    }
+                }
+                "cancelFocusAndMetering" -> {
+                    val preview = activePreviewView
+                    if (preview != null) {
+                        preview.cancelFocusAndMetering()
+                        result.success(null)
+                    } else {
+                        result.error("CAMERA_NOT_READY", "Camera preview not initialized", null)
+                    }
+                }
                 "selectPreset" -> {
                     val presetId = call.argument<String>("presetId") ?: "normal"
                     val params = call.argument<Map<String, Any>>("params")
