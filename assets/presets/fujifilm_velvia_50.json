@@ -1,17 +1,17 @@
 {
-  "id": "ektar_100",
-  "name": "Kodak Ektar 100",
-  "category": "Classic",
+  "id": "fujifilm_velvia_50",
+  "name": "Fujifilm Velvia 50",
+  "category": "Cinematic",
   "color": {
-    "temperature": 0.04,
-    "contrast": 0.18,
-    "saturation": 0.30
+    "temperature": -0.06,
+    "contrast": 0.32,
+    "saturation": 0.48
   },
   "grain": {
-    "intensity": 0.08
+    "intensity": 0.1
   },
   "vignette": {
-    "intensity": 0.01
+    "intensity": 0.04
   },
   "lut": null,
   "overlay": null,
@@ -25,21 +25,14 @@
       "intensity": 0.0
     },
     "bloom": {
-      "threshold": 0.87,
+      "threshold": 0.88,
       "intensity": 0.02
     },
     "halation": {
-      "intensity": 0.01
+      "intensity": 0.02
     },
     "lensDistortion": {
       "strength": 0.0
     }
-  },
-  "style": {
-    "tone": 8.0,
-    "color": 24.0,
-    "styleStrength": 100.0,
-    "undertoneX": -0.08,
-    "undertoneY": 0.02
   }
 }

@@ -1,17 +1,17 @@
 {
-  "id": "gold_200",
-  "name": "Kodak Gold 200",
-  "category": "Vintage",
+  "id": "ilford_hp5_plus_400",
+  "name": "Ilford HP5 Plus 400",
+  "category": "Classic",
   "color": {
-    "temperature": 0.24,
-    "contrast": 0.12,
-    "saturation": 0.16
+    "temperature": -0.02,
+    "contrast": 0.18,
+    "saturation": -1.0
   },
   "grain": {
-    "intensity": 0.22
+    "intensity": 0.48
   },
   "vignette": {
-    "intensity": 0.04
+    "intensity": 0.05
   },
   "lut": null,
   "overlay": null,
@@ -25,8 +25,8 @@
       "intensity": 0.0
     },
     "bloom": {
-      "threshold": 0.82,
-      "intensity": 0.05
+      "threshold": 0.8,
+      "intensity": 0.02
     },
     "halation": {
       "intensity": 0.03
@@ -34,12 +34,5 @@
     "lensDistortion": {
       "strength": 0.0
     }
-  },
-  "style": {
-    "tone": -8.0,
-    "color": 14.0,
-    "styleStrength": 100.0,
-    "undertoneX": -0.42,
-    "undertoneY": -0.04
   }
 }

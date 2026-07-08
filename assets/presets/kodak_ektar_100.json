@@ -1,17 +1,17 @@
 {
-  "id": "hp5_plus_400",
-  "name": "Ilford HP5 Plus 400",
+  "id": "kodak_ektar_100",
+  "name": "Kodak Ektar 100",
   "category": "Classic",
   "color": {
-    "temperature": 0.0,
-    "contrast": 0.18,
-    "saturation": -1.0
+    "temperature": 0.1,
+    "contrast": 0.24,
+    "saturation": 0.34
   },
   "grain": {
-    "intensity": 0.40
+    "intensity": 0.08
   },
   "vignette": {
-    "intensity": 0.02
+    "intensity": 0.03
   },
   "lut": null,
   "overlay": null,
@@ -26,20 +26,13 @@
     },
     "bloom": {
       "threshold": 0.85,
-      "intensity": 0.0
+      "intensity": 0.04
     },
     "halation": {
-      "intensity": 0.0
+      "intensity": 0.03
     },
     "lensDistortion": {
       "strength": 0.0
     }
-  },
-  "style": {
-    "tone": 8.0,
-    "color": 0.0,
-    "styleStrength": 100.0,
-    "undertoneX": 0.0,
-    "undertoneY": 0.0
   }
 }

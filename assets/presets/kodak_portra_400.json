@@ -1,17 +1,17 @@
 {
-  "id": "tri_x_400",
-  "name": "Kodak Tri-X 400",
+  "id": "kodak_portra_400",
+  "name": "Kodak Portra 400",
   "category": "Classic",
   "color": {
-    "temperature": 0.0,
-    "contrast": 0.34,
-    "saturation": -1.0
+    "temperature": 0.1,
+    "contrast": -0.05,
+    "saturation": 0.06
   },
   "grain": {
-    "intensity": 0.48
+    "intensity": 0.15
   },
   "vignette": {
-    "intensity": 0.02
+    "intensity": 0.04
   },
   "lut": null,
   "overlay": null,
@@ -25,21 +25,14 @@
       "intensity": 0.0
     },
     "bloom": {
-      "threshold": 0.85,
-      "intensity": 0.0
+      "threshold": 0.84,
+      "intensity": 0.05
     },
     "halation": {
-      "intensity": 0.0
+      "intensity": 0.03
     },
     "lensDistortion": {
       "strength": 0.0
     }
-  },
-  "style": {
-    "tone": 12.0,
-    "color": 0.0,
-    "styleStrength": 100.0,
-    "undertoneX": 0.0,
-    "undertoneY": 0.0
   }
 }

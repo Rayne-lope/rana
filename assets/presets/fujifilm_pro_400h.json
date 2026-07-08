@@ -1,17 +1,17 @@
 {
-  "id": "pro_400h",
+  "id": "fujifilm_pro_400h",
   "name": "Fujifilm Pro 400H",
   "category": "Classic",
   "color": {
-    "temperature": -0.14,
-    "contrast": -0.12,
-    "saturation": -0.08
+    "temperature": -0.16,
+    "contrast": -0.1,
+    "saturation": -0.14
   },
   "grain": {
-    "intensity": 0.10
+    "intensity": 0.12
   },
   "vignette": {
-    "intensity": 0.02
+    "intensity": 0.03
   },
   "lut": null,
   "overlay": null,
@@ -25,8 +25,8 @@
       "intensity": 0.0
     },
     "bloom": {
-      "threshold": 0.84,
-      "intensity": 0.04
+      "threshold": 0.85,
+      "intensity": 0.03
     },
     "halation": {
       "intensity": 0.02
@@ -34,12 +34,5 @@
     "lensDistortion": {
       "strength": 0.0
     }
-  },
-  "style": {
-    "tone": -14.0,
-    "color": -8.0,
-    "styleStrength": 100.0,
-    "undertoneX": 0.22,
-    "undertoneY": 0.08
   }
 }

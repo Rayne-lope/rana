@@ -1,17 +1,17 @@
 {
-  "id": "cinestill_800t",
-  "name": "CineStill 800T",
-  "category": "Cinematic",
+  "id": "kodak_trix_400",
+  "name": "Kodak Tri-X 400",
+  "category": "Classic",
   "color": {
-    "temperature": -0.34,
-    "contrast": 0.14,
-    "saturation": 0.1
+    "temperature": 0.0,
+    "contrast": 0.34,
+    "saturation": -1.0
   },
   "grain": {
-    "intensity": 0.32
+    "intensity": 0.56
   },
   "vignette": {
-    "intensity": 0.1
+    "intensity": 0.07
   },
   "lut": null,
   "overlay": null,
@@ -25,11 +25,11 @@
       "intensity": 0.0
     },
     "bloom": {
-      "threshold": 0.72,
-      "intensity": 0.32
+      "threshold": 0.78,
+      "intensity": 0.03
     },
     "halation": {
-      "intensity": 0.85
+      "intensity": 0.04
     },
     "lensDistortion": {
       "strength": 0.0

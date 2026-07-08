@@ -1,17 +1,17 @@
 {
-  "id": "cinestill_800t",
-  "name": "CineStill 800T",
-  "category": "Cinematic",
+  "id": "kodak_gold_200",
+  "name": "Kodak Gold 200",
+  "category": "Vintage",
   "color": {
-    "temperature": -0.34,
-    "contrast": 0.14,
-    "saturation": 0.1
+    "temperature": 0.24,
+    "contrast": 0.08,
+    "saturation": 0.18
   },
   "grain": {
-    "intensity": 0.32
+    "intensity": 0.24
   },
   "vignette": {
-    "intensity": 0.1
+    "intensity": 0.08
   },
   "lut": null,
   "overlay": null,
@@ -25,11 +25,11 @@
       "intensity": 0.0
     },
     "bloom": {
-      "threshold": 0.72,
-      "intensity": 0.32
+      "threshold": 0.82,
+      "intensity": 0.07
     },
     "halation": {
-      "intensity": 0.85
+      "intensity": 0.04
     },
     "lensDistortion": {
       "strength": 0.0
