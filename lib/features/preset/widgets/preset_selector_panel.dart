@@ -255,7 +255,7 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
 
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF242424),
+        color: Colors.transparent,
       ),
       child: SafeArea(
         top: false,

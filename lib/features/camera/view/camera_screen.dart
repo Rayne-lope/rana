@@ -261,7 +261,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF242424),
+        color: Colors.transparent,
       ),
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
@@ -952,7 +952,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     CameraController controller, {
     required _ViewfinderLayoutMode layoutMode,
   }) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
+    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
     child: DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.black,
@@ -1316,7 +1316,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF242424),
+        color: Colors.transparent,
       ),
       padding: const EdgeInsets.only(top: 16, bottom: 24),
       child: Column(
