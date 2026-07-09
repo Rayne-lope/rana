@@ -262,13 +262,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF242424),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-        border: Border(
-          top: BorderSide(color: Color(0xFF2D2D2D)),
-        ),
       ),
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
@@ -1332,13 +1325,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF242424),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-        border: Border(
-          top: BorderSide(color: Color(0xFF2D2D2D)),
-        ),
       ),
       padding: const EdgeInsets.only(top: 16, bottom: 24),
       child: Column(

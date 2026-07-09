@@ -256,13 +256,6 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF242424),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-        border: Border(
-          top: BorderSide(color: Color(0xFF2D2D2D)),
-        ),
       ),
       child: SafeArea(
         top: false,
