@@ -24,7 +24,8 @@ class CameraGlRenderer(
     private val height: Int,
     private val onInputSurfaceReady: (SurfaceTexture) -> Unit,
     private val onFpsUpdate: (Int) -> Unit,
-    private val onGlError: (String) -> Unit
+    private val onGlError: (String) -> Unit,
+    private val onPreviewFrameRendered: (Int) -> Unit = {}
 ) {
     private companion object {
         private const val TAG = "CameraGlRenderer"
@@ -201,6 +202,9 @@ class CameraGlRenderer(
     private var previewRotationDegrees = 0
     private var previewMirrorHorizontally = false
     private var previewFallbackAspectRatio = 3f / 4f
+    private var previewBindingGeneration = 0
+    private var previewTransformGeneration = -1
+    private var reportedPreviewFrameGeneration = -1
 
     private val vertexBuffer: FloatBuffer = ByteBuffer
         .allocateDirect(vertexCoords.size * 4)
@@ -339,7 +343,8 @@ class CameraGlRenderer(
         bufferWidth: Int,
         bufferHeight: Int,
         fallbackAspectRatio: Float,
-        mirrorHorizontally: Boolean
+        mirrorHorizontally: Boolean,
+        bindingGeneration: Int
     ) {
         renderHandler.post {
             previewBufferWidth = bufferWidth
@@ -348,13 +353,22 @@ class CameraGlRenderer(
             previewMirrorHorizontally = mirrorHorizontally
             previewCropRect = Rect(0, 0, 0, 0)
             previewRotationDegrees = 0
+            previewBindingGeneration = bindingGeneration
+            previewTransformGeneration = -1
+            reportedPreviewFrameGeneration = -1
         }
     }
 
-    fun setCameraTransform(cropRect: Rect, rotationDegrees: Int) {
+    fun setCameraTransform(
+        cropRect: Rect,
+        rotationDegrees: Int,
+        bindingGeneration: Int
+    ) {
         renderHandler.post {
+            if (bindingGeneration != previewBindingGeneration) return@post
             previewCropRect = Rect(cropRect)
             previewRotationDegrees = rotationDegrees
+            previewTransformGeneration = bindingGeneration
         }
     }
 
@@ -713,8 +727,16 @@ class CameraGlRenderer(
             drawSinglePassFrame(texMatrix)
         }
 
-        if (!EGL14.eglSwapBuffers(eglDisplay, eglSurface)) {
+        val didSwap = EGL14.eglSwapBuffers(eglDisplay, eglSurface)
+        if (!didSwap) {
             Log.w(TAG, "eglSwapBuffers failed")
+        } else if (
+            previewBindingGeneration != 0 &&
+            previewTransformGeneration == previewBindingGeneration &&
+            reportedPreviewFrameGeneration != previewBindingGeneration
+        ) {
+            reportedPreviewFrameGeneration = previewBindingGeneration
+            onPreviewFrameRendered(previewBindingGeneration)
         }
 
         updateFpsStats()

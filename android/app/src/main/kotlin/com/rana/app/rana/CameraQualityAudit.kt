@@ -2,6 +2,8 @@ package com.rana.app.rana
 
 import android.graphics.Bitmap
 import android.graphics.Rect
+import android.content.Context
+import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CameraCharacteristics
 import android.os.Build
 import android.util.Size
@@ -66,6 +68,146 @@ internal fun estimateZoomQuality(
 }
 
 object CameraQualityAudit {
+    fun logBackCameraInventory(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
+        val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
+            ?: return
+        val cameraIds = runCatching { cameraManager.cameraIdList.toSet() }.getOrDefault(emptySet())
+
+        for (cameraId in cameraIds.sorted()) {
+            val characteristics = runCatching {
+                cameraManager.getCameraCharacteristics(cameraId)
+            }.getOrNull() ?: continue
+            if (characteristics.get(CameraCharacteristics.LENS_FACING) !=
+                CameraCharacteristics.LENS_FACING_BACK
+            ) {
+                continue
+            }
+            val capabilities = characteristics.get(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES
+            ).orEmpty()
+            if (!capabilities.contains(
+                    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA
+                )
+            ) {
+                continue
+            }
+            val topology = buildBackCameraTopology(
+                logicalCameraId = cameraId,
+                physicalLenses = characteristics.physicalCameraIds.sorted().map { physicalCameraId ->
+                    physicalLensDescriptor(
+                        cameraId = physicalCameraId,
+                        characteristics = runCatching {
+                            cameraManager.getCameraCharacteristics(physicalCameraId)
+                        }.getOrNull(),
+                        isStandalone = physicalCameraId in cameraIds
+                    )
+                }
+            )
+            logBackCameraTopology("inventory", topology)
+        }
+    }
+
+    fun inspectActiveBackCameraTopology(
+        context: Context,
+        camera: Camera?
+    ): BackCameraTopology {
+        if (camera == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            return BackCameraTopology()
+        }
+        return runCatching {
+            val camera2Info = Camera2CameraInfo.from(camera.cameraInfo)
+            val activeCharacteristics = Camera2CameraInfo.extractCameraCharacteristics(
+                camera.cameraInfo
+            )
+            val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
+            val cameraIds = runCatching { cameraManager?.cameraIdList?.toSet().orEmpty() }
+                .getOrDefault(emptySet())
+            val activeCameraId = camera2Info.cameraId
+            val activeCapabilities = activeCharacteristics.get(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES
+            ).orEmpty()
+            val activeIsLogical = activeCapabilities.contains(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA
+            )
+            val logicalCameraId = if (activeIsLogical) {
+                activeCameraId
+            } else {
+                cameraIds.firstOrNull { cameraId ->
+                    val characteristics = runCatching {
+                        cameraManager?.getCameraCharacteristics(cameraId)
+                    }.getOrNull() ?: return@firstOrNull false
+                    val capabilities = characteristics.get(
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES
+                    ).orEmpty()
+                    capabilities.contains(
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA
+                    ) && activeCameraId in characteristics.physicalCameraIds
+                }
+            }
+            if (logicalCameraId == null) {
+                return@runCatching BackCameraTopology(logicalCameraId = activeCameraId)
+            }
+            val logicalCharacteristics = if (logicalCameraId == activeCameraId) {
+                activeCharacteristics
+            } else {
+                runCatching {
+                    cameraManager?.getCameraCharacteristics(logicalCameraId)
+                }.getOrNull() ?: return@runCatching BackCameraTopology(logicalCameraId)
+            }
+            val characteristicsMap = runCatching {
+                camera2Info.cameraCharacteristicsMap
+            }.getOrDefault(emptyMap())
+            val physicalLenses = logicalCharacteristics.physicalCameraIds.sorted().map { physicalCameraId ->
+                val physicalCharacteristics = characteristicsMap[physicalCameraId]
+                    ?: runCatching {
+                        cameraManager?.getCameraCharacteristics(physicalCameraId)
+                    }.getOrNull()
+                physicalLensDescriptor(
+                    cameraId = physicalCameraId,
+                    characteristics = physicalCharacteristics,
+                    isStandalone = physicalCameraId in cameraIds
+                )
+            }
+            buildBackCameraTopology(logicalCameraId, physicalLenses)
+        }.getOrElse { error ->
+            android.util.Log.w(
+                RANA_QUALITY_AUDIT_TAG,
+                "event=telephoto_topology_read_failed message=${error.message}"
+            )
+            BackCameraTopology()
+        }
+    }
+
+    fun logBackCameraTopology(status: String, topology: BackCameraTopology) {
+        android.util.Log.d(
+            RANA_QUALITY_AUDIT_TAG,
+            "event=back_camera_topology status=$status " +
+                "logicalCameraId=${topology.logicalCameraId ?: "unknown"} " +
+                "wideCameraId=${topology.wideLens?.cameraId ?: "unknown"} " +
+                "teleCameraId=${topology.telephotoLens?.cameraId ?: "none"} " +
+                "teleOpticalRatio=${fmt(topology.telephotoOpticalRatio ?: 1f)} " +
+                "physicalLenses=${topology.physicalLenses.toAuditValue()}"
+        )
+    }
+
+    fun logLensSwitch(
+        viewId: Int,
+        status: String,
+        requestedZoomRatio: Float,
+        decision: LensSwitchDecision,
+        observedPhysicalCameraId: String? = null
+    ) {
+        android.util.Log.d(
+            RANA_QUALITY_AUDIT_TAG,
+            "event=physical_lens_switch viewId=$viewId status=$status " +
+                "requestedZoom=${fmt(requestedZoomRatio)} " +
+                "target=${decision.physicalCameraId ?: "logical"} " +
+                "observed=${observedPhysicalCameraId ?: "unknown"} " +
+                "teleOpticalRatio=${fmt(decision.telephotoOpticalRatio ?: 1f)}"
+        )
+    }
+
     fun zoomFields(camera: Camera?, requestedZoomRatio: Float): Map<String, Any> {
         val capabilities = inspectCamera(camera)
         val estimate = estimateZoomQuality(
@@ -263,7 +405,31 @@ object CameraQualityAudit {
 
     private fun fmt(value: Float): String = String.format(Locale.US, "%.2f", value)
 
+    private fun physicalLensDescriptor(
+        cameraId: String,
+        characteristics: CameraCharacteristics?,
+        isStandalone: Boolean
+    ): PhysicalLensDescriptor {
+        val focalLength = characteristics
+            ?.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
+            ?.filter { it > 0f && it.isFinite() }
+            ?.maxOrNull()
+        val sensorWidth = characteristics
+            ?.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)
+            ?.width
+            ?.takeIf { it > 0f && it.isFinite() }
+        return PhysicalLensDescriptor(cameraId, focalLength, sensorWidth, isStandalone)
+    }
+
     private fun Size.toSizeString(): String = "${width}x${height}"
+
+    private fun List<PhysicalLensDescriptor>.toAuditValue(): String = joinToString(";") {
+        "${it.cameraId},focal=${fmt(it.focalLengthMm ?: 0f)}," +
+            "sensorWidth=${fmt(it.sensorWidthMm ?: 0f)}," +
+            "normalized=${fmt(it.normalizedFocalLength ?: 0f)}," +
+            "longFocal=${it.hasLongFocalLength}," +
+            "standalone=${it.isStandalone}"
+    }
 
     private fun Map<String, Any>.toAuditString(): String = entries.joinToString(" ") {
         "${it.key}=${it.value}"

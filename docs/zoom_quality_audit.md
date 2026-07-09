@@ -20,6 +20,8 @@ Record the following fields for every test shot:
 
 - `zoom`, `zoomQualityLabel`, `isLikelyDigitalZoom`, `shouldWarnDigitalZoom`
 - `activeCameraId`, `physicalCameraCount`, `availableFocalLengths`
+- `logicalCameraId`, `targetPhysicalId`, `observedPhysicalId`, `teleOpticalRatio`
+- `localZoomRatio`, `lensSwitchState`, and `physical_lens_switch` status
 - `previewResolution`, `captureResolution`, `captureCrop`
 - `source`, `inSampleSize`, `qualityReduced`, `skipLut`
 - `bitmap_stage` sizes for decoded, cropped, transformed, and processed
@@ -46,6 +48,7 @@ For each pair, record:
 - Crop/FOV difference between Rana and stock camera
 - Whether Rana logged `qualityReduced=true` or `inSampleSize>1`
 - Whether Rana logged `digital_likely` or `tele_candidate`
+- Whether `physical_lens_switch` completed with matching target and observed IDs
 - Visible artifacts: watercolor foliage, edge halos, smeared distant detail,
   noise reduction, highlight bloom, and oversharpening
 
@@ -58,5 +61,7 @@ For each pair, record:
   default quality zoom ceiling to 2x.
 - If device exposes a telephoto focal spread, test a Camera2/CameraX physical or
   logical camera route before adding sharpening.
+- If a physical telephoto switch falls back or times out, retain the device log and
+  keep that physical ID blocked for the session before comparing image quality.
 - If stock camera wins mostly in highlights/shadows/noise, test CameraX
   Extensions Auto/HDR as an opt-in experiment.

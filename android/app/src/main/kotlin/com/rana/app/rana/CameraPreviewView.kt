@@ -7,16 +7,24 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.graphics.Rect
 import android.graphics.SurfaceTexture
+import android.graphics.drawable.BitmapDrawable
+import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureResult
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.view.Display
+import android.view.FrameLayout
 import android.view.OrientationEventListener
 import android.view.Surface
 import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
+import androidx.camera.camera2.interop.Camera2Interop
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -29,6 +37,7 @@ import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.DisplayOrientedMeteringPointFactory
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import com.google.common.util.concurrent.ListenableFuture
 import io.flutter.plugin.platform.PlatformView
 import java.io.File
 import java.io.IOException
@@ -39,6 +48,7 @@ import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
+@OptIn(ExperimentalCamera2Interop::class)
 class CameraPreviewView(
     private val context: Context,
     private val activity: MainActivity,
@@ -46,11 +56,25 @@ class CameraPreviewView(
     private val creationParams: Map<String, Any>?
 ) : PlatformView {
 
+    private val previewContainer = FrameLayout(context).apply {
+        layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
+    }
     private val textureView = TextureView(context).apply {
         layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         )
+    }
+    private val lensSwitchOverlay = ImageView(context).apply {
+        layoutParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
+        scaleType = ImageView.ScaleType.CENTER_CROP
+        visibility = View.GONE
     }
     private var cameraProvider: ProcessCameraProvider? = null
     private var camera: Camera? = null
@@ -82,6 +106,14 @@ class CameraPreviewView(
     private val captureExecutor = Executors.newSingleThreadExecutor()
     private val isCapturing = AtomicBoolean(false)
     private var previewBindGeneration = 0
+    private var backCameraTopology = BackCameraTopology()
+    private var activeLensDecision = LensSwitchDecision(LensOutputTarget.LOGICAL_WIDE)
+    private var pendingLensDecision: LensSwitchDecision? = null
+    private val blockedPhysicalCameraIds = mutableSetOf<String>()
+    private var observedPhysicalCameraId: String? = null
+    private var currentLocalZoomRatio = USER_MIN_ZOOM_RATIO
+    private var isLensSwitching = false
+    private var lensSwitchTimeout: Runnable? = null
 
     private val orientationEventListener = object : OrientationEventListener(context) {
         override fun onOrientationChanged(orientation: Int) {
@@ -103,6 +135,8 @@ class CameraPreviewView(
             "CameraPreviewView",
             "Initializing CameraPreviewView: id=$viewId, lens=$currentLensFacing, flash=$currentFlashMode, aspectRatio=$currentAspectRatio"
         )
+        previewContainer.addView(textureView)
+        previewContainer.addView(lensSwitchOverlay)
         textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
             override fun onSurfaceTextureAvailable(
                 surfaceTexture: SurfaceTexture, width: Int, height: Int
@@ -121,6 +155,11 @@ class CameraPreviewView(
                             "CameraPreviewView",
                             "OpenGL ES initialization failed: $error"
                         )
+                    },
+                    onPreviewFrameRendered = { bindingGeneration ->
+                        activity.runOnUiThread {
+                            onPreviewFrameRendered(bindingGeneration)
+                        }
                     }
                 )
                 glRenderer = renderer
@@ -146,7 +185,7 @@ class CameraPreviewView(
     }
 
     override fun getView(): View {
-        return textureView
+        return previewContainer
     }
 
     override fun dispose() {
@@ -171,6 +210,7 @@ class CameraPreviewView(
         cameraProviderFuture.addListener({
             try {
                 cameraProvider = cameraProviderFuture.get()
+                CameraQualityAudit.logBackCameraInventory(context)
                 bindPreview()
             } catch (e: Exception) {
                 // Ignore
@@ -179,24 +219,49 @@ class CameraPreviewView(
     }
 
     fun bindPreview() {
+        rebindCamera(activeLensDecision, "preview_bind")
+    }
+
+    private fun rebindCamera(
+        requestedDecision: LensSwitchDecision,
+        reason: String
+    ) {
         val provider = cameraProvider ?: return
         val renderer = glRenderer ?: return
         activity.runOnUiThread {
+            val decision = if (currentLensFacing == CameraSelector.LENS_FACING_BACK) {
+                requestedDecision
+            } else {
+                LensSwitchDecision(LensOutputTarget.LOGICAL_WIDE)
+            }
             try {
                 previewBindGeneration += 1
                 val bindGeneration = previewBindGeneration
+                camera?.cameraControl?.cancelFocusAndMetering()
                 provider.unbindAll()
+                camera = null
+                previewUseCase = null
+                imageCapture = null
 
                 val displayRotation = currentDisplayRotation()
                 val resolutionSelector = currentAspectRatio.resolutionSelector()
                 val viewPort = currentAspectRatio.viewPort(displayRotation)
 
-                val previewUseCase = Preview.Builder()
+                val previewBuilder = Preview.Builder()
                     .setTargetRotation(displayRotation)
                     .setResolutionSelector(resolutionSelector)
-                    .build()
-                    .also {
-                    it.setSurfaceProvider { request ->
+                decision.physicalCameraId?.let { physicalCameraId ->
+                    Camera2Interop.Extender(previewBuilder)
+                        .setPhysicalCameraId(physicalCameraId)
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    Camera2Interop.Extender(previewBuilder)
+                        .setSessionCaptureCallback(
+                            physicalCameraCaptureCallback(bindGeneration, decision)
+                        )
+                }
+                val previewUseCase = previewBuilder.build().also { preview ->
+                    preview.setSurfaceProvider { request ->
                         val resolution = request.resolution
                         CameraQualityAudit.logPreviewSurfaceRequest(
                             viewId = viewId,
@@ -212,7 +277,8 @@ class CameraPreviewView(
                                 bufferHeight = resolution.height,
                                 fallbackAspectRatio = currentAspectRatio.viewfinderRatio,
                                 mirrorHorizontally =
-                                    currentLensFacing == CameraSelector.LENS_FACING_FRONT
+                                    currentLensFacing == CameraSelector.LENS_FACING_FRONT,
+                                bindingGeneration = bindGeneration
                             )
 
                             request.setTransformationInfoListener(
@@ -225,7 +291,11 @@ class CameraPreviewView(
                                     rotationDegrees = info.rotationDegrees,
                                     zoomRatio = currentZoomRatio
                                 )
-                                renderer.setCameraTransform(info.cropRect, info.rotationDegrees)
+                                renderer.setCameraTransform(
+                                    info.cropRect,
+                                    info.rotationDegrees,
+                                    bindGeneration
+                                )
                             }
 
                             val surface = Surface(cameraSurfaceTexture)
@@ -239,17 +309,36 @@ class CameraPreviewView(
                 }
                 this.previewUseCase = previewUseCase
 
-                val imageCaptureUseCase = ImageCapture.Builder()
+                val imageCaptureBuilder = ImageCapture.Builder()
                     .setTargetRotation(displayRotation)
                     .setResolutionSelector(resolutionSelector)
                     .setFlashMode(currentFlashMode)
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
-                    .build()
+                decision.physicalCameraId?.let { physicalCameraId ->
+                    Camera2Interop.Extender(imageCaptureBuilder)
+                        .setPhysicalCameraId(physicalCameraId)
+                }
+                val imageCaptureUseCase = imageCaptureBuilder.build()
                 imageCapture = imageCaptureUseCase
 
-                val cameraSelector = CameraSelector.Builder()
+                val selectorBuilder = CameraSelector.Builder()
                     .requireLensFacing(currentLensFacing)
-                    .build()
+                val logicalCameraId = backCameraTopology.logicalCameraId
+                if (
+                    currentLensFacing == CameraSelector.LENS_FACING_BACK &&
+                    logicalCameraId != null
+                ) {
+                    selectorBuilder.addCameraFilter { cameraInfos ->
+                        cameraInfos.filter { cameraInfo ->
+                            runCatching {
+                                androidx.camera.camera2.interop.Camera2CameraInfo
+                                    .from(cameraInfo)
+                                    .cameraId == logicalCameraId
+                            }.getOrDefault(false)
+                        }
+                    }
+                }
+                val cameraSelector = selectorBuilder.build()
 
                 val useCaseGroup = UseCaseGroup.Builder()
                     .addUseCase(previewUseCase)
@@ -262,6 +351,18 @@ class CameraPreviewView(
                     cameraSelector,
                     useCaseGroup
                 )
+                activeLensDecision = decision
+                observedPhysicalCameraId = null
+                if (
+                    currentLensFacing == CameraSelector.LENS_FACING_BACK &&
+                    backCameraTopology.physicalLenses.isEmpty()
+                ) {
+                    backCameraTopology = CameraQualityAudit.inspectActiveBackCameraTopology(
+                        context,
+                        camera
+                    )
+                    CameraQualityAudit.logBackCameraTopology("active", backCameraTopology)
+                }
                 applyCurrentZoomRatio()
                 CameraQualityAudit.logCameraBinding(
                     viewId = viewId,
@@ -277,8 +378,13 @@ class CameraPreviewView(
                 if (orientationEventListener.canDetectOrientation()) {
                     orientationEventListener.enable()
                 }
+                if (isLensSwitching) {
+                    scheduleLensSwitchTimeout(bindGeneration, decision)
+                } else {
+                    applyLensDecisionForCurrentZoom()
+                }
             } catch (e: Exception) {
-                // Ignore
+                handleRebindFailure(decision, reason, e)
             }
         }
     }
@@ -287,6 +393,13 @@ class CameraPreviewView(
         if (currentLensFacing == lensFacing) return
         currentLensFacing = lensFacing
         currentZoomRatio = USER_MIN_ZOOM_RATIO
+        backCameraTopology = BackCameraTopology()
+        activeLensDecision = LensSwitchDecision(LensOutputTarget.LOGICAL_WIDE)
+        pendingLensDecision = null
+        blockedPhysicalCameraIds.clear()
+        isLensSwitching = false
+        cancelLensSwitchTimeout()
+        hideLensSwitchOverlay(immediate = true)
         bindPreview()
     }
 
@@ -313,26 +426,44 @@ class CameraPreviewView(
     ) {
         activity.runOnUiThread {
             try {
-                val cameraInstance = camera
-                if (cameraInstance == null) {
-                    currentZoomRatio = clampUserZoomRatio(
-                        requestedZoomRatio = zoomRatio,
-                        nativeMinZoomRatio = null,
-                        nativeMaxZoomRatio = null
-                    )
+                currentZoomRatio = clampUserZoomRatio(
+                    requestedZoomRatio = zoomRatio,
+                    nativeMinZoomRatio = null,
+                    nativeMaxZoomRatio = null
+                )
+                if (camera == null) {
                     callback(zoomStatePayload("zoom_deferred", zoomRatio), null, null)
                     return@runOnUiThread
                 }
 
-                val zoomState = cameraInstance.cameraInfo.zoomState.value
-                val appliedZoomRatio = clampUserZoomRatio(
-                    requestedZoomRatio = zoomRatio,
-                    nativeMinZoomRatio = zoomState?.minZoomRatio,
-                    nativeMaxZoomRatio = zoomState?.maxZoomRatio
-                )
-                currentZoomRatio = appliedZoomRatio
+                val desiredDecision = lensDecisionForCurrentZoom()
+                if (isLensSwitching) {
+                    pendingLensDecision = desiredDecision
+                    callback(zoomStatePayload("lens_switching", zoomRatio), null, null)
+                    return@runOnUiThread
+                }
+                if (!sameLensOutput(activeLensDecision, desiredDecision)) {
+                    if (isCapturing.get()) {
+                        pendingLensDecision = desiredDecision
+                        CameraQualityAudit.logLensSwitch(
+                            viewId,
+                            "deferred_capture",
+                            currentZoomRatio,
+                            desiredDecision
+                        )
+                        callback(zoomStatePayload("lens_switch_deferred", zoomRatio), null, null)
+                    } else {
+                        beginLensSwitch(desiredDecision, "zoom_threshold")
+                        callback(zoomStatePayload("lens_switching", zoomRatio), null, null)
+                    }
+                    return@runOnUiThread
+                }
 
-                val future = cameraInstance.cameraControl.setZoomRatio(appliedZoomRatio)
+                val future = applyCurrentZoomRatio()
+                if (future == null) {
+                    callback(zoomStatePayload("zoom_deferred", zoomRatio), null, null)
+                    return@runOnUiThread
+                }
                 future.addListener(
                     {
                         try {
@@ -364,15 +495,11 @@ class CameraPreviewView(
     }
 
     fun zoomStateFields(requestedZoomRatio: Float = currentZoomRatio): Map<String, Any> {
-        val zoomState = camera?.cameraInfo?.zoomState?.value
-        val bounds = cameraZoomBounds(
-            nativeMinZoomRatio = zoomState?.minZoomRatio,
-            nativeMaxZoomRatio = zoomState?.maxZoomRatio
-        )
+        val bounds = cameraZoomBounds(null, null)
         currentZoomRatio = clampUserZoomRatio(
             requestedZoomRatio = currentZoomRatio,
-            nativeMinZoomRatio = zoomState?.minZoomRatio,
-            nativeMaxZoomRatio = zoomState?.maxZoomRatio
+            nativeMinZoomRatio = null,
+            nativeMaxZoomRatio = null
         )
 
         return mapOf(
@@ -381,7 +508,13 @@ class CameraPreviewView(
             "minZoomRatio" to bounds.minZoomRatio.toDouble(),
             "maxZoomRatio" to bounds.maxZoomRatio.toDouble(),
             "effectiveMaxZoomRatio" to bounds.effectiveMaxZoomRatio.toDouble(),
-            "isZoomLimited" to bounds.isZoomLimited
+            "isZoomLimited" to bounds.isZoomLimited,
+            "activePhysicalCameraId" to (activeLensDecision.physicalCameraId ?: ""),
+            "targetPhysicalCameraId" to
+                (pendingLensDecision?.physicalCameraId ?: activeLensDecision.physicalCameraId ?: ""),
+            "teleOpticalRatio" to (activeLensDecision.telephotoOpticalRatio ?: 1f).toDouble(),
+            "localZoomRatio" to currentLocalZoomRatio.toDouble(),
+            "lensSwitchState" to lensSwitchState()
         ) + CameraQualityAudit.zoomFields(camera, currentZoomRatio)
     }
 
@@ -394,15 +527,244 @@ class CameraPreviewView(
         return mapOf("status" to status) + fields
     }
 
-    private fun applyCurrentZoomRatio() {
-        val cameraInstance = camera ?: return
+    private fun applyCurrentZoomRatio(): ListenableFuture<Void>? {
+        val cameraInstance = camera ?: return null
         val zoomState = cameraInstance.cameraInfo.zoomState.value
-        currentZoomRatio = clampUserZoomRatio(
+        val requestedLocalZoom = localZoomRatioFor(currentZoomRatio, activeLensDecision)
+        val minLocalZoom = zoomState?.minZoomRatio ?: USER_MIN_ZOOM_RATIO
+        val maxLocalZoom = zoomState?.maxZoomRatio ?: USER_MAX_ZOOM_RATIO
+        currentLocalZoomRatio = requestedLocalZoom.coerceIn(minLocalZoom, maxLocalZoom)
+        return cameraInstance.cameraControl.setZoomRatio(currentLocalZoomRatio)
+    }
+
+    private fun lensDecisionForCurrentZoom(): LensSwitchDecision {
+        if (currentLensFacing != CameraSelector.LENS_FACING_BACK) {
+            return LensSwitchDecision(LensOutputTarget.LOGICAL_WIDE)
+        }
+        return decideLensSwitch(
             requestedZoomRatio = currentZoomRatio,
-            nativeMinZoomRatio = zoomState?.minZoomRatio,
-            nativeMaxZoomRatio = zoomState?.maxZoomRatio
+            currentOutputTarget = activeLensDecision.outputTarget,
+            topology = backCameraTopology,
+            blockedPhysicalCameraIds = blockedPhysicalCameraIds
         )
-        cameraInstance.cameraControl.setZoomRatio(currentZoomRatio)
+    }
+
+    private fun applyLensDecisionForCurrentZoom() {
+        val desiredDecision = lensDecisionForCurrentZoom()
+        if (sameLensOutput(activeLensDecision, desiredDecision)) {
+            applyCurrentZoomRatio()
+            return
+        }
+        if (isCapturing.get() || isLensSwitching) {
+            pendingLensDecision = desiredDecision
+            return
+        }
+        beginLensSwitch(desiredDecision, "zoom_reconcile")
+    }
+
+    private fun beginLensSwitch(decision: LensSwitchDecision, reason: String) {
+        if (sameLensOutput(activeLensDecision, decision)) {
+            applyCurrentZoomRatio()
+            return
+        }
+        isLensSwitching = true
+        pendingLensDecision = null
+        showLensSwitchOverlay()
+        CameraQualityAudit.logLensSwitch(viewId, "started:$reason", currentZoomRatio, decision)
+        rebindCamera(decision, reason)
+    }
+
+    private fun sameLensOutput(
+        first: LensSwitchDecision,
+        second: LensSwitchDecision
+    ): Boolean {
+        return first.outputTarget == second.outputTarget &&
+            first.physicalCameraId == second.physicalCameraId
+    }
+
+    private fun physicalCameraCaptureCallback(
+        bindingGeneration: Int,
+        decision: LensSwitchDecision
+    ): CameraCaptureSession.CaptureCallback = object : CameraCaptureSession.CaptureCallback() {
+        override fun onCaptureCompleted(
+            session: CameraCaptureSession,
+            request: CaptureRequest,
+            result: android.hardware.camera2.TotalCaptureResult
+        ) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+            val observedCameraId = result.get(
+                CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID
+            ) ?: return
+            activity.runOnUiThread {
+                onPhysicalCameraObserved(bindingGeneration, decision, observedCameraId)
+            }
+        }
+    }
+
+    private fun onPhysicalCameraObserved(
+        bindingGeneration: Int,
+        decision: LensSwitchDecision,
+        observedCameraId: String
+    ) {
+        if (bindingGeneration != previewBindGeneration) return
+        observedPhysicalCameraId = observedCameraId
+        CameraQualityAudit.logLensSwitch(
+            viewId,
+            "observed",
+            currentZoomRatio,
+            decision,
+            observedCameraId
+        )
+        val targetCameraId = decision.physicalCameraId ?: return
+        if (targetCameraId != observedCameraId) {
+            handlePhysicalCameraFailure(decision, "observed_mismatch")
+        }
+    }
+
+    private fun handleRebindFailure(
+        decision: LensSwitchDecision,
+        reason: String,
+        error: Exception
+    ) {
+        android.util.Log.w(
+            "CameraPreviewView",
+            "Camera rebind failed for $reason target=${decision.physicalCameraId}",
+            error
+        )
+        if (decision.physicalCameraId != null) {
+            handlePhysicalCameraFailure(decision, "bind_failed")
+            return
+        }
+        isLensSwitching = false
+        cancelLensSwitchTimeout()
+        hideLensSwitchOverlay(immediate = true)
+        CameraQualityAudit.logLensSwitch(viewId, "logical_bind_failed", currentZoomRatio, decision)
+    }
+
+    private fun handlePhysicalCameraFailure(
+        decision: LensSwitchDecision,
+        reason: String
+    ) {
+        val physicalCameraId = decision.physicalCameraId ?: return
+        blockedPhysicalCameraIds += physicalCameraId
+        CameraQualityAudit.logLensSwitch(
+            viewId,
+            "failed:$reason",
+            currentZoomRatio,
+            decision,
+            observedPhysicalCameraId
+        )
+        if (isCapturing.get()) {
+            pendingLensDecision = LensSwitchDecision(LensOutputTarget.LOGICAL_WIDE)
+            return
+        }
+        isLensSwitching = true
+        showLensSwitchOverlay()
+        rebindCamera(LensSwitchDecision(LensOutputTarget.LOGICAL_WIDE), "tele_fallback")
+    }
+
+    private fun onPreviewFrameRendered(bindingGeneration: Int) {
+        if (bindingGeneration != previewBindGeneration || !isLensSwitching) return
+        cancelLensSwitchTimeout()
+        isLensSwitching = false
+        hideLensSwitchOverlay()
+        CameraQualityAudit.logLensSwitch(
+            viewId,
+            "completed",
+            currentZoomRatio,
+            activeLensDecision,
+            observedPhysicalCameraId
+        )
+        val pendingDecision = pendingLensDecision
+        pendingLensDecision = null
+        if (pendingDecision != null && !sameLensOutput(activeLensDecision, pendingDecision)) {
+            beginLensSwitch(pendingDecision, "pending_zoom")
+        } else {
+            applyLensDecisionForCurrentZoom()
+        }
+    }
+
+    private fun scheduleLensSwitchTimeout(
+        bindingGeneration: Int,
+        decision: LensSwitchDecision
+    ) {
+        cancelLensSwitchTimeout()
+        val timeout = Runnable {
+            if (bindingGeneration != previewBindGeneration || !isLensSwitching) return@Runnable
+            if (decision.physicalCameraId != null) {
+                handlePhysicalCameraFailure(decision, "first_frame_timeout")
+            } else {
+                isLensSwitching = false
+                hideLensSwitchOverlay(immediate = true)
+                CameraQualityAudit.logLensSwitch(
+                    viewId,
+                    "logical_first_frame_timeout",
+                    currentZoomRatio,
+                    decision
+                )
+            }
+        }
+        lensSwitchTimeout = timeout
+        previewContainer.postDelayed(timeout, 2_000L)
+    }
+
+    private fun cancelLensSwitchTimeout() {
+        lensSwitchTimeout?.let { previewContainer.removeCallbacks(it) }
+        lensSwitchTimeout = null
+    }
+
+    private fun showLensSwitchOverlay() {
+        lensSwitchOverlay.animate().cancel()
+        clearLensSwitchOverlayBitmap()
+        val snapshot = textureView.bitmap ?: return
+        lensSwitchOverlay.setImageBitmap(snapshot)
+        lensSwitchOverlay.alpha = 1f
+        lensSwitchOverlay.visibility = View.VISIBLE
+    }
+
+    private fun hideLensSwitchOverlay(immediate: Boolean = false) {
+        if (lensSwitchOverlay.visibility != View.VISIBLE) return
+        lensSwitchOverlay.animate().cancel()
+        if (immediate) {
+            lensSwitchOverlay.visibility = View.GONE
+            lensSwitchOverlay.alpha = 1f
+            clearLensSwitchOverlayBitmap()
+            return
+        }
+        lensSwitchOverlay.animate()
+            .alpha(0f)
+            .setDuration(120L)
+            .withEndAction {
+                lensSwitchOverlay.visibility = View.GONE
+                lensSwitchOverlay.alpha = 1f
+                clearLensSwitchOverlayBitmap()
+            }
+            .start()
+    }
+
+    private fun clearLensSwitchOverlayBitmap() {
+        val bitmap = (lensSwitchOverlay.drawable as? BitmapDrawable)?.bitmap
+        lensSwitchOverlay.setImageDrawable(null)
+        bitmap?.safeRecycle()
+    }
+
+    private fun lensSwitchState(): String = when {
+        isLensSwitching -> "switching"
+        activeLensDecision.outputTarget == LensOutputTarget.PHYSICAL_TELE -> "tele"
+        else -> "logical"
+    }
+
+    private fun applyDeferredLensSwitchAfterCapture() {
+        activity.runOnUiThread {
+            if (isCapturing.get() || isLensSwitching) return@runOnUiThread
+            val pendingDecision = pendingLensDecision
+            pendingLensDecision = null
+            if (pendingDecision != null && !sameLensOutput(activeLensDecision, pendingDecision)) {
+                beginLensSwitch(pendingDecision, "capture_complete")
+            } else {
+                applyLensDecisionForCurrentZoom()
+            }
+        }
     }
 
     private fun Throwable.isZoomOperationCanceled(): Boolean {
@@ -510,6 +872,10 @@ class CameraPreviewView(
         val capture = imageCapture
         if (capture == null) {
             finish(false, null, null, "CAMERA_NOT_READY", "Camera not initialized")
+            return
+        }
+        if (isLensSwitching) {
+            finish(false, null, null, "CAMERA_SWITCHING", "Camera lens is switching")
             return
         }
         if (!isCapturing.compareAndSet(false, true)) {
@@ -640,6 +1006,7 @@ class CameraPreviewView(
                         inputBitmap?.safeRecycle()
                         processedBitmap?.safeRecycle()
                         isCapturing.set(false)
+                        applyDeferredLensSwitchAfterCapture()
                     }
 
                     if (savedUri != null) {
@@ -657,6 +1024,7 @@ class CameraPreviewView(
 
                 override fun onError(exception: ImageCaptureException) {
                     isCapturing.set(false)
+                    applyDeferredLensSwitchAfterCapture()
                     finish(
                         false,
                         null,
@@ -912,9 +1280,15 @@ class CameraPreviewView(
         activity.runOnUiThread {
             try {
                 previewBindGeneration += 1
+                isLensSwitching = false
+                pendingLensDecision = null
+                cancelLensSwitchTimeout()
+                hideLensSwitchOverlay(immediate = true)
                 orientationEventListener.disable()
                 cameraProvider?.unbindAll()
                 camera = null
+                previewUseCase = null
+                imageCapture = null
             } catch (e: Exception) {
                 // Ignore
             }
