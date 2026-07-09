@@ -259,37 +259,50 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final presetsList = ref.watch(presetsProvider).valueOrNull ?? [];
     final activePreset = _findActivePreset(state, presetsList);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (_isEditingUndertone)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 2),
-            child: _buildActiveStyleControl(state, controller),
-          )
-        else ...[
-          if (activePreset != null) ...[
-            StyleMoodChips(
-              activePreset: activePreset,
-              activeStyle: state.activeStyle,
-              onSelected: (mood) {
-                unawaited(controller.applyStyleMood(mood));
-              },
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF242424),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+        border: Border(
+          top: BorderSide(color: Color(0xFF2D2D2D)),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_isEditingUndertone)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 2),
+              child: _buildActiveStyleControl(state, controller),
+            )
+          else ...[
+            if (activePreset != null) ...[
+              StyleMoodChips(
+                activePreset: activePreset,
+                activeStyle: state.activeStyle,
+                onSelected: (mood) {
+                  unawaited(controller.applyStyleMood(mood));
+                },
+              ),
+              const SizedBox(height: 2),
+            ],
+            _buildCompactValuesRow(state.activeStyle),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              child: _buildActiveStyleControl(state, controller),
             ),
-            const SizedBox(height: 2),
           ],
-          _buildCompactValuesRow(state.activeStyle),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            child: _buildActiveStyleControl(state, controller),
-          ),
-        ],
 
-        if (_isEditingUndertone)
-          _buildUndertoneActionsRow(state, controller)
-        else
-          _buildStylesSelectorTabBar(),
-      ],
+          if (_isEditingUndertone)
+            _buildUndertoneActionsRow(state, controller)
+          else
+            _buildStylesSelectorTabBar(),
+        ],
+      ),
     );
   }
 
@@ -1317,6 +1330,16 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final activePreset = _findActivePreset(state, presetsList);
 
     return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF242424),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+        border: Border(
+          top: BorderSide(color: Color(0xFF2D2D2D)),
+        ),
+      ),
       padding: const EdgeInsets.only(top: 16, bottom: 24),
       child: Column(
         children: [
