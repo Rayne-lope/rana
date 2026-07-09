@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:rana/features/camera/widgets/rana_styles_controls.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/saved_rana_style.dart';
 
@@ -181,8 +180,8 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
 
     for (var i = 0; i < _groups.length; i++) {
       final hasActive = _groups[i].presets.any(
-            (p) => p.id == widget.activePresetId,
-          );
+        (p) => p.id == widget.activePresetId,
+      );
       if (hasActive) {
         _currentPage = i;
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -221,10 +220,8 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
     final currentScrollOffset = _tabScrollController.offset;
 
     // Center the tab
-    final targetScrollOffset = currentScrollOffset +
-        tabOffset -
-        (viewportWidth / 2) +
-        (tabWidth / 2);
+    final targetScrollOffset =
+        currentScrollOffset + tabOffset - (viewportWidth / 2) + (tabWidth / 2);
     final maxScroll = _tabScrollController.position.maxScrollExtent;
     final minScroll = _tabScrollController.position.minScrollExtent;
 
@@ -253,10 +250,8 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
       return const SizedBox.shrink();
     }
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-      ),
+    return DecoratedBox(
+      decoration: const BoxDecoration(color: Colors.transparent),
       child: SafeArea(
         top: false,
         child: SizedBox(
@@ -290,16 +285,17 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? const Color(0xFFF39C12)
-                                    .withValues(alpha: 0.12)
+                                ? const Color(
+                                    0xFFF39C12,
+                                  ).withValues(alpha: 0.12)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: isSelected
-                                  ? const Color(0xFFF39C12)
-                                      .withValues(alpha: 0.3)
-                                  : Colors.white
-                                      .withValues(alpha: 0.05),
+                                  ? const Color(
+                                      0xFFF39C12,
+                                    ).withValues(alpha: 0.3)
+                                  : Colors.white.withValues(alpha: 0.05),
                             ),
                           ),
                           child: Center(
@@ -350,26 +346,28 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
                       itemCount: group.presets.length,
                       itemBuilder: (context, index) {
                         final preset = group.presets[index];
-                        final isSelected =
-                            widget.activePresetId == preset.id;
+                        final isSelected = widget.activePresetId == preset.id;
 
                         // Clean up brand name prefixes
                         var displayName = preset.name.toUpperCase();
                         if (displayName.startsWith('KODAK ')) {
                           displayName = displayName.replaceFirst('KODAK ', '');
                         } else if (displayName.startsWith('FUJIFILM ')) {
-                          displayName =
-                              displayName.replaceFirst('FUJIFILM ', '');
+                          displayName = displayName.replaceFirst(
+                            'FUJIFILM ',
+                            '',
+                          );
                         } else if (displayName.startsWith('RANA ')) {
                           displayName = displayName.replaceFirst('RANA ', '');
                         } else if (displayName.startsWith('ILFORD ')) {
-                          displayName =
-                              displayName.replaceFirst('ILFORD ', '');
+                          displayName = displayName.replaceFirst('ILFORD ', '');
                         } else if (displayName.startsWith('AGFA ')) {
                           displayName = displayName.replaceFirst('AGFA ', '');
                         } else if (displayName.startsWith('LOMOGRAPHY ')) {
-                          displayName =
-                              displayName.replaceFirst('LOMOGRAPHY ', '');
+                          displayName = displayName.replaceFirst(
+                            'LOMOGRAPHY ',
+                            '',
+                          );
                         }
 
                         final isSavedStyle =
@@ -393,26 +391,27 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
                                         height: 48,
                                         decoration: BoxDecoration(
                                           color: isSelected
-                                              ? const Color(0xFFF39C12)
-                                                  .withValues(alpha: 0.12)
+                                              ? const Color(
+                                                  0xFFF39C12,
+                                                ).withValues(alpha: 0.12)
                                               : const Color(0xFF16161A),
-                                          borderRadius:
-                                              BorderRadius.circular(14),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
                                           border: Border.all(
                                             color: isSelected
                                                 ? const Color(0xFFF39C12)
-                                                : Colors.white
-                                                    .withValues(alpha: 0.05),
+                                                : Colors.white.withValues(
+                                                    alpha: 0.05,
+                                                  ),
                                             width: isSelected ? 2 : 1,
                                           ),
                                           boxShadow: isSelected
                                               ? [
                                                   BoxShadow(
-                                                    color:
-                                                        const Color(0xFFF39C12)
-                                                            .withValues(
-                                                      alpha: 0.15,
-                                                    ),
+                                                    color: const Color(
+                                                      0xFFF39C12,
+                                                    ).withValues(alpha: 0.15),
                                                     blurRadius: 8,
                                                     offset: const Offset(0, 2),
                                                   ),

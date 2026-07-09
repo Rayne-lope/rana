@@ -98,6 +98,10 @@ class CameraState {
     required this.minZoomRatio,
     required this.maxZoomRatio,
     this.lastCapturedPath,
+    this.activeCaptureId,
+    this.completedCaptureId,
+    this.captureError,
+    this.captureElapsedMs = 0,
     this.errorMessage,
   });
 
@@ -134,6 +138,10 @@ class CameraState {
   final double minZoomRatio;
   final double maxZoomRatio;
   final String? lastCapturedPath;
+  final String? activeCaptureId;
+  final String? completedCaptureId;
+  final String? captureError;
+  final int captureElapsedMs;
   final String? errorMessage;
 
   bool get isSelfTimerRunning => selfTimerRemainingSeconds > 0;
@@ -164,6 +172,10 @@ class CameraState {
     double? minZoomRatio,
     double? maxZoomRatio,
     Object? lastCapturedPath = _unset,
+    Object? activeCaptureId = _unset,
+    Object? completedCaptureId = _unset,
+    Object? captureError = _unset,
+    int? captureElapsedMs,
     Object? errorMessage = _unset,
   }) => CameraState(
     flashMode: flashMode ?? this.flashMode,
@@ -183,6 +195,16 @@ class CameraState {
     lastCapturedPath: identical(lastCapturedPath, _unset)
         ? this.lastCapturedPath
         : lastCapturedPath as String?,
+    activeCaptureId: identical(activeCaptureId, _unset)
+        ? this.activeCaptureId
+        : activeCaptureId as String?,
+    completedCaptureId: identical(completedCaptureId, _unset)
+        ? this.completedCaptureId
+        : completedCaptureId as String?,
+    captureError: identical(captureError, _unset)
+        ? this.captureError
+        : captureError as String?,
+    captureElapsedMs: captureElapsedMs ?? this.captureElapsedMs,
     errorMessage: identical(errorMessage, _unset)
         ? this.errorMessage
         : errorMessage as String?,
@@ -206,6 +228,10 @@ class CameraState {
         other.minZoomRatio == minZoomRatio &&
         other.maxZoomRatio == maxZoomRatio &&
         other.lastCapturedPath == lastCapturedPath &&
+        other.activeCaptureId == activeCaptureId &&
+        other.completedCaptureId == completedCaptureId &&
+        other.captureError == captureError &&
+        other.captureElapsedMs == captureElapsedMs &&
         other.errorMessage == errorMessage;
   }
 
@@ -225,6 +251,10 @@ class CameraState {
     minZoomRatio,
     maxZoomRatio,
     lastCapturedPath,
+    activeCaptureId,
+    completedCaptureId,
+    captureError,
+    captureElapsedMs,
     errorMessage,
   );
 
@@ -239,5 +269,8 @@ class CameraState {
       'activeStyle: $activeStyle, '
       'zoomRatio: $zoomRatio, minZoomRatio: $minZoomRatio, '
       'maxZoomRatio: $maxZoomRatio, '
+      'activeCaptureId: $activeCaptureId, '
+      'completedCaptureId: $completedCaptureId, '
+      'captureElapsedMs: $captureElapsedMs, '
       'lastCapturedPath: $lastCapturedPath, errorMessage: $errorMessage)';
 }

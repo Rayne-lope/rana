@@ -38,6 +38,13 @@ abstract final class AppRoutes {
   static const consistencyDebug = '/consistency-debug';
 }
 
+class CaptureResultArgs {
+  const CaptureResultArgs({required this.captureId, this.initialUri});
+
+  final String captureId;
+  final String? initialUri;
+}
+
 @riverpod
 GoRouter appRouter(Ref ref) {
   AppLogger.i('AppRouter', 'Initialising router');
@@ -56,9 +63,40 @@ GoRouter appRouter(Ref ref) {
         path: AppRoutes.result,
         name: 'result',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => switch (state.extra) {
-          final String imageUri => ResultScreen(imageUri: imageUri),
-          _ => const SizedBox.shrink(),
+        pageBuilder: (context, state) {
+          final child = switch (state.extra) {
+            final CaptureResultArgs args => ResultScreen(
+              captureId: args.captureId,
+              initialUri: args.initialUri,
+            ),
+            final String imageUri => ResultScreen(imageUri: imageUri),
+            _ => const SizedBox.shrink(),
+          };
+
+          return CustomTransitionPage<void>(
+            key: state.pageKey,
+            transitionDuration: const Duration(milliseconds: 180),
+            reverseTransitionDuration: const Duration(milliseconds: 140),
+            child: child,
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  final curved = CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                    reverseCurve: Curves.easeInCubic,
+                  );
+                  return FadeTransition(
+                    opacity: curved,
+                    child: ScaleTransition(
+                      scale: Tween<double>(
+                        begin: 0.985,
+                        end: 1,
+                      ).animate(curved),
+                      child: child,
+                    ),
+                  );
+                },
+          );
         },
       ),
       GoRoute(

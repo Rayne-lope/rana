@@ -157,6 +157,7 @@ class CameraPreviewView(
                 unbindCamera()
                 glRenderer?.release()
                 glRenderer = null
+                OfflineGlProcessor.release()
                 captureExecutor.shutdown()
             } catch (e: Exception) {
                 // Ignore
@@ -450,6 +451,8 @@ class CameraPreviewView(
 
     fun takePicture(
         params: OfflineProcessParams,
+        captureId: String? = null,
+        onProgress: ((phase: String) -> Unit)? = null,
         callback: (
             success: Boolean,
             filePathOrUri: String?,
@@ -458,6 +461,15 @@ class CameraPreviewView(
             errorMsg: String?
         ) -> Unit
     ) {
+        fun markProgress(phase: String) {
+            val id = captureId ?: "executeCapture"
+            android.util.Log.d(
+                "RanaCaptureTimeline",
+                "captureId=$id event=$phase"
+            )
+            onProgress?.invoke(phase)
+        }
+
         val finishOnce = AtomicBoolean(false)
         fun finish(
             success: Boolean,
@@ -490,11 +502,13 @@ class CameraPreviewView(
 
         syncCurrentRotationFromDisplay()
         capture.targetRotation = currentRotation
+        markProgress("camera_request")
 
         capture.takePicture(
             captureExecutor,
             object : ImageCapture.OnImageCapturedCallback() {
                 override fun onCaptureSuccess(image: ImageProxy) {
+                    markProgress("image_captured")
                     var decodedBitmap: Bitmap? = null
                     var inputBitmap: Bitmap? = null
                     var processedBitmap: Bitmap? = null
@@ -505,6 +519,7 @@ class CameraPreviewView(
 
                     try {
                         val decodedCapture = decodeImageProxy(image)
+                        markProgress("decode_done")
                         decodedBitmap = decodedCapture?.bitmap
                         qualityMetadata = decodedCapture?.qualityMetadata
                         if (decodedCapture == null || decodedBitmap == null) {
@@ -525,6 +540,7 @@ class CameraPreviewView(
                                 image.cropRect,
                                 qualityMetadata?.inSampleSize ?: 1
                             )
+                            markProgress("crop_done")
                             if (inputBitmap !== decodedBitmap) {
                                 decodedBitmap.recycle()
                             }
@@ -535,18 +551,21 @@ class CameraPreviewView(
                                 image.imageInfo.rotationDegrees,
                                 currentLensFacing == CameraSelector.LENS_FACING_FRONT
                             )
+                            markProgress("transform_done")
 
                             processedBitmap = OfflineGlProcessor.processImage(
                                 context,
                                 inputBitmap,
                                 effectiveParams
                             )
+                            markProgress("gl_process_done")
                             inputBitmap = null
                             if (processedBitmap == null) {
                                 errorCode = "PROCESS_FAILED"
                                 errorMessage = "OfflineGlProcessor returned null"
                             } else {
                                 savedUri = saveProcessedBitmap(processedBitmap)
+                                markProgress("save_done")
                                 if (savedUri == null) {
                                     errorCode = "SAVE_FAILED"
                                     errorMessage = "Unable to save processed image"

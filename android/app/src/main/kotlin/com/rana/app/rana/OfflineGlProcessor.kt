@@ -111,6 +111,25 @@ object OfflineGlProcessor {
         val textureId: Int
     )
 
+    private data class RetainedGlState(
+        val eglDisplay: EGLDisplay,
+        val eglConfig: EGLConfig,
+        val eglContext: EGLContext,
+        var eglSurface: EGLSurface,
+        var surfaceWidth: Int,
+        var surfaceHeight: Int,
+        var singlePassProgram: SinglePassProgram? = null,
+        var basePassProgram: BasePassProgram? = null,
+        var compositeProgram: CompositeProgram? = null,
+        val lutTextureIds: MutableMap<String, Int> = mutableMapOf(),
+        val lightLeakTextureIds: MutableMap<Int, Int> = mutableMapOf(),
+        var dustTextureId: Int = -1,
+        var bloomProcessor: BloomProcessor? = null
+    )
+
+    private val retainedLock = Any()
+    private var retainedGlState: RetainedGlState? = null
+
     private val vertexCoords = floatArrayOf(
         -1.0f, -1.0f, 0.0f,
         1.0f, -1.0f, 0.0f,
@@ -163,18 +182,12 @@ object OfflineGlProcessor {
                 "grainSize=${params.grainSize} softness=${params.softness}"
         )
 
-        var eglDisplay = EGL14.EGL_NO_DISPLAY
-        var eglContext = EGL14.EGL_NO_CONTEXT
-        var eglSurface = EGL14.EGL_NO_SURFACE
         var inputTextureId = -1
         var lutTextureId = -1
         var leakTextureId = -1
         var dustTextureId = -1
-        var singlePassProgram: SinglePassProgram? = null
-        var basePassProgram: BasePassProgram? = null
-        var compositeProgram: CompositeProgram? = null
         var baseTarget: FramebufferTarget? = null
-        var bloomProcessor: BloomProcessor? = null
+        var glState: RetainedGlState? = null
 
         var workingBitmap = inputBitmap
 
@@ -182,74 +195,7 @@ object OfflineGlProcessor {
             val width = workingBitmap.width
             val height = workingBitmap.height
 
-            eglDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
-            if (eglDisplay == EGL14.EGL_NO_DISPLAY) {
-                throw RuntimeException("Unable to get EGL14 display")
-            }
-            val version = IntArray(2)
-            if (!EGL14.eglInitialize(eglDisplay, version, 0, version, 1)) {
-                throw RuntimeException("Unable to initialize EGL14")
-            }
-
-            val configAttribs = intArrayOf(
-                EGL14.EGL_RED_SIZE, 8,
-                EGL14.EGL_GREEN_SIZE, 8,
-                EGL14.EGL_BLUE_SIZE, 8,
-                EGL14.EGL_ALPHA_SIZE, 8,
-                EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
-                EGL14.EGL_SURFACE_TYPE, EGL14.EGL_PBUFFER_BIT,
-                EGL14.EGL_NONE
-            )
-            val configs = arrayOfNulls<EGLConfig>(1)
-            val numConfigs = IntArray(1)
-            if (!EGL14.eglChooseConfig(
-                    eglDisplay,
-                    configAttribs,
-                    0,
-                    configs,
-                    0,
-                    configs.size,
-                    numConfigs,
-                    0
-                )
-            ) {
-                throw RuntimeException("eglChooseConfig failed")
-            }
-            val config = configs[0] ?: throw RuntimeException("No EGL config")
-
-            val contextAttribs = intArrayOf(
-                EGL14.EGL_CONTEXT_CLIENT_VERSION, 2,
-                EGL14.EGL_NONE
-            )
-            eglContext = EGL14.eglCreateContext(
-                eglDisplay,
-                config,
-                EGL14.EGL_NO_CONTEXT,
-                contextAttribs,
-                0
-            )
-            if (eglContext == EGL14.EGL_NO_CONTEXT) {
-                throw RuntimeException("eglCreateContext failed")
-            }
-
-            val surfaceAttribs = intArrayOf(
-                EGL14.EGL_WIDTH, width,
-                EGL14.EGL_HEIGHT, height,
-                EGL14.EGL_NONE
-            )
-            eglSurface = EGL14.eglCreatePbufferSurface(
-                eglDisplay,
-                config,
-                surfaceAttribs,
-                0
-            )
-            if (eglSurface == EGL14.EGL_NO_SURFACE) {
-                throw RuntimeException("eglCreatePbufferSurface failed")
-            }
-
-            if (!EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
-                throw RuntimeException("eglMakeCurrent failed")
-            }
+            glState = acquireRetainedGlState(width, height)
 
             val maxSize = IntArray(1)
             GLES20.glGetIntegerv(GLES20.GL_MAX_RENDERBUFFER_SIZE, maxSize, 0)
@@ -273,27 +219,35 @@ object OfflineGlProcessor {
 
             val renderWidth = workingBitmap.width
             val renderHeight = workingBitmap.height
+            glState = acquireRetainedGlState(renderWidth, renderHeight)
             val vertexBuffer = buildFloatBuffer(vertexCoords)
             val textureBuffer = buildFloatBuffer(textureCoords)
             val dustUVOffsetX = (0..1000).random() / 1000f
             val dustUVOffsetY = (0..1000).random() / 1000f
 
-            lutTextureId = if (params.lutAssetPath != null && params.lutStrength > 0f) {
-                createTextureFromBitmap(getOrLoadLutBitmap(context, params.lutAssetPath))
-            } else {
-                -1
-            }
+            val retainedState = glState
+                ?: throw RuntimeException("Missing retained GL state")
+            lutTextureId =
+                if (params.lutAssetPath != null && params.lutStrength > 0f) {
+                    retainedState.getOrCreateLutTexture(
+                        context,
+                        params.lutAssetPath
+                    )
+                } else {
+                    -1
+                }
             leakTextureId =
                 if (params.lightLeakIntensity > 0f && params.lightLeakVariant in 0..3) {
-                    createTextureFromBitmap(
-                        getOrLoadLightLeakBitmap(context, params.lightLeakVariant)
+                    retainedState.getOrCreateLightLeakTexture(
+                        context,
+                        params.lightLeakVariant
                     )
                 } else {
                     -1
                 }
             dustTextureId =
                 if (params.dustIntensity > 0f) {
-                    createTextureFromBitmap(getOrLoadDustBitmap(context))
+                    retainedState.getOrCreateDustTexture(context)
                 } else {
                     -1
                 }
@@ -325,9 +279,18 @@ object OfflineGlProcessor {
             workingBitmap.safeRecycle()
 
             if (params.bloomIntensity > 0f) {
-                basePassProgram = createBasePassProgram()
-                compositeProgram = createCompositeProgram()
-                bloomProcessor = BloomProcessor()
+                val basePassProgram = retainedState.basePassProgram
+                    ?: createBasePassProgram().also {
+                        retainedState.basePassProgram = it
+                    }
+                val compositeProgram = retainedState.compositeProgram
+                    ?: createCompositeProgram().also {
+                        retainedState.compositeProgram = it
+                    }
+                val bloomProcessor = retainedState.bloomProcessor
+                    ?: BloomProcessor().also {
+                        retainedState.bloomProcessor = it
+                    }
                 baseTarget = createFramebufferTarget(renderWidth, renderHeight)
 
                 renderBaseColorPass(
@@ -365,7 +328,10 @@ object OfflineGlProcessor {
                     renderHeight = renderHeight
                 )
             } else {
-                singlePassProgram = createSinglePassProgram()
+                val singlePassProgram = retainedState.singlePassProgram
+                    ?: createSinglePassProgram().also {
+                        retainedState.singlePassProgram = it
+                    }
                 renderSinglePass(
                     program = singlePassProgram,
                     inputTextureId = inputTextureId,
@@ -409,15 +375,6 @@ object OfflineGlProcessor {
             return null
         } finally {
             workingBitmap.safeRecycle()
-            if (lutTextureId != -1) {
-                GLES20.glDeleteTextures(1, intArrayOf(lutTextureId), 0)
-            }
-            if (leakTextureId != -1) {
-                GLES20.glDeleteTextures(1, intArrayOf(leakTextureId), 0)
-            }
-            if (dustTextureId != -1) {
-                GLES20.glDeleteTextures(1, intArrayOf(dustTextureId), 0)
-            }
             if (inputTextureId != -1) {
                 GLES20.glDeleteTextures(1, intArrayOf(inputTextureId), 0)
             }
@@ -425,28 +382,192 @@ object OfflineGlProcessor {
                 GLES20.glDeleteFramebuffers(1, intArrayOf(it.framebufferId), 0)
                 GLES20.glDeleteTextures(1, intArrayOf(it.textureId), 0)
             }
-            singlePassProgram?.let { GLES20.glDeleteProgram(it.programId) }
-            basePassProgram?.let { GLES20.glDeleteProgram(it.programId) }
-            compositeProgram?.let { GLES20.glDeleteProgram(it.programId) }
-            bloomProcessor?.release()
 
-            if (eglDisplay != EGL14.EGL_NO_DISPLAY) {
+            glState?.let {
                 EGL14.eglMakeCurrent(
-                    eglDisplay,
+                    it.eglDisplay,
                     EGL14.EGL_NO_SURFACE,
                     EGL14.EGL_NO_SURFACE,
                     EGL14.EGL_NO_CONTEXT
                 )
-                if (eglSurface != EGL14.EGL_NO_SURFACE) {
-                    EGL14.eglDestroySurface(eglDisplay, eglSurface)
-                }
-                if (eglContext != EGL14.EGL_NO_CONTEXT) {
-                    EGL14.eglDestroyContext(eglDisplay, eglContext)
-                }
                 EGL14.eglReleaseThread()
-                EGL14.eglTerminate(eglDisplay)
             }
             isProcessing.set(false)
+        }
+    }
+
+    fun release() {
+        if (isProcessing.get()) {
+            return
+        }
+        synchronized(retainedLock) {
+            val state = retainedGlState ?: return
+            EGL14.eglMakeCurrent(
+                state.eglDisplay,
+                state.eglSurface,
+                state.eglSurface,
+                state.eglContext
+            )
+            state.singlePassProgram?.let { GLES20.glDeleteProgram(it.programId) }
+            state.basePassProgram?.let { GLES20.glDeleteProgram(it.programId) }
+            state.compositeProgram?.let { GLES20.glDeleteProgram(it.programId) }
+            state.lutTextureIds.values.forEach(::deleteTexture)
+            state.lightLeakTextureIds.values.forEach(::deleteTexture)
+            deleteTexture(state.dustTextureId)
+            state.bloomProcessor?.release()
+            EGL14.eglMakeCurrent(
+                state.eglDisplay,
+                EGL14.EGL_NO_SURFACE,
+                EGL14.EGL_NO_SURFACE,
+                EGL14.EGL_NO_CONTEXT
+            )
+            if (state.eglSurface != EGL14.EGL_NO_SURFACE) {
+                EGL14.eglDestroySurface(state.eglDisplay, state.eglSurface)
+            }
+            EGL14.eglDestroyContext(state.eglDisplay, state.eglContext)
+            EGL14.eglReleaseThread()
+            EGL14.eglTerminate(state.eglDisplay)
+            retainedGlState = null
+        }
+    }
+
+    private fun RetainedGlState.getOrCreateLutTexture(
+        context: android.content.Context,
+        assetPath: String
+    ): Int {
+        lutTextureIds[assetPath]?.let { return it }
+        val textureId = createTextureFromBitmap(getOrLoadLutBitmap(context, assetPath))
+        if (textureId != -1) {
+            lutTextureIds[assetPath] = textureId
+        }
+        return textureId
+    }
+
+    private fun RetainedGlState.getOrCreateLightLeakTexture(
+        context: android.content.Context,
+        variant: Int
+    ): Int {
+        lightLeakTextureIds[variant]?.let { return it }
+        val textureId = createTextureFromBitmap(
+            getOrLoadLightLeakBitmap(context, variant)
+        )
+        if (textureId != -1) {
+            lightLeakTextureIds[variant] = textureId
+        }
+        return textureId
+    }
+
+    private fun RetainedGlState.getOrCreateDustTexture(
+        context: android.content.Context
+    ): Int {
+        if (dustTextureId != -1) return dustTextureId
+        val textureId = createTextureFromBitmap(getOrLoadDustBitmap(context))
+        if (textureId != -1) {
+            dustTextureId = textureId
+        }
+        return textureId
+    }
+
+    private fun acquireRetainedGlState(width: Int, height: Int): RetainedGlState {
+        synchronized(retainedLock) {
+            var state = retainedGlState
+            if (state == null) {
+                val eglDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
+                if (eglDisplay == EGL14.EGL_NO_DISPLAY) {
+                    throw RuntimeException("Unable to get EGL14 display")
+                }
+                val version = IntArray(2)
+                if (!EGL14.eglInitialize(eglDisplay, version, 0, version, 1)) {
+                    throw RuntimeException("Unable to initialize EGL14")
+                }
+
+                val configAttribs = intArrayOf(
+                    EGL14.EGL_RED_SIZE, 8,
+                    EGL14.EGL_GREEN_SIZE, 8,
+                    EGL14.EGL_BLUE_SIZE, 8,
+                    EGL14.EGL_ALPHA_SIZE, 8,
+                    EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
+                    EGL14.EGL_SURFACE_TYPE, EGL14.EGL_PBUFFER_BIT,
+                    EGL14.EGL_NONE
+                )
+                val configs = arrayOfNulls<EGLConfig>(1)
+                val numConfigs = IntArray(1)
+                if (!EGL14.eglChooseConfig(
+                        eglDisplay,
+                        configAttribs,
+                        0,
+                        configs,
+                        0,
+                        configs.size,
+                        numConfigs,
+                        0
+                    )
+                ) {
+                    throw RuntimeException("eglChooseConfig failed")
+                }
+                val config = configs[0] ?: throw RuntimeException("No EGL config")
+
+                val contextAttribs = intArrayOf(
+                    EGL14.EGL_CONTEXT_CLIENT_VERSION, 2,
+                    EGL14.EGL_NONE
+                )
+                val eglContext = EGL14.eglCreateContext(
+                    eglDisplay,
+                    config,
+                    EGL14.EGL_NO_CONTEXT,
+                    contextAttribs,
+                    0
+                )
+                if (eglContext == EGL14.EGL_NO_CONTEXT) {
+                    throw RuntimeException("eglCreateContext failed")
+                }
+                state = RetainedGlState(
+                    eglDisplay = eglDisplay,
+                    eglConfig = config,
+                    eglContext = eglContext,
+                    eglSurface = EGL14.EGL_NO_SURFACE,
+                    surfaceWidth = 0,
+                    surfaceHeight = 0
+                )
+                retainedGlState = state
+            }
+
+            if (
+                state.eglSurface == EGL14.EGL_NO_SURFACE ||
+                state.surfaceWidth != width ||
+                state.surfaceHeight != height
+            ) {
+                if (state.eglSurface != EGL14.EGL_NO_SURFACE) {
+                    EGL14.eglDestroySurface(state.eglDisplay, state.eglSurface)
+                }
+                val surfaceAttribs = intArrayOf(
+                    EGL14.EGL_WIDTH, width,
+                    EGL14.EGL_HEIGHT, height,
+                    EGL14.EGL_NONE
+                )
+                state.eglSurface = EGL14.eglCreatePbufferSurface(
+                    state.eglDisplay,
+                    state.eglConfig,
+                    surfaceAttribs,
+                    0
+                )
+                if (state.eglSurface == EGL14.EGL_NO_SURFACE) {
+                    throw RuntimeException("eglCreatePbufferSurface failed")
+                }
+                state.surfaceWidth = width
+                state.surfaceHeight = height
+            }
+
+            if (!EGL14.eglMakeCurrent(
+                    state.eglDisplay,
+                    state.eglSurface,
+                    state.eglSurface,
+                    state.eglContext
+                )
+            ) {
+                throw RuntimeException("eglMakeCurrent failed")
+            }
+            return state
         }
     }
 
@@ -695,6 +816,12 @@ object OfflineGlProcessor {
         val textures = IntArray(1)
         GLES20.glGenTextures(1, textures, 0)
         return textures[0]
+    }
+
+    private fun deleteTexture(textureId: Int) {
+        if (textureId != -1 && textureId != 0) {
+            GLES20.glDeleteTextures(1, intArrayOf(textureId), 0)
+        }
     }
 
     private fun createTextureFromBitmap(bitmap: Bitmap?): Int {

@@ -73,12 +73,41 @@ class CameraPlatformService {
     }
   }
 
-  /// Loads raw bytes for a previously captured `content://` image URI.
-  Future<Uint8List> loadCapturedImageBytes(String uri) async {
+  /// Starts a staged native capture and returns as soon as native accepts it.
+  Future<Map<String, dynamic>> beginCapture(Map<String, dynamic> params) async {
     try {
+      AppLogger.glParams('EXPORT_BEGIN', params);
+      final result = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>(
+        'beginCapture',
+        params,
+      );
+      return Map<String, dynamic>.from(result ?? {});
+    } on PlatformException catch (e, stack) {
+      AppLogger.e(
+        'CameraPlatformService',
+        'Failed to begin capture on native side',
+        e,
+        stack,
+      );
+      rethrow;
+    }
+  }
+
+  /// Loads raw bytes for a previously captured `content://` image URI.
+  Future<Uint8List> loadCapturedImageBytes(
+    String uri, {
+    int? targetSize,
+  }) async {
+    try {
+      final startedAt = DateTime.now();
       final result = await _methodChannel.invokeMethod<Uint8List>(
         'loadCapturedImageBytes',
-        {'uri': uri},
+        {'uri': uri, 'targetSize': targetSize},
+      );
+      AppLogger.i(
+        'RanaCaptureTimeline',
+        'event=image_bytes_loaded uri=$uri targetSize=$targetSize '
+            'elapsedMs=${DateTime.now().difference(startedAt).inMilliseconds}',
       );
       return result ?? Uint8List(0);
     } on PlatformException catch (e, stack) {

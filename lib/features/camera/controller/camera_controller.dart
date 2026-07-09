@@ -72,12 +72,7 @@ class CameraController extends _$CameraController {
 
       unawaited(_statusSubscription?.cancel());
       _statusSubscription = _platformService.statusStream.listen(
-        (event) {
-          if (event['type'] == 'status_update') {
-            final fps = event['fps'] as int? ?? 0;
-            state = state.copyWith(currentFps: fps);
-          }
-        },
+        _handleStatusEvent,
         onError: (Object err) {
           state = state.copyWith(errorMessage: err.toString());
         },
@@ -286,6 +281,8 @@ class CameraController extends _$CameraController {
     }
 
     cancelSelfTimer();
+    final startedAt = DateTime.now();
+    AppLogger.i('RanaCaptureTimeline', 'event=shutter_tap elapsedMs=0');
 
     final captureParams = _buildCaptureParams();
     final activePreviewParams = ref
@@ -304,24 +301,33 @@ class CameraController extends _$CameraController {
     state = state.copyWith(
       captureStatus: CaptureStatus.capturing,
       errorMessage: null,
+      captureError: null,
+      activeCaptureId: null,
+      completedCaptureId: null,
+      captureElapsedMs: 0,
       lastCapturedPath: null,
     );
 
     try {
-      await Future<void>.delayed(const Duration(milliseconds: 120));
-      state = state.copyWith(captureStatus: CaptureStatus.processing);
-
-      final result = await _platformService.executeCapture(captureParams);
-      final filePath = result['filePath'] as String?;
-
-      state = state.copyWith(
-        captureStatus: CaptureStatus.success,
-        lastCapturedPath: filePath,
+      final result = await _platformService.beginCapture(captureParams);
+      final captureId = result['captureId'] as String?;
+      if (captureId == null || captureId.isEmpty) {
+        throw StateError('Native capture did not return a captureId');
+      }
+      final elapsedMs = DateTime.now().difference(startedAt).inMilliseconds;
+      AppLogger.i(
+        'RanaCaptureTimeline',
+        'captureId=$captureId event=native_accepted elapsedMs=$elapsedMs',
       );
-      _randomizeNextVariantForPreview();
+      state = state.copyWith(
+        captureStatus: CaptureStatus.processing,
+        activeCaptureId: captureId,
+        captureElapsedMs: elapsedMs,
+      );
     } on Object catch (e) {
       state = state.copyWith(
         captureStatus: CaptureStatus.error,
+        captureError: e.toString(),
         errorMessage: e.toString(),
       );
       unawaited(
@@ -486,6 +492,96 @@ class CameraController extends _$CameraController {
     }
   }
 
+  void _handleStatusEvent(Map<String, dynamic> event) {
+    final type = event['type'] as String?;
+    switch (type) {
+      case 'status_update':
+        final fps = event['fps'] as int? ?? 0;
+        state = state.copyWith(currentFps: fps);
+      case 'capture_progress':
+        _handleCaptureProgress(event);
+      case 'capture_completed':
+        _handleCaptureCompleted(event);
+      case 'capture_failed':
+        _handleCaptureFailed(event);
+    }
+  }
+
+  void _handleCaptureProgress(Map<String, dynamic> event) {
+    final captureId = event['captureId'] as String?;
+    if (captureId == null || captureId != state.activeCaptureId) {
+      return;
+    }
+    final phase = event['phase'] as String? ?? 'unknown';
+    final elapsedMs = _readInt(event, 'elapsedMs', state.captureElapsedMs);
+    AppLogger.i(
+      'RanaCaptureTimeline',
+      'captureId=$captureId event=$phase elapsedMs=$elapsedMs',
+    );
+    state = state.copyWith(
+      captureStatus: CaptureStatus.processing,
+      captureElapsedMs: elapsedMs,
+    );
+  }
+
+  void _handleCaptureCompleted(Map<String, dynamic> event) {
+    final captureId = event['captureId'] as String?;
+    if (captureId == null || captureId != state.activeCaptureId) {
+      return;
+    }
+    final imageUri = event['uri'] as String?;
+    final elapsedMs = _readInt(event, 'elapsedMs', state.captureElapsedMs);
+    AppLogger.i(
+      'RanaCaptureTimeline',
+      'captureId=$captureId event=capture_completed '
+          'uri=$imageUri elapsedMs=$elapsedMs',
+    );
+    state = state.copyWith(
+      captureStatus: CaptureStatus.success,
+      completedCaptureId: captureId,
+      captureElapsedMs: elapsedMs,
+      captureError: null,
+      errorMessage: null,
+      lastCapturedPath: imageUri,
+    );
+    _randomizeNextVariantForPreview();
+  }
+
+  void _handleCaptureFailed(Map<String, dynamic> event) {
+    final captureId = event['captureId'] as String?;
+    if (captureId == null || captureId != state.activeCaptureId) {
+      return;
+    }
+    final elapsedMs = _readInt(event, 'elapsedMs', state.captureElapsedMs);
+    final message =
+        event['message'] as String? ??
+        event['errorCode'] as String? ??
+        'Capture failed';
+    AppLogger.w(
+      'RanaCaptureTimeline',
+      'captureId=$captureId event=capture_failed '
+          'message=$message elapsedMs=$elapsedMs',
+    );
+    state = state.copyWith(
+      captureStatus: CaptureStatus.error,
+      captureElapsedMs: elapsedMs,
+      captureError: message,
+      errorMessage: message,
+    );
+    unawaited(
+      Future<void>.delayed(const Duration(seconds: 2)).then((_) {
+        if (state.captureStatus == CaptureStatus.error &&
+            state.activeCaptureId == captureId) {
+          state = state.copyWith(
+            captureStatus: CaptureStatus.idle,
+            activeCaptureId: null,
+            captureError: null,
+          );
+        }
+      }),
+    );
+  }
+
   Map<String, dynamic> _buildPreviewParams(
     PresetModel preset, {
     RanaStyle? style,
@@ -576,7 +672,13 @@ class CameraController extends _$CameraController {
     if (state.captureStatus != CaptureStatus.success) {
       return;
     }
-    state = state.copyWith(captureStatus: CaptureStatus.idle);
+    state = state.copyWith(
+      captureStatus: CaptureStatus.idle,
+      activeCaptureId: null,
+      completedCaptureId: null,
+      captureError: null,
+      captureElapsedMs: 0,
+    );
   }
 
   /// Releases native camera resources and resets initialization state.
@@ -704,6 +806,11 @@ class CameraController extends _$CameraController {
   double _readDouble(Map<String, dynamic> result, String key, double fallback) {
     final value = result[key];
     return value is num && value.isFinite ? value.toDouble() : fallback;
+  }
+
+  int _readInt(Map<String, dynamic> result, String key, int fallback) {
+    final value = result[key];
+    return value is num && value.isFinite ? value.round() : fallback;
   }
 
   double _clampZoomRatio(

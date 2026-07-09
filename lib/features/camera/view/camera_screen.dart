@@ -67,11 +67,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     _cameraStateSubscription = ref.listenManual<CameraState>(
       cameraControllerProvider,
       (previous, next) {
-        final enteredSuccess =
-            previous?.captureStatus != CaptureStatus.success &&
-            next.captureStatus == CaptureStatus.success;
-        final imageUri = next.lastCapturedPath;
-        if (!enteredSuccess || imageUri == null) {
+        final captureId = next.activeCaptureId;
+        final enteredCapture =
+            captureId != null && previous?.activeCaptureId != captureId;
+        if (!enteredCapture) {
           return;
         }
 
@@ -79,7 +78,20 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           if (!mounted) {
             return;
           }
-          unawaited(context.push(AppRoutes.result, extra: imageUri));
+          AppLogger.i(
+            'RanaCaptureTimeline',
+            'captureId=$captureId event=result_route_push '
+                'elapsedMs=${next.captureElapsedMs}',
+          );
+          unawaited(
+            context.push(
+              AppRoutes.result,
+              extra: CaptureResultArgs(
+                captureId: captureId,
+                initialUri: next.lastCapturedPath,
+              ),
+            ),
+          );
         });
       },
     );
@@ -260,9 +272,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final activePreset = _findActivePreset(state, presetsList);
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-      ),
+      decoration: const BoxDecoration(color: Colors.transparent),
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -302,68 +312,68 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   Widget _buildPresetSelectionHeader(
     CameraState state,
     CameraController controller,
-  ) =>
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            IconButton(
-              onPressed: () {
-                final presetsList = ref.read(presetsProvider).valueOrNull ?? [];
-                if (_originalPresetId != null) {
-                  final originalPreset = presetsList.firstWhere(
-                    (p) => p.id == _originalPresetId,
-                    orElse: () => presetsList.first,
-                  );
-                  controller.selectPreset(originalPreset);
-                }
-                setState(() {
-                  _isSelectingPreset = false;
-                });
-              },
-              icon: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-            const Text(
-              'SELECT PRESET',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.5,
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _isSelectingPreset = false;
-                });
-              },
-              child: const Text(
-                'DONE',
-                style: TextStyle(
-                  color: Color(0xFFF39C12),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1,
-                ),
-              ),
-            ),
-          ],
+  ) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        IconButton(
+          onPressed: () {
+            final presetsList = ref.read(presetsProvider).valueOrNull ?? [];
+            if (_originalPresetId != null) {
+              final originalPreset = presetsList.firstWhere(
+                (p) => p.id == _originalPresetId,
+                orElse: () => presetsList.first,
+              );
+              controller.selectPreset(originalPreset);
+            }
+            setState(() {
+              _isSelectingPreset = false;
+            });
+          },
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.white,
+            size: 20,
+          ),
         ),
-      );
+        const Text(
+          'SELECT PRESET',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.5,
+          ),
+        ),
+        TextButton(
+          onPressed: () {
+            setState(() {
+              _isSelectingPreset = false;
+            });
+          },
+          child: const Text(
+            'DONE',
+            style: TextStyle(
+              color: Color(0xFFF39C12),
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _buildPresetSelectionContent(
     CameraState state,
     CameraController controller,
-  ) =>
-      SizedBox(
-        height: 190,
-        child: ref.watch(presetsProvider).when(
+  ) => SizedBox(
+    height: 190,
+    child: ref
+        .watch(presetsProvider)
+        .when(
           data: (presetsList) {
             if (presetsList.isEmpty) {
               return const Center(
@@ -401,7 +411,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
             ),
           ),
         ),
-      );
+  );
 
   PresetModel? _findActivePreset(
     CameraState state,
@@ -1315,9 +1325,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final activePreset = _findActivePreset(state, presetsList);
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-      ),
+      decoration: const BoxDecoration(color: Colors.transparent),
       padding: const EdgeInsets.only(top: 16, bottom: 24),
       child: Column(
         children: [

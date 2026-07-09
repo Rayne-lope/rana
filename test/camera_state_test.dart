@@ -21,11 +21,32 @@ void main() {
     Future<Map<String, dynamic>> Function(MethodCall methodCall)?
     executeCaptureHandler;
     var nativeMaxZoomRatio = userMaxZoomRatio;
+    var captureCounter = 0;
+
+    void dispatchCameraStatusEvent(Map<String, dynamic> event) {
+      const codec = StandardMethodCodec();
+      final data = codec.encodeSuccessEnvelope(event);
+      unawaited(
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .handlePlatformMessage(
+              'com.rana.app/camera_status',
+              data,
+              (ByteData? reply) {},
+            ),
+      );
+    }
+
+    Future<void> drainCaptureEvents() async {
+      for (var i = 0; i < 4; i += 1) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
 
     setUp(() {
       log.clear();
       executeCaptureHandler = null;
       nativeMaxZoomRatio = userMaxZoomRatio;
+      captureCounter = 0;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(methodChannel, (
             MethodCall methodCall,
@@ -87,6 +108,47 @@ void main() {
               case 'executeCapture':
                 return executeCaptureHandler?.call(methodCall) ??
                     {'status': 'captured', 'filePath': '/mock/path/photo.jpg'};
+              case 'beginCapture':
+                final captureId = 'test-capture-${++captureCounter}';
+                Future<Map<String, dynamic>> captureResult;
+                try {
+                  captureResult =
+                      executeCaptureHandler?.call(methodCall) ??
+                      Future<Map<String, dynamic>>.value({
+                        'status': 'captured',
+                        'filePath': '/mock/path/photo.jpg',
+                      });
+                } on Object catch (error) {
+                  captureResult = Future<Map<String, dynamic>>.error(error);
+                }
+                unawaited(
+                  captureResult
+                      .then((payload) {
+                        dispatchCameraStatusEvent({
+                          'type': 'capture_completed',
+                          'captureId': captureId,
+                          'uri': payload['filePath'],
+                          'elapsedMs': 320,
+                          'qualityReduced': false,
+                          'inSampleSize': 1,
+                          'lutSkipped': false,
+                        });
+                      })
+                      .catchError((Object error) {
+                        dispatchCameraStatusEvent({
+                          'type': 'capture_failed',
+                          'captureId': captureId,
+                          'errorCode': error is PlatformException
+                              ? error.code
+                              : 'CAPTURE_FAILED',
+                          'message': error is PlatformException
+                              ? error.message
+                              : error.toString(),
+                          'elapsedMs': 320,
+                        });
+                      }),
+                );
+                return {'status': 'capture_started', 'captureId': captureId};
               default:
                 return null;
             }
@@ -691,7 +753,7 @@ void main() {
         await controller.capture();
 
         final captureCall = log.singleWhere(
-          (call) => call.method == 'executeCapture',
+          (call) => call.method == 'beginCapture',
         );
         final exportParams = captureCall.arguments as Map<dynamic, dynamic>;
         for (final key in [
@@ -851,7 +913,7 @@ void main() {
       await controller.capture();
 
       final captureCall = log.singleWhere(
-        (call) => call.method == 'executeCapture',
+        (call) => call.method == 'beginCapture',
       );
       final args = captureCall.arguments as Map<dynamic, dynamic>;
       expect(args['tone'], equals(24.0));
@@ -912,9 +974,19 @@ void main() {
         await controller.handleShutterPressed();
 
         expect(
-          log.where((call) => call.method == 'executeCapture'),
+          log.where((call) => call.method == 'beginCapture'),
           hasLength(1),
         );
+        expect(
+          container.read(cameraControllerProvider).captureStatus,
+          equals(CaptureStatus.processing),
+        );
+        expect(
+          container.read(cameraControllerProvider).activeCaptureId,
+          isNotNull,
+        );
+
+        await drainCaptureEvents();
         expect(
           container.read(cameraControllerProvider).captureStatus,
           equals(CaptureStatus.success),
@@ -952,14 +1024,10 @@ void main() {
         );
 
         async.elapse(const Duration(seconds: 1));
-        async.elapse(const Duration(milliseconds: 120));
         async.flushMicrotasks();
       });
 
-      expect(
-        log.where((call) => call.method == 'executeCapture'),
-        hasLength(1),
-      );
+      expect(log.where((call) => call.method == 'beginCapture'), hasLength(1));
       expect(
         container.read(cameraControllerProvider).captureStatus,
         equals(CaptureStatus.success),
@@ -1009,7 +1077,7 @@ void main() {
           async.flushMicrotasks();
         });
 
-        expect(log.where((call) => call.method == 'executeCapture'), isEmpty);
+        expect(log.where((call) => call.method == 'beginCapture'), isEmpty);
         expect(
           container.read(cameraControllerProvider).isCameraInitialized,
           isFalse,
@@ -1087,6 +1155,7 @@ void main() {
       );
 
       await controller.capture();
+      await drainCaptureEvents();
 
       // Verify state transitions:
       // 1. Initial/current state is idle
@@ -1125,6 +1194,7 @@ void main() {
       await controller.initialize();
 
       await controller.capture();
+      await drainCaptureEvents();
       expect(
         container.read(cameraControllerProvider).captureStatus,
         equals(CaptureStatus.success),
@@ -1185,7 +1255,7 @@ void main() {
       await controller.capture();
 
       final captureCall = log.firstWhere(
-        (call) => call.method == 'executeCapture',
+        (call) => call.method == 'beginCapture',
       );
       final args = captureCall.arguments as Map<dynamic, dynamic>;
       expect(args['temperature'], equals(0.3));
@@ -1222,7 +1292,7 @@ void main() {
       await controller.capture();
 
       final captureCall = log.firstWhere(
-        (call) => call.method == 'executeCapture',
+        (call) => call.method == 'beginCapture',
       );
       final args = captureCall.arguments as Map<dynamic, dynamic>;
       expect(args['temperature'], equals(0.0));
@@ -1261,7 +1331,7 @@ void main() {
       await Future.wait([firstCapture, secondCapture]);
 
       final captureCalls = log
-          .where((call) => call.method == 'executeCapture')
+          .where((call) => call.method == 'beginCapture')
           .toList();
       expect(captureCalls.length, equals(1));
     });
@@ -1300,6 +1370,7 @@ void main() {
         await controller.toggleLens();
         await controller.selectPreset(warmPreset);
         await controller.capture();
+        await drainCaptureEvents();
 
         final successState = container.read(cameraControllerProvider);
         expect(successState.captureStatus, equals(CaptureStatus.success));
@@ -1339,6 +1410,7 @@ void main() {
       );
 
       await controller.capture();
+      await drainCaptureEvents();
       expect(states.any((s) => s.captureStatus == CaptureStatus.error), isTrue);
 
       await Future<void>.delayed(const Duration(milliseconds: 2200));

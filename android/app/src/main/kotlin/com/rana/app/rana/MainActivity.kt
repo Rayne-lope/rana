@@ -16,11 +16,13 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import androidx.camera.core.CameraSelector
 import android.provider.MediaStore
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 class MainActivity : FlutterActivity() {
     private val METHOD_CHANNEL = "com.rana.app/camera_control"
@@ -30,6 +32,7 @@ class MainActivity : FlutterActivity() {
     private var eventSink: EventChannel.EventSink? = null
     private val handler = Handler(Looper.getMainLooper())
     private val mediaStoreExecutor = Executors.newSingleThreadExecutor()
+    private val captureSequence = AtomicInteger(0)
     private var pendingDeleteResult: MethodChannel.Result? = null
     var activePreviewView: CameraPreviewView? = null
 
@@ -121,16 +124,76 @@ class MainActivity : FlutterActivity() {
                         result.error("CAMERA_NOT_READY", "Camera preview not initialized", null)
                     }
                 }
+                "beginCapture" -> {
+                    val preview = activePreviewView
+                    if (preview != null) {
+                        val params = offlineParamsFromArgs(call.arguments)
+                        val captureId = "capture-${System.currentTimeMillis()}-${captureSequence.incrementAndGet()}"
+                        val startedAt = SystemClock.elapsedRealtime()
+                        android.util.Log.d(
+                            "RanaCaptureTimeline",
+                            "captureId=$captureId event=begin_capture elapsedMs=0"
+                        )
+                        result.success(
+                            mapOf(
+                                "status" to "capture_started",
+                                "captureId" to captureId
+                            )
+                        )
+                        dispatchCaptureProgress(captureId, "native_request", startedAt)
+                        preview.takePicture(
+                            params,
+                            captureId = captureId,
+                            onProgress = { phase ->
+                                dispatchCaptureProgress(captureId, phase, startedAt)
+                            }
+                        ) { success, filePathOrUri, qualityMetadata, errorCode, errorMsg ->
+                            if (success) {
+                                dispatchCaptureCompleted(
+                                    captureId,
+                                    filePathOrUri,
+                                    qualityMetadata,
+                                    startedAt
+                                )
+                            } else {
+                                dispatchCaptureFailed(
+                                    captureId,
+                                    errorCode ?: "CAPTURE_FAILED",
+                                    errorMsg ?: "Unknown error",
+                                    startedAt
+                                )
+                            }
+                        }
+                    } else {
+                        result.error("CAMERA_NOT_READY", "Camera preview not initialized", null)
+                    }
+                }
                 "loadCapturedImageBytes" -> {
                     val uriArg = call.argument<String>("uri")
+                    val targetSize = (call.argument<Number>("targetSize"))?.toInt()
                     if (uriArg.isNullOrBlank()) {
                         result.error("INVALID_URI", "Image URI is required", null)
                     } else {
-                        try {
-                            val imageBytes = loadCapturedImageBytes(Uri.parse(uriArg))
-                            result.success(imageBytes)
-                        } catch (e: Exception) {
-                            result.error("LOAD_IMAGE_FAILED", e.message, null)
+                        mediaStoreExecutor.execute {
+                            val startedAt = SystemClock.elapsedRealtime()
+                            try {
+                                val imageBytes = loadCapturedImageBytes(
+                                    Uri.parse(uriArg),
+                                    targetSize
+                                )
+                                android.util.Log.d(
+                                    "RanaCaptureTimeline",
+                                    "event=image_bytes_loaded uri=$uriArg " +
+                                        "targetSize=$targetSize elapsedMs=${
+                                            SystemClock.elapsedRealtime() - startedAt
+                                        }"
+                                )
+                                handler.post { result.success(imageBytes) }
+                            } catch (e: Exception) {
+                                handler.post {
+                                    result.error("LOAD_IMAGE_FAILED", e.message, null)
+                                }
+                            }
                         }
                     }
                 }
@@ -475,6 +538,79 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun dispatchCaptureProgress(
+        captureId: String,
+        phase: String,
+        startedAt: Long
+    ) {
+        val elapsedMs = SystemClock.elapsedRealtime() - startedAt
+        android.util.Log.d(
+            "RanaCaptureTimeline",
+            "captureId=$captureId event=$phase elapsedMs=$elapsedMs"
+        )
+        handler.post {
+            eventSink?.success(
+                mapOf(
+                    "type" to "capture_progress",
+                    "captureId" to captureId,
+                    "phase" to phase,
+                    "elapsedMs" to elapsedMs
+                )
+            )
+        }
+    }
+
+    private fun dispatchCaptureCompleted(
+        captureId: String,
+        uri: String?,
+        qualityMetadata: CameraPreviewView.CaptureQualityMetadata?,
+        startedAt: Long
+    ) {
+        val elapsedMs = SystemClock.elapsedRealtime() - startedAt
+        android.util.Log.d(
+            "RanaCaptureTimeline",
+            "captureId=$captureId event=capture_completed uri=$uri elapsedMs=$elapsedMs"
+        )
+        handler.post {
+            eventSink?.success(
+                mapOf(
+                    "type" to "capture_completed",
+                    "captureId" to captureId,
+                    "uri" to uri,
+                    "elapsedMs" to elapsedMs,
+                    "qualityReduced" to (qualityMetadata?.qualityReduced ?: false),
+                    "inSampleSize" to (qualityMetadata?.inSampleSize ?: 1),
+                    "lutSkipped" to (qualityMetadata?.lutSkipped ?: false)
+                )
+            )
+        }
+    }
+
+    private fun dispatchCaptureFailed(
+        captureId: String,
+        errorCode: String,
+        message: String,
+        startedAt: Long
+    ) {
+        val elapsedMs = SystemClock.elapsedRealtime() - startedAt
+        android.util.Log.e(
+            "RanaCaptureTimeline",
+            "captureId=$captureId event=capture_failed code=$errorCode " +
+                "message=$message elapsedMs=$elapsedMs"
+        )
+        handler.post {
+            eventSink?.success(
+                mapOf(
+                    "type" to "capture_failed",
+                    "captureId" to captureId,
+                    "errorCode" to errorCode,
+                    "message" to message,
+                    "elapsedMs" to elapsedMs
+                )
+            )
+        }
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != DELETE_MEDIA_REQUEST_CODE) return
@@ -488,10 +624,57 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun loadCapturedImageBytes(uri: Uri): ByteArray {
-        return contentResolver.openInputStream(uri)?.use { stream ->
+    private fun loadCapturedImageBytes(uri: Uri, targetSize: Int? = null): ByteArray {
+        val safeTargetSize = targetSize ?: 0
+        if (safeTargetSize <= 0) {
+            return contentResolver.openInputStream(uri)?.use { stream ->
+                stream.readBytes()
+            } ?: throw IllegalStateException("Unable to open image stream")
+        }
+
+        return loadResizedImageBytes(uri, safeTargetSize) ?: contentResolver.openInputStream(uri)?.use { stream ->
             stream.readBytes()
         } ?: throw IllegalStateException("Unable to open image stream")
+    }
+
+    private fun loadResizedImageBytes(uri: Uri, targetSize: Int): ByteArray? {
+        val bounds = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, bounds)
+        } ?: return null
+
+        val sourceWidth = bounds.outWidth
+        val sourceHeight = bounds.outHeight
+        if (sourceWidth <= 0 || sourceHeight <= 0) return null
+
+        var sampleSize = 1
+        while (
+            sourceWidth / sampleSize > targetSize ||
+            sourceHeight / sampleSize > targetSize
+        ) {
+            sampleSize *= 2
+        }
+
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        val bitmap = contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, options)
+        } ?: return null
+
+        return try {
+            ByteArrayOutputStream().use { output ->
+                if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 88, output)) {
+                    return null
+                }
+                output.toByteArray()
+            }
+        } finally {
+            bitmap.safeRecycle()
+        }
     }
 
     private fun listGalleryMedia(): List<Map<String, Any?>> {
