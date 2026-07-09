@@ -1251,7 +1251,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               // Native zoom indicator and reset affordance.
               if (state.isCameraInitialized)
                 Positioned(
-                  top: 12,
+                  bottom: 16,
                   left: 0,
                   right: 0,
                   child: Center(
