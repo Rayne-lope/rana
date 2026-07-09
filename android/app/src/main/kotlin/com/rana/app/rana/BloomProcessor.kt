@@ -84,9 +84,11 @@ class BloomProcessor {
         sourceWidth: Int,
         sourceHeight: Int,
         bloomThreshold: Float,
-        divisor: Int
+        divisor: Int,
+        blurRadiusScale: Float = 1f
     ): BloomResult {
         ensureFramebuffers(sourceWidth, sourceHeight, divisor)
+        val safeBlurRadiusScale = blurRadiusScale.coerceAtLeast(0.01f)
 
         renderPass(
             framebufferId = framebufferA,
@@ -115,7 +117,7 @@ class BloomProcessor {
             GLES20.glUniform1i(blurProgram.textureLoc, 0)
             GLES20.glUniform2f(
                 blurProgram.texelOffsetLoc,
-                1f / downsampleWidth.toFloat(),
+                safeBlurRadiusScale / downsampleWidth.toFloat(),
                 0f
             )
         }
@@ -134,7 +136,7 @@ class BloomProcessor {
             GLES20.glUniform2f(
                 blurProgram.texelOffsetLoc,
                 0f,
-                1f / downsampleHeight.toFloat()
+                safeBlurRadiusScale / downsampleHeight.toFloat()
             )
         }
 

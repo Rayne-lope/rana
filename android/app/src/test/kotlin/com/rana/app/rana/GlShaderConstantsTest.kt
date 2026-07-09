@@ -1,5 +1,6 @@
 package com.rana.app.rana
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -87,6 +88,15 @@ class GlShaderConstantsTest {
 
         assertTrue(shader.contains("vec3 color = applyColorGrade(texColor.rgb);"))
         assertTrue(!shader.contains("color = applyRanaStyles(color);"))
+    }
+
+    @Test
+    fun `gaussian blur combines adjacent taps through bilinear filtering`() {
+        val shader = GlShaderConstants.FRAGMENT_SHADER_GAUSSIAN_BLUR
+
+        assertTrue(shader.contains("uTexelOffset * 1.384615"))
+        assertTrue(shader.contains("uTexelOffset * 3.230769"))
+        assertEquals(5, Regex("texture2D\\s*\\(").findAll(shader).count())
     }
 
     private fun assertOrder(shader: String, first: String, second: String) {

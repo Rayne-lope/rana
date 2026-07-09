@@ -308,39 +308,23 @@ object GlShaderConstants {
         uniform vec2 uTexelOffset;
 
         void main() {
-            vec3 result = texture2D(sTexture, vTextureCoord).rgb * 0.2270;
+            vec3 result = texture2D(sTexture, vTextureCoord).rgb * 0.227027;
             result += texture2D(
                 sTexture,
-                vTextureCoord + uTexelOffset * 1.0
-            ).rgb * 0.1945;
+                vTextureCoord + uTexelOffset * 1.384615
+            ).rgb * 0.316216;
             result += texture2D(
                 sTexture,
-                vTextureCoord - uTexelOffset * 1.0
-            ).rgb * 0.1945;
+                vTextureCoord - uTexelOffset * 1.384615
+            ).rgb * 0.316216;
             result += texture2D(
                 sTexture,
-                vTextureCoord + uTexelOffset * 2.0
-            ).rgb * 0.1216;
+                vTextureCoord + uTexelOffset * 3.230769
+            ).rgb * 0.070270;
             result += texture2D(
                 sTexture,
-                vTextureCoord - uTexelOffset * 2.0
-            ).rgb * 0.1216;
-            result += texture2D(
-                sTexture,
-                vTextureCoord + uTexelOffset * 3.0
-            ).rgb * 0.0540;
-            result += texture2D(
-                sTexture,
-                vTextureCoord - uTexelOffset * 3.0
-            ).rgb * 0.0540;
-            result += texture2D(
-                sTexture,
-                vTextureCoord + uTexelOffset * 4.0
-            ).rgb * 0.0162;
-            result += texture2D(
-                sTexture,
-                vTextureCoord - uTexelOffset * 4.0
-            ).rgb * 0.0162;
+                vTextureCoord - uTexelOffset * 3.230769
+            ).rgb * 0.070270;
             gl_FragColor = vec4(result, 1.0);
         }
     """.trimIndent()

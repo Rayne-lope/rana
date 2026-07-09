@@ -13,9 +13,22 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.roundToInt
+import kotlin.math.sqrt
+
+internal data class OfflineEffectScale(
+    val resolutionScale: Float,
+    val grainIntensity: Float,
+    val grainSize: Float,
+    val bloomDivisor: Int,
+    val blurRadiusScale: Float
+)
 
 object OfflineGlProcessor {
     private const val TAG = "OfflineGlProcessor"
+    private const val PREVIEW_SHORT_EDGE_PX = 1080f
+    private const val PREVIEW_BLOOM_DIVISOR = 4
+    private const val MAX_OFFLINE_BLOOM_DIVISOR = 16
     private val isProcessing = AtomicBoolean(false)
     private val lutBitmapCache =
         java.util.concurrent.ConcurrentHashMap<String, Bitmap>()
@@ -151,6 +164,28 @@ object OfflineGlProcessor {
         0f, 0f, 0f, 1f
     )
 
+    internal fun calculateEffectScale(
+        renderWidth: Int,
+        renderHeight: Int,
+        params: OfflineProcessParams
+    ): OfflineEffectScale {
+        val shortEdge = minOf(renderWidth, renderHeight).coerceAtLeast(1)
+        val resolutionScale = (shortEdge / PREVIEW_SHORT_EDGE_PX).coerceAtLeast(1f)
+        val bloomDivisor = (PREVIEW_BLOOM_DIVISOR * resolutionScale)
+            .roundToInt()
+            .coerceIn(PREVIEW_BLOOM_DIVISOR, MAX_OFFLINE_BLOOM_DIVISOR)
+
+        return OfflineEffectScale(
+            resolutionScale = resolutionScale,
+            grainIntensity = (params.grain * sqrt(resolutionScale.toDouble()).toFloat())
+                .coerceIn(0f, 1f),
+            grainSize = params.grainSize.coerceAtLeast(0.1f) * resolutionScale,
+            bloomDivisor = bloomDivisor,
+            blurRadiusScale =
+                (PREVIEW_BLOOM_DIVISOR * resolutionScale) / bloomDivisor.toFloat()
+        )
+    }
+
     /**
      * Processes and takes ownership of [inputBitmap].
      *
@@ -219,6 +254,14 @@ object OfflineGlProcessor {
 
             val renderWidth = workingBitmap.width
             val renderHeight = workingBitmap.height
+            val effectScale = calculateEffectScale(renderWidth, renderHeight, params)
+            Log.d(
+                TAG,
+                "Offline scale ${effectScale.resolutionScale} for ${renderWidth}x${renderHeight}: " +
+                    "grain=${effectScale.grainIntensity}, grainSize=${effectScale.grainSize}, " +
+                    "bloomDivisor=${effectScale.bloomDivisor}, " +
+                    "blurRadius=${effectScale.blurRadiusScale}"
+            )
             glState = acquireRetainedGlState(renderWidth, renderHeight)
             val vertexBuffer = buildFloatBuffer(vertexCoords)
             val textureBuffer = buildFloatBuffer(textureCoords)
@@ -310,7 +353,8 @@ object OfflineGlProcessor {
                     sourceWidth = renderWidth,
                     sourceHeight = renderHeight,
                     bloomThreshold = params.bloomThreshold,
-                    divisor = 4
+                    divisor = effectScale.bloomDivisor,
+                    blurRadiusScale = effectScale.blurRadiusScale
                 )
 
                 renderCompositePass(
@@ -320,6 +364,7 @@ object OfflineGlProcessor {
                     lightLeakTextureId = leakTextureId,
                     dustTextureId = dustTextureId,
                     params = params,
+                    effectScale = effectScale,
                     dustUVOffsetX = dustUVOffsetX,
                     dustUVOffsetY = dustUVOffsetY,
                     vertexBuffer = vertexBuffer,
@@ -339,6 +384,7 @@ object OfflineGlProcessor {
                     lightLeakTextureId = leakTextureId,
                     dustTextureId = dustTextureId,
                     params = params,
+                    effectScale = effectScale,
                     dustUVOffsetX = dustUVOffsetX,
                     dustUVOffsetY = dustUVOffsetY,
                     vertexBuffer = vertexBuffer,
@@ -578,6 +624,7 @@ object OfflineGlProcessor {
         lightLeakTextureId: Int,
         dustTextureId: Int,
         params: OfflineProcessParams,
+        effectScale: OfflineEffectScale,
         dustUVOffsetX: Float,
         dustUVOffsetY: Float,
         vertexBuffer: FloatBuffer,
@@ -600,7 +647,7 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.temperatureLoc, params.temperature)
         GLES20.glUniform1f(program.saturationLoc, params.saturation)
         GLES20.glUniform1f(program.contrastLoc, params.contrast)
-        GLES20.glUniform1f(program.grainLoc, params.grain)
+        GLES20.glUniform1f(program.grainLoc, effectScale.grainIntensity)
         GLES20.glUniform1f(program.vignetteLoc, params.vignette)
         GLES20.glUniform1f(program.lutStrengthLoc, params.lutStrength)
         GLES20.glUniform1f(program.lightLeakIntensityLoc, params.lightLeakIntensity)
@@ -616,7 +663,7 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.styleStrengthLoc, params.styleStrength)
         GLES20.glUniform1f(program.undertoneXLoc, params.undertoneX)
         GLES20.glUniform1f(program.undertoneYLoc, params.undertoneY)
-        GLES20.glUniform1f(program.grainSizeLoc, params.grainSize)
+        GLES20.glUniform1f(program.grainSizeLoc, effectScale.grainSize)
         GLES20.glUniform1f(program.softnessLoc, params.softness)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
@@ -712,6 +759,7 @@ object OfflineGlProcessor {
         lightLeakTextureId: Int,
         dustTextureId: Int,
         params: OfflineProcessParams,
+        effectScale: OfflineEffectScale,
         dustUVOffsetX: Float,
         dustUVOffsetY: Float,
         vertexBuffer: FloatBuffer,
@@ -733,7 +781,7 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.dustIntensityLoc, params.dustIntensity)
         GLES20.glUniform1f(program.dustUvOffsetXLoc, dustUVOffsetX)
         GLES20.glUniform1f(program.dustUvOffsetYLoc, dustUVOffsetY)
-        GLES20.glUniform1f(program.grainLoc, params.grain)
+        GLES20.glUniform1f(program.grainLoc, effectScale.grainIntensity)
         GLES20.glUniform1f(program.vignetteLoc, params.vignette)
         GLES20.glUniform1f(program.toneLoc, params.tone)
         GLES20.glUniform1f(program.colorLoc, params.color)
@@ -742,7 +790,7 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.undertoneXLoc, params.undertoneX)
         GLES20.glUniform1f(program.undertoneYLoc, params.undertoneY)
         GLES20.glUniform1f(program.timeLoc, 0f)
-        GLES20.glUniform1f(program.grainSizeLoc, params.grainSize)
+        GLES20.glUniform1f(program.grainSizeLoc, effectScale.grainSize)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, baseTextureId)
