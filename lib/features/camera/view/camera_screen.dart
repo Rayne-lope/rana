@@ -621,12 +621,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   String _formatPaletteValue(double value) => '${value.round()}';
 
-  Widget _buildStylesSelectorTabBar() => Container(
+  Widget _buildStylesSelectorTabBar() => Padding(
     padding: const EdgeInsets.symmetric(vertical: 9),
-    decoration: const BoxDecoration(
-      border: Border(top: BorderSide(color: Colors.white10)),
-      color: Colors.black26,
-    ),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
@@ -678,12 +674,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   Widget _buildUndertoneActionsRow(
     CameraState state,
     CameraController controller,
-  ) => Container(
+  ) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 5),
-    decoration: const BoxDecoration(
-      border: Border(top: BorderSide(color: Colors.white10)),
-      color: Colors.black26,
-    ),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
