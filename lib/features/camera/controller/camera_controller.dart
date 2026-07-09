@@ -800,7 +800,42 @@ class CameraController extends _$CameraController {
       zoomRatio: zoomRatio,
       minZoomRatio: minZoomRatio,
       maxZoomRatio: maxZoomRatio,
+      zoomQualityLabel: _readString(
+        result,
+        'zoomQualityLabel',
+        baseState.zoomQualityLabel,
+      ),
+      hasTelephotoCandidate: _readBool(
+        result,
+        'hasTelephotoCandidate',
+        baseState.hasTelephotoCandidate,
+      ),
+      isLikelyDigitalZoom: _readBool(
+        result,
+        'isLikelyDigitalZoom',
+        baseState.isLikelyDigitalZoom,
+      ),
+      shouldWarnDigitalZoom: _readBool(
+        result,
+        'shouldWarnDigitalZoom',
+        baseState.shouldWarnDigitalZoom,
+      ),
+      physicalCameraCount: _readInt(
+        result,
+        'physicalCameraCount',
+        baseState.physicalCameraCount,
+      ),
     );
+  }
+
+  String _readString(Map<String, dynamic> result, String key, String fallback) {
+    final value = result[key];
+    return value is String && value.isNotEmpty ? value : fallback;
+  }
+
+  bool _readBool(Map<String, dynamic> result, String key, bool fallback) {
+    final value = result[key];
+    return value is bool ? value : fallback;
   }
 
   double _readDouble(Map<String, dynamic> result, String key, double fallback) {

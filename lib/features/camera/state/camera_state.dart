@@ -97,6 +97,11 @@ class CameraState {
     required this.zoomRatio,
     required this.minZoomRatio,
     required this.maxZoomRatio,
+    required this.zoomQualityLabel,
+    required this.hasTelephotoCandidate,
+    required this.isLikelyDigitalZoom,
+    required this.shouldWarnDigitalZoom,
+    required this.physicalCameraCount,
     this.lastCapturedPath,
     this.activeCaptureId,
     this.completedCaptureId,
@@ -120,6 +125,11 @@ class CameraState {
     zoomRatio: userMinZoomRatio,
     minZoomRatio: userMinZoomRatio,
     maxZoomRatio: userMaxZoomRatio,
+    zoomQualityLabel: 'native',
+    hasTelephotoCandidate: false,
+    isLikelyDigitalZoom: false,
+    shouldWarnDigitalZoom: false,
+    physicalCameraCount: 0,
   );
 
   static const Object _unset = Object();
@@ -137,6 +147,11 @@ class CameraState {
   final double zoomRatio;
   final double minZoomRatio;
   final double maxZoomRatio;
+  final String zoomQualityLabel;
+  final bool hasTelephotoCandidate;
+  final bool isLikelyDigitalZoom;
+  final bool shouldWarnDigitalZoom;
+  final int physicalCameraCount;
   final String? lastCapturedPath;
   final String? activeCaptureId;
   final String? completedCaptureId;
@@ -171,6 +186,11 @@ class CameraState {
     double? zoomRatio,
     double? minZoomRatio,
     double? maxZoomRatio,
+    String? zoomQualityLabel,
+    bool? hasTelephotoCandidate,
+    bool? isLikelyDigitalZoom,
+    bool? shouldWarnDigitalZoom,
+    int? physicalCameraCount,
     Object? lastCapturedPath = _unset,
     Object? activeCaptureId = _unset,
     Object? completedCaptureId = _unset,
@@ -192,6 +212,11 @@ class CameraState {
     zoomRatio: zoomRatio ?? this.zoomRatio,
     minZoomRatio: minZoomRatio ?? this.minZoomRatio,
     maxZoomRatio: maxZoomRatio ?? this.maxZoomRatio,
+    zoomQualityLabel: zoomQualityLabel ?? this.zoomQualityLabel,
+    hasTelephotoCandidate: hasTelephotoCandidate ?? this.hasTelephotoCandidate,
+    isLikelyDigitalZoom: isLikelyDigitalZoom ?? this.isLikelyDigitalZoom,
+    shouldWarnDigitalZoom: shouldWarnDigitalZoom ?? this.shouldWarnDigitalZoom,
+    physicalCameraCount: physicalCameraCount ?? this.physicalCameraCount,
     lastCapturedPath: identical(lastCapturedPath, _unset)
         ? this.lastCapturedPath
         : lastCapturedPath as String?,
@@ -227,6 +252,11 @@ class CameraState {
         other.zoomRatio == zoomRatio &&
         other.minZoomRatio == minZoomRatio &&
         other.maxZoomRatio == maxZoomRatio &&
+        other.zoomQualityLabel == zoomQualityLabel &&
+        other.hasTelephotoCandidate == hasTelephotoCandidate &&
+        other.isLikelyDigitalZoom == isLikelyDigitalZoom &&
+        other.shouldWarnDigitalZoom == shouldWarnDigitalZoom &&
+        other.physicalCameraCount == physicalCameraCount &&
         other.lastCapturedPath == lastCapturedPath &&
         other.activeCaptureId == activeCaptureId &&
         other.completedCaptureId == completedCaptureId &&
@@ -236,7 +266,7 @@ class CameraState {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     flashMode,
     activeLens,
     activePresetId,
@@ -250,13 +280,18 @@ class CameraState {
     zoomRatio,
     minZoomRatio,
     maxZoomRatio,
+    zoomQualityLabel,
+    hasTelephotoCandidate,
+    isLikelyDigitalZoom,
+    shouldWarnDigitalZoom,
+    physicalCameraCount,
     lastCapturedPath,
     activeCaptureId,
     completedCaptureId,
     captureError,
     captureElapsedMs,
     errorMessage,
-  );
+  ]);
 
   @override
   String toString() =>
@@ -269,6 +304,9 @@ class CameraState {
       'activeStyle: $activeStyle, '
       'zoomRatio: $zoomRatio, minZoomRatio: $minZoomRatio, '
       'maxZoomRatio: $maxZoomRatio, '
+      'zoomQualityLabel: $zoomQualityLabel, '
+      'isLikelyDigitalZoom: $isLikelyDigitalZoom, '
+      'shouldWarnDigitalZoom: $shouldWarnDigitalZoom, '
       'activeCaptureId: $activeCaptureId, '
       'completedCaptureId: $completedCaptureId, '
       'captureElapsedMs: $captureElapsedMs, '

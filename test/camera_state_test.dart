@@ -21,7 +21,25 @@ void main() {
     Future<Map<String, dynamic>> Function(MethodCall methodCall)?
     executeCaptureHandler;
     var nativeMaxZoomRatio = userMaxZoomRatio;
+    var nativeHasTelephotoCandidate = false;
+    var nativePhysicalCameraCount = 0;
     var captureCounter = 0;
+
+    Map<String, dynamic> zoomQualityFields(double zoomRatio) {
+      final isZoomed = zoomRatio > userMinZoomRatio + 0.01;
+      final isLikelyDigitalZoom = isZoomed && !nativeHasTelephotoCandidate;
+      return {
+        'zoomQualityLabel': !isZoomed
+            ? 'native'
+            : nativeHasTelephotoCandidate
+            ? 'tele_candidate'
+            : 'digital_likely',
+        'hasTelephotoCandidate': nativeHasTelephotoCandidate,
+        'isLikelyDigitalZoom': isLikelyDigitalZoom,
+        'shouldWarnDigitalZoom': zoomRatio >= 2 && isLikelyDigitalZoom,
+        'physicalCameraCount': nativePhysicalCameraCount,
+      };
+    }
 
     void dispatchCameraStatusEvent(Map<String, dynamic> event) {
       const codec = StandardMethodCodec();
@@ -46,6 +64,8 @@ void main() {
       log.clear();
       executeCaptureHandler = null;
       nativeMaxZoomRatio = userMaxZoomRatio;
+      nativeHasTelephotoCandidate = false;
+      nativePhysicalCameraCount = 0;
       captureCounter = 0;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(methodChannel, (
@@ -57,7 +77,7 @@ void main() {
             log.add(methodCall);
             switch (methodCall.method) {
               case 'initializeCamera':
-                return {
+                return <String, dynamic>{
                   'status': 'initialized',
                   'lens': 'back',
                   'zoomRatio': userMinZoomRatio,
@@ -65,10 +85,10 @@ void main() {
                   'maxZoomRatio': nativeMaxZoomRatio,
                   'effectiveMaxZoomRatio': effectiveMaxZoomRatio,
                   'isZoomLimited': nativeMaxZoomRatio < userMaxZoomRatio,
-                };
+                }..addAll(zoomQualityFields(userMinZoomRatio));
               case 'selectPreset':
                 final args = methodCall.arguments as Map<dynamic, dynamic>;
-                return {
+                return <String, dynamic>{
                   'status': 'preset_selected',
                   'presetId': args['presetId'],
                 };
@@ -79,7 +99,7 @@ void main() {
                 final args = methodCall.arguments as Map<dynamic, dynamic>;
                 final currentLens = args['lens'] as String;
                 final nextLens = currentLens == 'back' ? 'front' : 'back';
-                return {
+                return <String, dynamic>{
                   'status': 'lens_toggled',
                   'lens': nextLens,
                   'zoomRatio': userMinZoomRatio,
@@ -87,7 +107,7 @@ void main() {
                   'maxZoomRatio': nativeMaxZoomRatio,
                   'effectiveMaxZoomRatio': effectiveMaxZoomRatio,
                   'isZoomLimited': nativeMaxZoomRatio < userMaxZoomRatio,
-                };
+                }..addAll(zoomQualityFields(userMinZoomRatio));
               case 'setZoomRatio':
                 final args = methodCall.arguments as Map<dynamic, dynamic>;
                 final requestedZoomRatio = (args['zoomRatio'] as num)
@@ -96,7 +116,7 @@ void main() {
                   userMinZoomRatio,
                   effectiveMaxZoomRatio,
                 );
-                return {
+                return <String, dynamic>{
                   'status': 'zoom_set',
                   'requestedZoomRatio': requestedZoomRatio,
                   'zoomRatio': appliedZoomRatio,
@@ -104,7 +124,7 @@ void main() {
                   'maxZoomRatio': nativeMaxZoomRatio,
                   'effectiveMaxZoomRatio': effectiveMaxZoomRatio,
                   'isZoomLimited': nativeMaxZoomRatio < userMaxZoomRatio,
-                };
+                }..addAll(zoomQualityFields(appliedZoomRatio));
               case 'executeCapture':
                 return executeCaptureHandler?.call(methodCall) ??
                     {'status': 'captured', 'filePath': '/mock/path/photo.jpg'};
@@ -178,6 +198,9 @@ void main() {
       expect(state.minZoomRatio, equals(userMinZoomRatio));
       expect(state.maxZoomRatio, equals(userMaxZoomRatio));
       expect(state.effectiveMaxZoomRatio, equals(userMaxZoomRatio));
+      expect(state.zoomQualityLabel, equals('native'));
+      expect(state.isLikelyDigitalZoom, isFalse);
+      expect(state.shouldWarnDigitalZoom, isFalse);
     });
 
     test('initialize registers and connects channels successfully', () async {
@@ -283,6 +306,48 @@ void main() {
         expect(log.single.method, equals('setZoomRatio'));
         final args = log.single.arguments as Map<dynamic, dynamic>;
         expect(args['zoomRatio'], equals(2.4));
+      },
+    );
+
+    test(
+      'setZoomRatio surfaces likely digital zoom warning above 2x',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final controller = container.read(cameraControllerProvider.notifier);
+        await controller.initialize();
+
+        await controller.setZoomRatio(3);
+
+        final state = container.read(cameraControllerProvider);
+        expect(state.zoomRatio, equals(3));
+        expect(state.zoomQualityLabel, equals('digital_likely'));
+        expect(state.hasTelephotoCandidate, isFalse);
+        expect(state.isLikelyDigitalZoom, isTrue);
+        expect(state.shouldWarnDigitalZoom, isTrue);
+      },
+    );
+
+    test(
+      'setZoomRatio keeps digital warning off for telephoto candidates',
+      () async {
+        nativeHasTelephotoCandidate = true;
+        nativePhysicalCameraCount = 2;
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final controller = container.read(cameraControllerProvider.notifier);
+        await controller.initialize();
+
+        await controller.setZoomRatio(3);
+
+        final state = container.read(cameraControllerProvider);
+        expect(state.zoomQualityLabel, equals('tele_candidate'));
+        expect(state.hasTelephotoCandidate, isTrue);
+        expect(state.isLikelyDigitalZoom, isFalse);
+        expect(state.shouldWarnDigitalZoom, isFalse);
+        expect(state.physicalCameraCount, equals(2));
       },
     );
 

@@ -1273,6 +1273,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                       isLimited:
                           state.isZoomLimited &&
                           state.zoomRatio >= state.effectiveMaxZoomRatio - 0.01,
+                      shouldWarnDigitalZoom: state.shouldWarnDigitalZoom,
                       onReset: () {
                         unawaited(controller.setZoomRatio(userMinZoomRatio));
                       },
@@ -1667,26 +1668,43 @@ class _ZoomIndicator extends StatelessWidget {
     required this.zoomRatio,
     required this.isEnabled,
     required this.isLimited,
+    required this.shouldWarnDigitalZoom,
     required this.onReset,
   });
 
   final double zoomRatio;
   final bool isEnabled;
   final bool isLimited;
+  final bool shouldWarnDigitalZoom;
   final VoidCallback onReset;
 
   @override
   Widget build(BuildContext context) {
     final isZoomed = zoomRatio > userMinZoomRatio + 0.01;
-    final foreground = isZoomed ? const Color(0xFFF39C12) : Colors.white70;
+    final foreground = shouldWarnDigitalZoom
+        ? const Color(0xFFFFC857)
+        : isZoomed
+        ? const Color(0xFFF39C12)
+        : Colors.white70;
     final label = '${zoomRatio.toStringAsFixed(1)}x';
-    final tooltip = isZoomed ? 'Reset Zoom' : 'Zoom';
+    final displayLabel = isLimited
+        ? '$label MAX'
+        : shouldWarnDigitalZoom
+        ? '$label DIGI'
+        : label;
+    final tooltip = shouldWarnDigitalZoom
+        ? 'Likely Digital Zoom'
+        : isZoomed
+        ? 'Reset Zoom'
+        : 'Zoom';
 
     return Tooltip(
       message: tooltip,
       child: Semantics(
         button: true,
-        label: 'Zoom $label',
+        label: shouldWarnDigitalZoom
+            ? 'Zoom $label likely digital'
+            : 'Zoom $label',
         child: Material(
           color: Colors.transparent,
           child: InkResponse(
@@ -1715,7 +1733,7 @@ class _ZoomIndicator extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Text(isLimited ? '$label  MAX' : label),
+                child: Text(displayLabel),
               ),
             ),
           ),

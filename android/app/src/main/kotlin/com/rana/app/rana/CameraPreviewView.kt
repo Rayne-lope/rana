@@ -32,6 +32,7 @@ import androidx.lifecycle.LifecycleOwner
 import io.flutter.plugin.platform.PlatformView
 import java.io.File
 import java.io.IOException
+import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.CancellationException
@@ -197,6 +198,12 @@ class CameraPreviewView(
                     .also {
                     it.setSurfaceProvider { request ->
                         val resolution = request.resolution
+                        CameraQualityAudit.logPreviewSurfaceRequest(
+                            viewId = viewId,
+                            resolution = resolution,
+                            aspectRatio = currentAspectRatio,
+                            zoomRatio = currentZoomRatio
+                        )
                         val cameraSurfaceTexture = renderer.cameraSurfaceTexture
                         if (cameraSurfaceTexture != null) {
                             cameraSurfaceTexture.setDefaultBufferSize(resolution.width, resolution.height)
@@ -212,6 +219,12 @@ class CameraPreviewView(
                                 ContextCompat.getMainExecutor(context)
                             ) { info ->
                                 if (bindGeneration != previewBindGeneration) return@setTransformationInfoListener
+                                CameraQualityAudit.logPreviewTransform(
+                                    viewId = viewId,
+                                    cropRect = info.cropRect,
+                                    rotationDegrees = info.rotationDegrees,
+                                    zoomRatio = currentZoomRatio
+                                )
                                 renderer.setCameraTransform(info.cropRect, info.rotationDegrees)
                             }
 
@@ -250,6 +263,14 @@ class CameraPreviewView(
                     useCaseGroup
                 )
                 applyCurrentZoomRatio()
+                CameraQualityAudit.logCameraBinding(
+                    viewId = viewId,
+                    camera = camera,
+                    preview = previewUseCase,
+                    imageCapture = imageCaptureUseCase,
+                    aspectRatio = currentAspectRatio,
+                    zoomRatio = currentZoomRatio
+                )
 
                 syncCurrentRotationFromDisplay()
 
@@ -361,14 +382,16 @@ class CameraPreviewView(
             "maxZoomRatio" to bounds.maxZoomRatio.toDouble(),
             "effectiveMaxZoomRatio" to bounds.effectiveMaxZoomRatio.toDouble(),
             "isZoomLimited" to bounds.isZoomLimited
-        )
+        ) + CameraQualityAudit.zoomFields(camera, currentZoomRatio)
     }
 
     private fun zoomStatePayload(
         status: String,
         requestedZoomRatio: Float = currentZoomRatio
     ): Map<String, Any> {
-        return mapOf("status" to status) + zoomStateFields(requestedZoomRatio)
+        val fields = zoomStateFields(requestedZoomRatio)
+        CameraQualityAudit.logZoomState(viewId, status, fields)
+        return mapOf("status" to status) + fields
     }
 
     private fun applyCurrentZoomRatio() {
@@ -502,7 +525,16 @@ class CameraPreviewView(
 
         syncCurrentRotationFromDisplay()
         capture.targetRotation = currentRotation
+        val captureZoomRatio = currentZoomRatio
+        val effectiveCaptureId = captureId ?: "executeCapture"
         markProgress("camera_request")
+        CameraQualityAudit.logCaptureRequest(
+            viewId = viewId,
+            captureId = effectiveCaptureId,
+            aspectRatio = currentAspectRatio,
+            zoomRatio = captureZoomRatio,
+            imageCapture = capture
+        )
 
         capture.takePicture(
             captureExecutor,
@@ -518,9 +550,15 @@ class CameraPreviewView(
                     var errorMessage: String? = null
 
                     try {
-                        val decodedCapture = decodeImageProxy(image)
+                        val decodedCapture = decodeImageProxy(image, captureZoomRatio)
                         markProgress("decode_done")
                         decodedBitmap = decodedCapture?.bitmap
+                        CameraQualityAudit.logBitmapStage(
+                            viewId,
+                            "decoded",
+                            decodedBitmap,
+                            captureZoomRatio
+                        )
                         qualityMetadata = decodedCapture?.qualityMetadata
                         if (decodedCapture == null || decodedBitmap == null) {
                             errorCode = "DECODE_FAILED"
@@ -541,6 +579,12 @@ class CameraPreviewView(
                                 qualityMetadata?.inSampleSize ?: 1
                             )
                             markProgress("crop_done")
+                            CameraQualityAudit.logBitmapStage(
+                                viewId,
+                                "cropped",
+                                inputBitmap,
+                                captureZoomRatio
+                            )
                             if (inputBitmap !== decodedBitmap) {
                                 decodedBitmap.recycle()
                             }
@@ -552,6 +596,12 @@ class CameraPreviewView(
                                 currentLensFacing == CameraSelector.LENS_FACING_FRONT
                             )
                             markProgress("transform_done")
+                            CameraQualityAudit.logBitmapStage(
+                                viewId,
+                                "transformed",
+                                inputBitmap,
+                                captureZoomRatio
+                            )
 
                             processedBitmap = OfflineGlProcessor.processImage(
                                 context,
@@ -559,12 +609,18 @@ class CameraPreviewView(
                                 effectiveParams
                             )
                             markProgress("gl_process_done")
+                            CameraQualityAudit.logBitmapStage(
+                                viewId,
+                                "processed",
+                                processedBitmap,
+                                captureZoomRatio
+                            )
                             inputBitmap = null
                             if (processedBitmap == null) {
                                 errorCode = "PROCESS_FAILED"
                                 errorMessage = "OfflineGlProcessor returned null"
                             } else {
-                                savedUri = saveProcessedBitmap(processedBitmap)
+                                savedUri = saveProcessedBitmap(processedBitmap, captureZoomRatio)
                                 markProgress("save_done")
                                 if (savedUri == null) {
                                     errorCode = "SAVE_FAILED"
@@ -613,7 +669,7 @@ class CameraPreviewView(
         )
     }
 
-    private fun decodeImageProxy(image: ImageProxy): DecodedCapture? {
+    private fun decodeImageProxy(image: ImageProxy, zoomRatio: Float): DecodedCapture? {
         val buffer = image.planes.firstOrNull()?.buffer ?: return null
         buffer.rewind()
         val bytes = ByteArray(buffer.remaining())
@@ -631,6 +687,13 @@ class CameraPreviewView(
             context,
             sourceWidth,
             sourceHeight
+        )
+        CameraQualityAudit.logDecodePlan(
+            viewId = viewId,
+            sourceWidth = sourceWidth,
+            sourceHeight = sourceHeight,
+            zoomRatio = zoomRatio,
+            processingPlan = processingPlan
         )
         if (processingPlan.qualityReduced || processingPlan.skipLut) {
             android.util.Log.w(
@@ -747,7 +810,7 @@ class CameraPreviewView(
         )
     }
 
-    private fun saveProcessedBitmap(bitmap: Bitmap): Uri? {
+    private fun saveProcessedBitmap(bitmap: Bitmap, zoomRatio: Float): Uri? {
         val name = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
             .format(System.currentTimeMillis())
         val displayName = "Rana_$name.jpg"
@@ -782,12 +845,21 @@ class CameraPreviewView(
         ) ?: return null
 
         var success = false
+        var bytesWritten = 0L
         try {
             resolver.openOutputStream(uri)?.use { stream ->
-                if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)) {
+                val countingStream = CountingOutputStream(stream)
+                if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 95, countingStream)) {
                     throw IOException("Bitmap compression failed")
                 }
+                bytesWritten = countingStream.bytesWritten
             } ?: throw IOException("Unable to open MediaStore output stream")
+            CameraQualityAudit.logCaptureSaved(
+                viewId = viewId,
+                bitmap = bitmap,
+                bytesWritten = bytesWritten,
+                zoomRatio = zoomRatio
+            )
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val publishValues = ContentValues().apply {
@@ -804,6 +876,31 @@ class CameraPreviewView(
             if (!success) {
                 resolver.delete(uri, null, null)
             }
+        }
+    }
+
+    private class CountingOutputStream(
+        private val delegate: OutputStream
+    ) : OutputStream() {
+        var bytesWritten: Long = 0
+            private set
+
+        override fun write(b: Int) {
+            delegate.write(b)
+            bytesWritten += 1
+        }
+
+        override fun write(b: ByteArray, off: Int, len: Int) {
+            delegate.write(b, off, len)
+            bytesWritten += len.toLong()
+        }
+
+        override fun flush() {
+            delegate.flush()
+        }
+
+        override fun close() {
+            delegate.close()
         }
     }
 
