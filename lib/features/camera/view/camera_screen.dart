@@ -203,7 +203,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
     if (permissionState.isChecking) {
       return const Scaffold(
-        backgroundColor: Color(0xFF0F0F11),
+        backgroundColor: Color(0xFF242424),
         body: Center(
           child: CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF39C12)),
@@ -219,7 +219,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final isEditing = _isEditingStyle || _isEditingUndertone;
     final editingTitle = _isEditingUndertone ? 'Undertone' : 'Rana Styles';
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F11), // Premium deep dark slate
+      backgroundColor: const Color(0xFF242424), // Premium matte charcoal
       body: SafeArea(
         child: Column(
           children: [
