@@ -48,6 +48,8 @@ import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
+private const val MAX_PENDING_CAPTURE_PIPELINES = 3
+
 @OptIn(ExperimentalCamera2Interop::class)
 class CameraPreviewView(
     private val context: Context,
@@ -104,7 +106,10 @@ class CameraPreviewView(
     )
     private var lastSensorTargetRotation: Int? = null
     private val captureExecutor = Executors.newSingleThreadExecutor()
+    private val processingExecutor = Executors.newSingleThreadExecutor()
     private val isCapturing = AtomicBoolean(false)
+    private val capturePipelineLimiter =
+        CapturePipelineLimiter(MAX_PENDING_CAPTURE_PIPELINES)
     private var previewBindGeneration = 0
     private var backCameraTopology = BackCameraTopology()
     private var activeLensDecision = LensSwitchDecision(LensOutputTarget.LOGICAL_WIDE)
@@ -193,6 +198,7 @@ class CameraPreviewView(
                 glRenderer = null
                 OfflineGlProcessor.release()
                 captureExecutor.shutdown()
+                processingExecutor.shutdown()
             } catch (e: Exception) {
                 // Ignore
             }
@@ -874,7 +880,19 @@ class CameraPreviewView(
             finish(false, null, null, "CAMERA_SWITCHING", "Camera lens is switching")
             return
         }
+        val pendingPipelineCount = capturePipelineLimiter.tryAcquire()
+        if (pendingPipelineCount == null) {
+            finish(
+                false,
+                null,
+                null,
+                "CAPTURE_QUEUE_FULL",
+                "Capture processing queue is full"
+            )
+            return
+        }
         if (!isCapturing.compareAndSet(false, true)) {
+            capturePipelineLimiter.release()
             finish(
                 false,
                 null,
@@ -893,7 +911,14 @@ class CameraPreviewView(
         capture.targetRotation = captureRotationDecision.targetRotation
         val captureZoomRatio = currentZoomRatio
         val captureAspectRatio = currentAspectRatio
+        val mirrorHorizontally =
+            currentLensFacing == CameraSelector.LENS_FACING_FRONT
         val effectiveCaptureId = captureId ?: "executeCapture"
+        android.util.Log.d(
+            "RanaCaptureTimeline",
+            "captureId=$effectiveCaptureId event=pipeline_queued " +
+                "pending=$pendingPipelineCount"
+        )
         markProgress("camera_request")
         CameraQualityAudit.logCaptureRequest(
             viewId = viewId,
@@ -906,164 +931,246 @@ class CameraPreviewView(
             orientationSource = captureRotationDecision.source.auditValue
         )
 
-        capture.takePicture(
-            captureExecutor,
-            object : ImageCapture.OnImageCapturedCallback() {
-                override fun onCaptureSuccess(image: ImageProxy) {
-                    markProgress("image_captured")
-                    CameraQualityAudit.logCaptureRotation(
-                        viewId = viewId,
-                        captureId = effectiveCaptureId,
-                        targetRotation = captureRotationDecision.targetRotation,
-                        displayRotation = captureDisplayRotation,
-                        orientationSource = captureRotationDecision.source.auditValue,
-                        imageRotationDegrees = image.imageInfo.rotationDegrees
-                    )
-                    var decodedBitmap: Bitmap? = null
-                    var inputBitmap: Bitmap? = null
-                    var processedBitmap: Bitmap? = null
-                    var savedUri: Uri? = null
-                    var qualityMetadata: CaptureQualityMetadata? = null
-                    var errorCode: String? = null
-                    var errorMessage: String? = null
-
-                    try {
-                        val decodedCapture = decodeImageProxy(image, captureZoomRatio)
-                        markProgress("decode_done")
-                        decodedBitmap = decodedCapture?.bitmap
-                        CameraQualityAudit.logBitmapStage(
-                            viewId,
-                            "decoded",
-                            decodedBitmap,
-                            captureZoomRatio
-                        )
-                        qualityMetadata = decodedCapture?.qualityMetadata
-                        if (decodedCapture == null || decodedBitmap == null) {
-                            errorCode = "DECODE_FAILED"
-                            errorMessage = "Unable to decode captured image"
-                        } else {
-                            val effectiveParams =
-                                if (qualityMetadata?.lutSkipped == true) {
-                                    params.copy(
-                                        lutAssetPath = null,
-                                        lutStrength = 0f
-                                    )
-                                } else {
-                                    params
-                                }
-                            inputBitmap = cropCapturedBitmap(
-                                decodedBitmap,
-                                image.cropRect,
-                                qualityMetadata?.inSampleSize ?: 1
-                            )
-                            markProgress("crop_done")
-                            CameraQualityAudit.logBitmapStage(
-                                viewId,
-                                "cropped",
-                                inputBitmap,
-                                captureZoomRatio
-                            )
-                            if (inputBitmap !== decodedBitmap) {
-                                decodedBitmap.recycle()
-                            }
-                            decodedBitmap = null
-
-                            inputBitmap = transformCapturedBitmap(
-                                inputBitmap,
-                                image.imageInfo.rotationDegrees,
-                                currentLensFacing == CameraSelector.LENS_FACING_FRONT
-                            )
-                            markProgress("transform_done")
-                            CameraQualityAudit.logCaptureGeometry(
-                                viewId = viewId,
-                                captureId = effectiveCaptureId,
-                                aspectRatio = captureAspectRatio,
-                                targetRotation = captureRotationDecision.targetRotation,
-                                imageCropRect = image.cropRect,
-                                imageRotationDegrees = image.imageInfo.rotationDegrees,
-                                outputBitmap = inputBitmap
-                            )
-                            CameraQualityAudit.logBitmapStage(
-                                viewId,
-                                "transformed",
-                                inputBitmap,
-                                captureZoomRatio
-                            )
-
-                            processedBitmap = OfflineGlProcessor.processImage(
-                                context,
-                                inputBitmap,
-                                effectiveParams
-                            )
-                            markProgress("gl_process_done")
-                            CameraQualityAudit.logBitmapStage(
-                                viewId,
-                                "processed",
-                                processedBitmap,
-                                captureZoomRatio
-                            )
-                            inputBitmap = null
-                            if (processedBitmap == null) {
-                                errorCode = "PROCESS_FAILED"
-                                errorMessage = "OfflineGlProcessor returned null"
-                            } else {
-                                savedUri = saveProcessedBitmap(processedBitmap, captureZoomRatio)
-                                markProgress("save_done")
-                                if (savedUri == null) {
-                                    errorCode = "SAVE_FAILED"
-                                    errorMessage = "Unable to save processed image"
+        try {
+            capture.takePicture(
+                captureExecutor,
+                object : ImageCapture.OnImageCapturedCallback() {
+                    override fun onCaptureSuccess(image: ImageProxy) {
+                        val imageCropRect = Rect(image.cropRect)
+                        val imageRotationDegrees = image.imageInfo.rotationDegrees
+                        var acquisitionError: String? = null
+                        val encodedBytes = try {
+                            copyEncodedImageBytes(image).also { bytes ->
+                                if (bytes == null) {
+                                    acquisitionError = "Captured image has no encoded plane"
                                 }
                             }
+                        } catch (e: Exception) {
+                            acquisitionError = e.message ?: "Unable to copy captured image"
+                            null
+                        } finally {
+                            image.close()
+                            isCapturing.set(false)
+                            applyDeferredLensSwitchAfterCapture()
                         }
-                    } catch (oom: OutOfMemoryError) {
-                        errorCode = "CAPTURE_OOM"
-                        errorMessage = oom.message ?: "Out of memory during capture"
-                    } catch (e: Exception) {
-                        errorCode = "CAPTURE_FAILED"
-                        errorMessage = e.message ?: "Capture failed"
-                    } finally {
-                        image.close()
-                        decodedBitmap?.safeRecycle()
-                        inputBitmap?.safeRecycle()
-                        processedBitmap?.safeRecycle()
-                        isCapturing.set(false)
-                        applyDeferredLensSwitchAfterCapture()
+
+                        if (encodedBytes == null) {
+                            capturePipelineLimiter.release()
+                            finish(
+                                false,
+                                null,
+                                null,
+                                "CAPTURE_READ_FAILED",
+                                acquisitionError ?: "Unable to copy captured image"
+                            )
+                            return
+                        }
+
+                        CameraQualityAudit.logCaptureRotation(
+                            viewId = viewId,
+                            captureId = effectiveCaptureId,
+                            targetRotation = captureRotationDecision.targetRotation,
+                            displayRotation = captureDisplayRotation,
+                            orientationSource = captureRotationDecision.source.auditValue,
+                            imageRotationDegrees = imageRotationDegrees
+                        )
+                        markProgress("image_captured")
+
+                        try {
+                            processingExecutor.execute {
+                                processCapturedBytes(
+                                    encodedBytes = encodedBytes,
+                                    imageCropRect = imageCropRect,
+                                    imageRotationDegrees = imageRotationDegrees,
+                                    mirrorHorizontally = mirrorHorizontally,
+                                    params = params,
+                                    captureZoomRatio = captureZoomRatio,
+                                    captureAspectRatio = captureAspectRatio,
+                                    targetRotation = captureRotationDecision.targetRotation,
+                                    effectiveCaptureId = effectiveCaptureId,
+                                    markProgress = ::markProgress,
+                                    finish = ::finish
+                                )
+                            }
+                        } catch (e: Exception) {
+                            capturePipelineLimiter.release()
+                            finish(
+                                false,
+                                null,
+                                null,
+                                "PROCESS_QUEUE_FAILED",
+                                e.message ?: "Unable to queue capture processing"
+                            )
+                        }
                     }
 
-                    if (savedUri != null) {
-                        finish(true, savedUri.toString(), qualityMetadata, null, null)
-                    } else {
+                    override fun onError(exception: ImageCaptureException) {
+                        isCapturing.set(false)
+                        capturePipelineLimiter.release()
+                        applyDeferredLensSwitchAfterCapture()
                         finish(
                             false,
                             null,
                             null,
-                            errorCode ?: "CAPTURE_FAILED",
-                            errorMessage ?: "Unknown capture error"
+                            "CAPTURE_FAILED",
+                            exception.message ?: "CameraX capture failed"
                         )
                     }
                 }
-
-                override fun onError(exception: ImageCaptureException) {
-                    isCapturing.set(false)
-                    applyDeferredLensSwitchAfterCapture()
-                    finish(
-                        false,
-                        null,
-                        null,
-                        "CAPTURE_FAILED",
-                        exception.message ?: "CameraX capture failed"
-                    )
-                }
-            }
-        )
+            )
+        } catch (e: Exception) {
+            isCapturing.set(false)
+            capturePipelineLimiter.release()
+            applyDeferredLensSwitchAfterCapture()
+            finish(
+                false,
+                null,
+                null,
+                "CAPTURE_REQUEST_FAILED",
+                e.message ?: "Unable to submit CameraX capture"
+            )
+        }
     }
 
-    private fun decodeImageProxy(image: ImageProxy, zoomRatio: Float): DecodedCapture? {
+    private fun processCapturedBytes(
+        encodedBytes: ByteArray,
+        imageCropRect: Rect,
+        imageRotationDegrees: Int,
+        mirrorHorizontally: Boolean,
+        params: OfflineProcessParams,
+        captureZoomRatio: Float,
+        captureAspectRatio: CameraAspectRatio,
+        targetRotation: Int,
+        effectiveCaptureId: String,
+        markProgress: (String) -> Unit,
+        finish: (Boolean, String?, CaptureQualityMetadata?, String?, String?) -> Unit
+    ) {
+        var decodedBitmap: Bitmap? = null
+        var inputBitmap: Bitmap? = null
+        var processedBitmap: Bitmap? = null
+        var savedUri: Uri? = null
+        var qualityMetadata: CaptureQualityMetadata? = null
+        var errorCode: String? = null
+        var errorMessage: String? = null
+
+        try {
+            val decodedCapture = decodeCapturedBytes(encodedBytes, captureZoomRatio)
+            markProgress("decode_done")
+            decodedBitmap = decodedCapture?.bitmap
+            CameraQualityAudit.logBitmapStage(
+                viewId,
+                "decoded",
+                decodedBitmap,
+                captureZoomRatio
+            )
+            qualityMetadata = decodedCapture?.qualityMetadata
+            if (decodedCapture == null || decodedBitmap == null) {
+                errorCode = "DECODE_FAILED"
+                errorMessage = "Unable to decode captured image"
+            } else {
+                val effectiveParams =
+                    if (qualityMetadata?.lutSkipped == true) {
+                        params.copy(lutAssetPath = null, lutStrength = 0f)
+                    } else {
+                        params
+                    }
+                inputBitmap = cropCapturedBitmap(
+                    decodedBitmap,
+                    imageCropRect,
+                    qualityMetadata?.inSampleSize ?: 1
+                )
+                markProgress("crop_done")
+                CameraQualityAudit.logBitmapStage(
+                    viewId,
+                    "cropped",
+                    inputBitmap,
+                    captureZoomRatio
+                )
+                if (inputBitmap !== decodedBitmap) {
+                    decodedBitmap.recycle()
+                }
+                decodedBitmap = null
+
+                inputBitmap = transformCapturedBitmap(
+                    inputBitmap,
+                    imageRotationDegrees,
+                    mirrorHorizontally
+                )
+                markProgress("transform_done")
+                CameraQualityAudit.logCaptureGeometry(
+                    viewId = viewId,
+                    captureId = effectiveCaptureId,
+                    aspectRatio = captureAspectRatio,
+                    targetRotation = targetRotation,
+                    imageCropRect = imageCropRect,
+                    imageRotationDegrees = imageRotationDegrees,
+                    outputBitmap = inputBitmap
+                )
+                CameraQualityAudit.logBitmapStage(
+                    viewId,
+                    "transformed",
+                    inputBitmap,
+                    captureZoomRatio
+                )
+
+                processedBitmap = OfflineGlProcessor.processImage(
+                    context,
+                    inputBitmap,
+                    effectiveParams
+                )
+                markProgress("gl_process_done")
+                CameraQualityAudit.logBitmapStage(
+                    viewId,
+                    "processed",
+                    processedBitmap,
+                    captureZoomRatio
+                )
+                inputBitmap = null
+                if (processedBitmap == null) {
+                    errorCode = "PROCESS_FAILED"
+                    errorMessage = "OfflineGlProcessor returned null"
+                } else {
+                    savedUri = saveProcessedBitmap(processedBitmap, captureZoomRatio)
+                    markProgress("save_done")
+                    if (savedUri == null) {
+                        errorCode = "SAVE_FAILED"
+                        errorMessage = "Unable to save processed image"
+                    }
+                }
+            }
+        } catch (oom: OutOfMemoryError) {
+            errorCode = "CAPTURE_OOM"
+            errorMessage = oom.message ?: "Out of memory during capture"
+        } catch (e: Exception) {
+            errorCode = "CAPTURE_FAILED"
+            errorMessage = e.message ?: "Capture failed"
+        } finally {
+            decodedBitmap?.safeRecycle()
+            inputBitmap?.safeRecycle()
+            processedBitmap?.safeRecycle()
+            capturePipelineLimiter.release()
+        }
+
+        if (savedUri != null) {
+            finish(true, savedUri.toString(), qualityMetadata, null, null)
+        } else {
+            finish(
+                false,
+                null,
+                null,
+                errorCode ?: "CAPTURE_FAILED",
+                errorMessage ?: "Unknown capture error"
+            )
+        }
+    }
+
+    private fun copyEncodedImageBytes(image: ImageProxy): ByteArray? {
         val buffer = image.planes.firstOrNull()?.buffer ?: return null
         buffer.rewind()
-        val bytes = ByteArray(buffer.remaining())
-        buffer.get(bytes)
+        return ByteArray(buffer.remaining()).also(buffer::get)
+    }
 
+    private fun decodeCapturedBytes(bytes: ByteArray, zoomRatio: Float): DecodedCapture? {
         val boundsOptions = BitmapFactory.Options().apply {
             inJustDecodeBounds = true
         }

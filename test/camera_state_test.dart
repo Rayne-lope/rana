@@ -142,31 +142,44 @@ void main() {
                   captureResult = Future<Map<String, dynamic>>.error(error);
                 }
                 unawaited(
-                  captureResult
-                      .then((payload) {
-                        dispatchCameraStatusEvent({
-                          'type': 'capture_completed',
-                          'captureId': captureId,
-                          'uri': payload['filePath'],
-                          'elapsedMs': 320,
-                          'qualityReduced': false,
-                          'inSampleSize': 1,
-                          'lutSkipped': false,
-                        });
-                      })
-                      .catchError((Object error) {
-                        dispatchCameraStatusEvent({
-                          'type': 'capture_failed',
-                          'captureId': captureId,
-                          'errorCode': error is PlatformException
-                              ? error.code
-                              : 'CAPTURE_FAILED',
-                          'message': error is PlatformException
-                              ? error.message
-                              : error.toString(),
-                          'elapsedMs': 320,
-                        });
-                      }),
+                  Future<void>.delayed(Duration.zero).then((_) {
+                    dispatchCameraStatusEvent({
+                      'type': 'capture_progress',
+                      'captureId': captureId,
+                      'phase': 'image_captured',
+                      'elapsedMs': 80,
+                    });
+                  }),
+                );
+                unawaited(
+                  captureResult.then<void>(
+                    (payload) async {
+                      await Future<void>.delayed(Duration.zero);
+                      dispatchCameraStatusEvent({
+                        'type': 'capture_completed',
+                        'captureId': captureId,
+                        'uri': payload['filePath'],
+                        'elapsedMs': 320,
+                        'qualityReduced': false,
+                        'inSampleSize': 1,
+                        'lutSkipped': false,
+                      });
+                    },
+                    onError: (Object error) async {
+                      await Future<void>.delayed(Duration.zero);
+                      dispatchCameraStatusEvent({
+                        'type': 'capture_failed',
+                        'captureId': captureId,
+                        'errorCode': error is PlatformException
+                            ? error.code
+                            : 'CAPTURE_FAILED',
+                        'message': error is PlatformException
+                            ? error.message
+                            : error.toString(),
+                        'elapsedMs': 320,
+                      });
+                    },
+                  ),
                 );
                 return {'status': 'capture_started', 'captureId': captureId};
               default:
@@ -1044,7 +1057,7 @@ void main() {
         );
         expect(
           container.read(cameraControllerProvider).captureStatus,
-          equals(CaptureStatus.processing),
+          equals(CaptureStatus.capturing),
         );
         expect(
           container.read(cameraControllerProvider).activeCaptureId,
@@ -1054,7 +1067,11 @@ void main() {
         await drainCaptureEvents();
         expect(
           container.read(cameraControllerProvider).captureStatus,
-          equals(CaptureStatus.success),
+          equals(CaptureStatus.idle),
+        );
+        expect(
+          container.read(cameraControllerProvider).lastCapturedPath,
+          equals('/mock/path/photo.jpg'),
         );
       },
     );
@@ -1090,12 +1107,15 @@ void main() {
 
         async.elapse(const Duration(seconds: 1));
         async.flushMicrotasks();
+        async.elapse(Duration.zero);
+        async.flushMicrotasks();
       });
 
+      await drainCaptureEvents();
       expect(log.where((call) => call.method == 'beginCapture'), hasLength(1));
       expect(
         container.read(cameraControllerProvider).captureStatus,
-        equals(CaptureStatus.success),
+        equals(CaptureStatus.idle),
       );
       expect(
         container.read(cameraControllerProvider).selfTimerRemainingSeconds,
@@ -1204,48 +1224,50 @@ void main() {
       );
     });
 
-    test('capture flow enters processing and updates file path', () async {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+    test(
+      'capture flow stays available and updates the saved file path',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
 
-      final controller = container.read(cameraControllerProvider.notifier);
-      await controller.initialize();
-      log.clear();
+        final controller = container.read(cameraControllerProvider.notifier);
+        await controller.initialize();
+        log.clear();
 
-      final states = <CameraState>[];
-      container.listen<CameraState>(
-        cameraControllerProvider,
-        (previous, next) => states.add(next),
-        fireImmediately: true,
-      );
+        final states = <CameraState>[];
+        container.listen<CameraState>(
+          cameraControllerProvider,
+          (previous, next) => states.add(next),
+          fireImmediately: true,
+        );
 
-      await controller.capture();
-      await drainCaptureEvents();
+        await controller.capture();
+        await drainCaptureEvents();
 
-      // Verify state transitions:
-      // 1. Initial/current state is idle
-      // 2. Transited to capturing
-      // 3. Transited to processing while native work is active
-      // 4. Transited to success with filePath set
-      expect(
-        states.any((s) => s.captureStatus == CaptureStatus.capturing),
-        isTrue,
-      );
-      expect(
-        states.any((s) => s.captureStatus == CaptureStatus.processing),
-        isTrue,
-      );
-      expect(
-        states.any(
-          (s) =>
-              s.captureStatus == CaptureStatus.success &&
-              s.lastCapturedPath == '/mock/path/photo.jpg',
-        ),
-        isTrue,
-      );
-    });
+        expect(
+          states.any((s) => s.captureStatus == CaptureStatus.capturing),
+          isTrue,
+        );
+        expect(
+          states.any((s) => s.captureStatus == CaptureStatus.processing),
+          isFalse,
+        );
+        expect(
+          states.any((s) => s.captureStatus == CaptureStatus.success),
+          isFalse,
+        );
+        expect(
+          states.any(
+            (s) =>
+                s.captureStatus == CaptureStatus.idle &&
+                s.lastCapturedPath == '/mock/path/photo.jpg',
+          ),
+          isTrue,
+        );
+      },
+    );
 
-    test('capture success remains active until result is dismissed', () async {
+    test('capture completion returns immediately to idle', () async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
       final subscription = container.listen<CameraState>(
@@ -1262,13 +1284,11 @@ void main() {
       await drainCaptureEvents();
       expect(
         container.read(cameraControllerProvider).captureStatus,
-        equals(CaptureStatus.success),
+        equals(CaptureStatus.idle),
       );
-
-      await Future<void>.delayed(const Duration(milliseconds: 2200));
       expect(
-        container.read(cameraControllerProvider).captureStatus,
-        equals(CaptureStatus.success),
+        container.read(cameraControllerProvider).completedCaptureId,
+        equals('test-capture-1'),
       );
     });
 
@@ -1376,30 +1396,44 @@ void main() {
       expect(args['lensDistortionStrength'], equals(0.0));
     });
 
-    test('rapid duplicate capture calls invoke native capture once', () async {
-      final captureCompleter = Completer<Map<String, dynamic>>();
-      executeCaptureHandler = (_) => captureCompleter.future;
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+    test(
+      'a second capture starts while the first is still processing',
+      () async {
+        final captureCompleter = Completer<Map<String, dynamic>>();
+        executeCaptureHandler = (_) => captureCompleter.future;
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
 
-      final controller = container.read(cameraControllerProvider.notifier);
-      await controller.initialize();
-      log.clear();
+        final controller = container.read(cameraControllerProvider.notifier);
+        await controller.initialize();
+        log.clear();
 
-      final firstCapture = controller.capture();
-      await Future<void>.delayed(const Duration(milliseconds: 180));
-      final secondCapture = controller.capture();
-      captureCompleter.complete({
-        'status': 'captured',
-        'filePath': '/mock/path/photo.jpg',
-      });
-      await Future.wait([firstCapture, secondCapture]);
+        await controller.capture();
+        await drainCaptureEvents();
+        expect(
+          container.read(cameraControllerProvider).captureStatus,
+          equals(CaptureStatus.idle),
+        );
 
-      final captureCalls = log
-          .where((call) => call.method == 'beginCapture')
-          .toList();
-      expect(captureCalls.length, equals(1));
-    });
+        await controller.capture();
+        await drainCaptureEvents();
+
+        final captureCalls = log
+            .where((call) => call.method == 'beginCapture')
+            .toList();
+        expect(captureCalls.length, equals(2));
+
+        captureCompleter.complete({
+          'status': 'captured',
+          'filePath': '/mock/path/photo.jpg',
+        });
+        await drainCaptureEvents();
+        expect(
+          container.read(cameraControllerProvider).lastCapturedPath,
+          equals('/mock/path/photo.jpg'),
+        );
+      },
+    );
 
     test(
       'acknowledgeResultDismissed resets to idle and preserves camera config',
@@ -1438,7 +1472,8 @@ void main() {
         await drainCaptureEvents();
 
         final successState = container.read(cameraControllerProvider);
-        expect(successState.captureStatus, equals(CaptureStatus.success));
+        expect(successState.captureStatus, equals(CaptureStatus.idle));
+        expect(successState.completedCaptureId, equals('test-capture-1'));
         expect(successState.activePresetId, equals('rana_warm'));
         expect(successState.flashMode, equals(FlashMode.on));
         expect(successState.activeLens, equals(CameraLens.front));
@@ -1448,6 +1483,7 @@ void main() {
 
         final dismissedState = container.read(cameraControllerProvider);
         expect(dismissedState.captureStatus, equals(CaptureStatus.idle));
+        expect(dismissedState.completedCaptureId, isNull);
         expect(dismissedState.activePresetId, equals('rana_warm'));
         expect(dismissedState.flashMode, equals(FlashMode.on));
         expect(dismissedState.activeLens, equals(CameraLens.front));
@@ -1455,7 +1491,7 @@ void main() {
       },
     );
 
-    test('capture error resets status back to idle', () async {
+    test('capture error keeps the shutter available', () async {
       executeCaptureHandler = (_) async {
         throw PlatformException(
           code: 'CAPTURE_FAILED',
@@ -1476,12 +1512,17 @@ void main() {
 
       await controller.capture();
       await drainCaptureEvents();
-      expect(states.any((s) => s.captureStatus == CaptureStatus.error), isTrue);
-
-      await Future<void>.delayed(const Duration(milliseconds: 2200));
       expect(
         container.read(cameraControllerProvider).captureStatus,
         equals(CaptureStatus.idle),
+      );
+      expect(
+        states.any((s) => s.captureStatus == CaptureStatus.error),
+        isFalse,
+      );
+      expect(
+        container.read(cameraControllerProvider).captureError,
+        contains('Native capture failed'),
       );
     });
 

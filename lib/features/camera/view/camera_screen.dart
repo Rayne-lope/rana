@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -13,6 +12,7 @@ import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/camera/controller/camera_controller.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/camera/view/permission_screen.dart';
+import 'package:rana/features/camera/widgets/latest_capture_thumbnail.dart';
 import 'package:rana/features/camera/widgets/rana_styles_controls.dart';
 import 'package:rana/features/camera/widgets/style_mood_chips.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
@@ -37,8 +37,6 @@ enum _ViewfinderLayoutMode { capture, styleEditor }
 
 class _CameraScreenState extends ConsumerState<CameraScreen>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
-  late final ProviderSubscription<CameraState> _cameraStateSubscription;
-
   bool _isEditingStyle = false;
   bool _isEditingUndertone = false;
   int _activeStyleTab = 0; // 0: Tone, 1: Color, 2: Palette
@@ -64,37 +62,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       duration: const Duration(milliseconds: 600),
     );
     WidgetsBinding.instance.addObserver(this);
-    _cameraStateSubscription = ref.listenManual<CameraState>(
-      cameraControllerProvider,
-      (previous, next) {
-        final captureId = next.activeCaptureId;
-        final enteredCapture =
-            captureId != null && previous?.activeCaptureId != captureId;
-        if (!enteredCapture) {
-          return;
-        }
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) {
-            return;
-          }
-          AppLogger.i(
-            'RanaCaptureTimeline',
-            'captureId=$captureId event=result_route_push '
-                'elapsedMs=${next.captureElapsedMs}',
-          );
-          unawaited(
-            context.push(
-              AppRoutes.result,
-              extra: CaptureResultArgs(
-                captureId: captureId,
-                initialUri: next.lastCapturedPath,
-              ),
-            ),
-          );
-        });
-      },
-    );
 
     // Verify permissions first, then initialize platform connection if granted
     Future.microtask(() async {
@@ -107,7 +74,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   @override
   void dispose() {
-    _cameraStateSubscription.close();
     WidgetsBinding.instance.removeObserver(this);
     _focusResetTimer?.cancel();
     _focusAnimationController.dispose();
@@ -921,41 +887,23 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     );
   }
 
-  Widget _buildThumbnailButton(CameraState state) {
-    final path = state.lastCapturedPath;
-    final fileExists = path != null && File(path).existsSync();
-
-    return GestureDetector(
-      onTap: () => context.go(AppRoutes.gallery),
-      child: Container(
-        width: 54,
-        height: 54,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white24, width: 2),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black38,
-              blurRadius: 4,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: ClipOval(
-          child: fileExists
-              ? Image.file(File(path), fit: BoxFit.cover, width: 54, height: 54)
-              : const ColoredBox(
-                  color: Color(0xFF1E1E24),
-                  child: Icon(
-                    Icons.photo_library_outlined,
-                    color: Colors.white54,
-                    size: 24,
-                  ),
-                ),
-        ),
+  Widget _buildThumbnailButton(CameraState state) => GestureDetector(
+    onTap: () => context.go(AppRoutes.gallery),
+    child: Container(
+      width: 54,
+      height: 54,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white24, width: 2),
+        boxShadow: const [
+          BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 2)),
+        ],
       ),
-    );
-  }
+      child: ClipOval(
+        child: LatestCaptureThumbnail(imageUri: state.lastCapturedPath),
+      ),
+    ),
+  );
 
   Widget _buildViewfinder(
     CameraState state,
@@ -1086,68 +1034,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                         ),
                       ),
                     ),
-                  ),
-
-                // Capture animation overlay
-                if (state.captureStatus == CaptureStatus.capturing)
-                  ColoredBox(
-                    color: Colors.black.withValues(alpha: 0.70),
-                    child: const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.camera_alt_rounded,
-                            color: Color(0xFFF39C12),
-                            size: 32,
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            'CAPTURING...',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                if (state.captureStatus == CaptureStatus.processing)
-                  ColoredBox(
-                    color: Colors.black.withValues(alpha: 0.76),
-                    child: const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Color(0xFFF39C12),
-                            ),
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            'DEVELOPING FILM...',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // Camera shutter flash screen effect
-                if (state.captureStatus == CaptureStatus.success ||
-                    state.captureStatus == CaptureStatus.error)
-                  _FlashScreenEffect(
-                    success: state.captureStatus == CaptureStatus.success,
                   ),
               ],
             );
@@ -1396,6 +1282,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
               // Shutter capture button (center)
               GestureDetector(
+                key: const ValueKey<String>('camera-shutter-button'),
                 onTap: isReady ? controller.handleShutterPressed : null,
                 child: Container(
                   width: 80,
@@ -1585,50 +1472,6 @@ class _ViewfinderGrid extends StatelessWidget {
         ],
       ),
     ],
-  );
-}
-
-class _FlashScreenEffect extends StatefulWidget {
-  const _FlashScreenEffect({required this.success});
-
-  final bool success;
-
-  @override
-  State<_FlashScreenEffect> createState() => _FlashScreenEffectState();
-}
-
-class _FlashScreenEffectState extends State<_FlashScreenEffect>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animController;
-  late Animation<double> _opacityAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _opacityAnim = TweenSequence([
-      TweenSequenceItem(tween: Tween<double>(begin: 0, end: 1), weight: 15),
-      TweenSequenceItem(tween: Tween<double>(begin: 1, end: 0), weight: 85),
-    ]).animate(_animController);
-
-    _animController.forward();
-  }
-
-  @override
-  void dispose() {
-    _animController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => FadeTransition(
-    opacity: _opacityAnim,
-    child: Container(
-      color: widget.success ? Colors.white : Colors.red.withValues(alpha: 0.4),
-    ),
   );
 }
 

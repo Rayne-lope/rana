@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rana/core/router/app_router.dart';
+import 'package:rana/features/camera/view/camera_screen.dart';
+import 'package:rana/features/camera/widgets/latest_capture_thumbnail.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/repository/preset_repository.dart';
 import 'package:rana/features/splash/view/splash_screen.dart';
@@ -21,8 +23,21 @@ void main() {
       'flutter.baseflow.com/permissions/methods',
     );
     const cameraChannel = MethodChannel('com.rana.app/camera_control');
+    var captureCounter = 0;
+
+    Future<void> dispatchCameraStatusEvent(Map<String, dynamic> event) async {
+      const codec = StandardMethodCodec();
+      final data = codec.encodeSuccessEnvelope(event);
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'com.rana.app/camera_status',
+            data,
+            (ByteData? reply) {},
+          );
+    }
 
     setUp(() {
+      captureCounter = 0;
       SharedPreferences.setMockInitialValues({});
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(permissionChannel, (
@@ -54,6 +69,25 @@ void main() {
                   'status': 'captured',
                   'filePath': 'content://rana/test-photo.jpg',
                 };
+              case 'beginCapture':
+                final captureId = 'navigation-capture-${++captureCounter}';
+                unawaited(
+                  Future<void>.delayed(Duration.zero).then((_) async {
+                    await dispatchCameraStatusEvent({
+                      'type': 'capture_progress',
+                      'captureId': captureId,
+                      'phase': 'image_captured',
+                      'elapsedMs': 80,
+                    });
+                    await dispatchCameraStatusEvent({
+                      'type': 'capture_completed',
+                      'captureId': captureId,
+                      'uri': 'content://rana/test-photo.jpg',
+                      'elapsedMs': 320,
+                    });
+                  }),
+                );
+                return {'status': 'capture_started', 'captureId': captureId};
               case 'loadCapturedImageBytes':
                 return testImageBytes;
               case 'listGalleryMedia':
@@ -130,6 +164,32 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Settings'), findsWidgets);
+    });
+
+    testWidgets('capture stays on CameraScreen and refreshes thumbnail', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(const ProviderScope(child: RanaApp()));
+      await tester.pump(const Duration(milliseconds: 1300));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('camera-shutter-button')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CameraScreen), findsOneWidget);
+      expect(find.text('SHOOT AGAIN'), findsNothing);
+      expect(find.text('VIEW IN GALLERY'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(LatestCaptureThumbnail),
+          matching: find.byType(Image),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('router opens result fullscreen without shell nav', (

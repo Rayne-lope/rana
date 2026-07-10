@@ -25,6 +25,8 @@ class CameraController extends _$CameraController {
   Timer? _zoomDispatchTimer;
   double? _pendingZoomRatio;
   int _zoomGeneration = 0;
+  final Set<String> _pendingCaptureIds = <String>{};
+  String? _acquiringCaptureId;
   static const _zoomDispatchInterval = Duration(milliseconds: 16);
 
   int _randomizeVariant() => Random().nextInt(4); // 0 to 3
@@ -42,6 +44,8 @@ class CameraController extends _$CameraController {
       _zoomGeneration += 1;
       _zoomDispatchTimer?.cancel();
       _zoomDispatchTimer = null;
+      _pendingCaptureIds.clear();
+      _acquiringCaptureId = null;
     });
 
     return CameraState.initial();
@@ -302,10 +306,8 @@ class CameraController extends _$CameraController {
       captureStatus: CaptureStatus.capturing,
       errorMessage: null,
       captureError: null,
-      activeCaptureId: null,
       completedCaptureId: null,
       captureElapsedMs: 0,
-      lastCapturedPath: null,
     );
 
     try {
@@ -319,23 +321,18 @@ class CameraController extends _$CameraController {
         'RanaCaptureTimeline',
         'captureId=$captureId event=native_accepted elapsedMs=$elapsedMs',
       );
+      _pendingCaptureIds.add(captureId);
+      _acquiringCaptureId = captureId;
       state = state.copyWith(
-        captureStatus: CaptureStatus.processing,
+        captureStatus: CaptureStatus.capturing,
         activeCaptureId: captureId,
         captureElapsedMs: elapsedMs,
       );
     } on Object catch (e) {
       state = state.copyWith(
-        captureStatus: CaptureStatus.error,
+        captureStatus: CaptureStatus.idle,
         captureError: e.toString(),
         errorMessage: e.toString(),
-      );
-      unawaited(
-        Future<void>.delayed(const Duration(seconds: 2)).then((_) {
-          if (state.captureStatus == CaptureStatus.error) {
-            state = state.copyWith(captureStatus: CaptureStatus.idle);
-          }
-        }),
       );
     }
   }
@@ -509,7 +506,7 @@ class CameraController extends _$CameraController {
 
   void _handleCaptureProgress(Map<String, dynamic> event) {
     final captureId = event['captureId'] as String?;
-    if (captureId == null || captureId != state.activeCaptureId) {
+    if (captureId == null || !_pendingCaptureIds.contains(captureId)) {
       return;
     }
     final phase = event['phase'] as String? ?? 'unknown';
@@ -518,16 +515,24 @@ class CameraController extends _$CameraController {
       'RanaCaptureTimeline',
       'captureId=$captureId event=$phase elapsedMs=$elapsedMs',
     );
-    state = state.copyWith(
-      captureStatus: CaptureStatus.processing,
-      captureElapsedMs: elapsedMs,
-    );
+    if (phase == 'image_captured' && _acquiringCaptureId == captureId) {
+      _acquiringCaptureId = null;
+      state = state.copyWith(
+        captureStatus: CaptureStatus.idle,
+        captureElapsedMs: elapsedMs,
+      );
+    } else if (state.activeCaptureId == captureId) {
+      state = state.copyWith(captureElapsedMs: elapsedMs);
+    }
   }
 
   void _handleCaptureCompleted(Map<String, dynamic> event) {
     final captureId = event['captureId'] as String?;
-    if (captureId == null || captureId != state.activeCaptureId) {
+    if (captureId == null || !_pendingCaptureIds.remove(captureId)) {
       return;
+    }
+    if (_acquiringCaptureId == captureId) {
+      _acquiringCaptureId = null;
     }
     final imageUri = event['uri'] as String?;
     final elapsedMs = _readInt(event, 'elapsedMs', state.captureElapsedMs);
@@ -537,20 +542,28 @@ class CameraController extends _$CameraController {
           'uri=$imageUri elapsedMs=$elapsedMs',
     );
     state = state.copyWith(
-      captureStatus: CaptureStatus.success,
+      captureStatus: _acquiringCaptureId == null
+          ? CaptureStatus.idle
+          : CaptureStatus.capturing,
+      activeCaptureId: state.activeCaptureId == captureId
+          ? _acquiringCaptureId
+          : state.activeCaptureId,
       completedCaptureId: captureId,
       captureElapsedMs: elapsedMs,
       captureError: null,
       errorMessage: null,
-      lastCapturedPath: imageUri,
+      lastCapturedPath: imageUri ?? state.lastCapturedPath,
     );
     _randomizeNextVariantForPreview();
   }
 
   void _handleCaptureFailed(Map<String, dynamic> event) {
     final captureId = event['captureId'] as String?;
-    if (captureId == null || captureId != state.activeCaptureId) {
+    if (captureId == null || !_pendingCaptureIds.remove(captureId)) {
       return;
+    }
+    if (_acquiringCaptureId == captureId) {
+      _acquiringCaptureId = null;
     }
     final elapsedMs = _readInt(event, 'elapsedMs', state.captureElapsedMs);
     final message =
@@ -563,22 +576,15 @@ class CameraController extends _$CameraController {
           'message=$message elapsedMs=$elapsedMs',
     );
     state = state.copyWith(
-      captureStatus: CaptureStatus.error,
+      captureStatus: _acquiringCaptureId == null
+          ? CaptureStatus.idle
+          : CaptureStatus.capturing,
+      activeCaptureId: state.activeCaptureId == captureId
+          ? _acquiringCaptureId
+          : state.activeCaptureId,
       captureElapsedMs: elapsedMs,
       captureError: message,
       errorMessage: message,
-    );
-    unawaited(
-      Future<void>.delayed(const Duration(seconds: 2)).then((_) {
-        if (state.captureStatus == CaptureStatus.error &&
-            state.activeCaptureId == captureId) {
-          state = state.copyWith(
-            captureStatus: CaptureStatus.idle,
-            activeCaptureId: null,
-            captureError: null,
-          );
-        }
-      }),
     );
   }
 
@@ -667,14 +673,12 @@ class CameraController extends _$CameraController {
     undertoneY: style.undertoneY.clamp(-1.0, 1.0),
   );
 
-  /// Clears the transient success state once the result screen is dismissed.
+  /// Clears legacy result metadata after a direct ResultScreen visit.
   void acknowledgeResultDismissed() {
-    if (state.captureStatus != CaptureStatus.success) {
+    if (state.completedCaptureId == null) {
       return;
     }
     state = state.copyWith(
-      captureStatus: CaptureStatus.idle,
-      activeCaptureId: null,
       completedCaptureId: null,
       captureError: null,
       captureElapsedMs: 0,
@@ -691,8 +695,15 @@ class CameraController extends _$CameraController {
       _zoomDispatchTimer = null;
       unawaited(_statusSubscription?.cancel());
       _statusSubscription = null;
+      _pendingCaptureIds.clear();
+      _acquiringCaptureId = null;
       await _platformService.releaseCamera();
-      state = state.copyWith(isCameraInitialized: false, currentFps: 0);
+      state = state.copyWith(
+        isCameraInitialized: false,
+        currentFps: 0,
+        captureStatus: CaptureStatus.idle,
+        activeCaptureId: null,
+      );
     } on Object catch (e) {
       state = state.copyWith(errorMessage: e.toString());
     }
