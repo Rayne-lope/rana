@@ -9,6 +9,7 @@ class PresetColor {
     required this.temperature,
     required this.contrast,
     required this.saturation,
+    this.fade,
   });
 
   /// Factory to parse from a JSON map.
@@ -16,6 +17,7 @@ class PresetColor {
     temperature: (json['temperature'] as num).toDouble(),
     contrast: (json['contrast'] as num).toDouble(),
     saturation: (json['saturation'] as num).toDouble(),
+    fade: (json['fade'] as num?)?.toDouble() ?? 0.0,
   );
 
   /// The temperature parameter.
@@ -27,11 +29,15 @@ class PresetColor {
   /// The saturation parameter.
   final double saturation;
 
+  /// Matte shadow lift amount.
+  final double? fade;
+
   /// Converts this instance to a JSON map.
   Map<String, dynamic> toJson() => <String, dynamic>{
     'temperature': temperature,
     'contrast': contrast,
     'saturation': saturation,
+    'fade': fade ?? 0.0,
   };
 
   @override
@@ -40,45 +46,56 @@ class PresetColor {
     return other is PresetColor &&
         other.temperature == temperature &&
         other.contrast == contrast &&
-        other.saturation == saturation;
+        other.saturation == saturation &&
+        other.fade == fade;
   }
 
   @override
-  int get hashCode => Object.hash(temperature, contrast, saturation);
+  int get hashCode => Object.hash(temperature, contrast, saturation, fade);
 
   @override
   String toString() =>
       'PresetColor(temperature: $temperature, '
-      'contrast: $contrast, saturation: $saturation)';
+      'contrast: $contrast, saturation: $saturation, fade: $fade)';
 }
 
 /// Preset grain parameters.
 @immutable
 class PresetGrain {
   /// Main constructor.
-  const PresetGrain({required this.intensity});
+  const PresetGrain({required this.intensity, this.size});
 
   /// Factory to parse from a JSON map.
-  factory PresetGrain.fromJson(Map<String, dynamic> json) =>
-      PresetGrain(intensity: (json['intensity'] as num).toDouble());
+  factory PresetGrain.fromJson(Map<String, dynamic> json) => PresetGrain(
+    intensity: (json['intensity'] as num).toDouble(),
+    size: (json['size'] as num?)?.toDouble() ?? 1.0,
+  );
 
   /// The grain intensity parameter.
   final double intensity;
 
+  /// Grain flake size multiplier.
+  final double? size;
+
   /// Converts this instance to a JSON map.
-  Map<String, dynamic> toJson() => <String, dynamic>{'intensity': intensity};
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'intensity': intensity,
+    'size': size ?? 1.0,
+  };
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is PresetGrain && other.intensity == intensity;
+    return other is PresetGrain &&
+        other.intensity == intensity &&
+        other.size == size;
   }
 
   @override
-  int get hashCode => intensity.hashCode;
+  int get hashCode => Object.hash(intensity, size);
 
   @override
-  String toString() => 'PresetGrain(intensity: $intensity)';
+  String toString() => 'PresetGrain(intensity: $intensity, size: $size)';
 }
 
 /// Preset vignette parameters.
@@ -278,6 +295,118 @@ class PresetLensDistortion {
   String toString() => 'PresetLensDistortion(strength: $strength)';
 }
 
+/// Preset chromatic aberration parameters.
+@immutable
+class PresetChromaticAberration {
+  /// Main constructor.
+  const PresetChromaticAberration({required this.intensity});
+
+  /// Factory to parse from a JSON map.
+  factory PresetChromaticAberration.fromJson(Map<String, dynamic> json) =>
+      PresetChromaticAberration(
+        intensity: (json['intensity'] as num?)?.toDouble() ?? 0.0,
+      );
+
+  /// Radial red/blue channel displacement intensity.
+  final double intensity;
+
+  /// Converts this instance to a JSON map.
+  Map<String, dynamic> toJson() => <String, dynamic>{'intensity': intensity};
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PresetChromaticAberration && other.intensity == intensity;
+
+  @override
+  int get hashCode => intensity.hashCode;
+
+  @override
+  String toString() => 'PresetChromaticAberration(intensity: $intensity)';
+}
+
+/// Preset retro date stamp parameters.
+@immutable
+class PresetDateStamp {
+  /// Main constructor.
+  const PresetDateStamp({required this.enable});
+
+  /// Factory to parse from a JSON map.
+  factory PresetDateStamp.fromJson(Map<String, dynamic> json) =>
+      PresetDateStamp(enable: json['enable'] as bool? ?? false);
+
+  /// Whether the stamp is burned into saved captures.
+  final bool enable;
+
+  /// Converts this instance to a JSON map.
+  Map<String, dynamic> toJson() => <String, dynamic>{'enable': enable};
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PresetDateStamp && other.enable == enable;
+
+  @override
+  int get hashCode => enable.hashCode;
+
+  @override
+  String toString() => 'PresetDateStamp(enable: $enable)';
+}
+
+/// Preset split-toning parameters.
+@immutable
+class PresetSplitToning {
+  /// Main constructor.
+  const PresetSplitToning({
+    required this.shadowsTint,
+    required this.highlightsTint,
+  });
+
+  /// Factory to parse from a JSON map.
+  factory PresetSplitToning.fromJson(Map<String, dynamic> json) =>
+      PresetSplitToning(
+        shadowsTint: _parseRgbList(json['shadowsTint']),
+        highlightsTint: _parseRgbList(json['highlightsTint']),
+      );
+
+  /// Normalized RGB tint applied to shadows.
+  final List<double> shadowsTint;
+
+  /// Normalized RGB tint applied to highlights.
+  final List<double> highlightsTint;
+
+  /// Converts this instance to a JSON map.
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'shadowsTint': List<double>.of(shadowsTint),
+    'highlightsTint': List<double>.of(highlightsTint),
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PresetSplitToning &&
+          listEquals(other.shadowsTint, shadowsTint) &&
+          listEquals(other.highlightsTint, highlightsTint);
+
+  @override
+  int get hashCode =>
+      Object.hash(Object.hashAll(shadowsTint), Object.hashAll(highlightsTint));
+
+  @override
+  String toString() =>
+      'PresetSplitToning(shadowsTint: $shadowsTint, '
+      'highlightsTint: $highlightsTint)';
+}
+
+List<double> _parseRgbList(Object? value) {
+  final values = value is List<dynamic> ? value : const <dynamic>[];
+  return List<double>.generate(3, (index) {
+    if (index >= values.length) return 0.0;
+    final component = values[index];
+    return component is num ? component.toDouble() : 0.0;
+  }, growable: false);
+}
+
 /// Group of preset effects.
 @immutable
 class PresetEffects {
@@ -288,6 +417,10 @@ class PresetEffects {
     this.bloom = const PresetBloom(threshold: 0.8, intensity: 0),
     this.halation = const PresetHalation(intensity: 0),
     this.lensDistortion = const PresetLensDistortion(strength: 0),
+    this.chromaticAberration,
+    this.softness,
+    this.dateStamp,
+    this.splitToning,
   });
 
   /// Factory to parse from a JSON map.
@@ -297,6 +430,10 @@ class PresetEffects {
     final bloomJson = json['bloom'] as Map<String, dynamic>?;
     final halationJson = json['halation'] as Map<String, dynamic>?;
     final lensDistortionJson = json['lensDistortion'] as Map<String, dynamic>?;
+    final chromaticAberrationJson =
+        json['chromaticAberration'] as Map<String, dynamic>?;
+    final dateStampJson = json['dateStamp'] as Map<String, dynamic>?;
+    final splitToningJson = json['splitToning'] as Map<String, dynamic>?;
     return PresetEffects(
       lightLeak: lightLeakJson != null
           ? LightLeakEffect.fromJson(lightLeakJson)
@@ -313,6 +450,19 @@ class PresetEffects {
       lensDistortion: lensDistortionJson != null
           ? PresetLensDistortion.fromJson(lensDistortionJson)
           : const PresetLensDistortion(strength: 0),
+      chromaticAberration: chromaticAberrationJson != null
+          ? PresetChromaticAberration.fromJson(chromaticAberrationJson)
+          : const PresetChromaticAberration(intensity: 0),
+      softness: (json['softness'] as num?)?.toDouble() ?? 0.0,
+      dateStamp: dateStampJson != null
+          ? PresetDateStamp.fromJson(dateStampJson)
+          : const PresetDateStamp(enable: false),
+      splitToning: splitToningJson != null
+          ? PresetSplitToning.fromJson(splitToningJson)
+          : const PresetSplitToning(
+              shadowsTint: <double>[0, 0, 0],
+              highlightsTint: <double>[0, 0, 0],
+            ),
     );
   }
 
@@ -331,6 +481,18 @@ class PresetEffects {
   /// Lens distortion effect configurations.
   final PresetLensDistortion lensDistortion;
 
+  /// Chromatic aberration effect configuration.
+  final PresetChromaticAberration? chromaticAberration;
+
+  /// Soft-focus amount.
+  final double? softness;
+
+  /// Retro date stamp configuration.
+  final PresetDateStamp? dateStamp;
+
+  /// Shadow and highlight tint configuration.
+  final PresetSplitToning? splitToning;
+
   /// Converts this instance to a JSON map.
   Map<String, dynamic> toJson() => <String, dynamic>{
     'lightLeak': lightLeak.toJson(),
@@ -338,6 +500,18 @@ class PresetEffects {
     'bloom': bloom.toJson(),
     'halation': halation.toJson(),
     'lensDistortion': lensDistortion.toJson(),
+    'chromaticAberration':
+        (chromaticAberration ?? const PresetChromaticAberration(intensity: 0))
+            .toJson(),
+    'softness': softness ?? 0.0,
+    'dateStamp': (dateStamp ?? const PresetDateStamp(enable: false)).toJson(),
+    'splitToning':
+        (splitToning ??
+                const PresetSplitToning(
+                  shadowsTint: <double>[0, 0, 0],
+                  highlightsTint: <double>[0, 0, 0],
+                ))
+            .toJson(),
   };
 
   @override
@@ -348,18 +522,33 @@ class PresetEffects {
         other.dust == dust &&
         other.bloom == bloom &&
         other.halation == halation &&
-        other.lensDistortion == lensDistortion;
+        other.lensDistortion == lensDistortion &&
+        other.chromaticAberration == chromaticAberration &&
+        other.softness == softness &&
+        other.dateStamp == dateStamp &&
+        other.splitToning == splitToning;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(lightLeak, dust, bloom, halation, lensDistortion);
+  int get hashCode => Object.hash(
+    lightLeak,
+    dust,
+    bloom,
+    halation,
+    lensDistortion,
+    chromaticAberration,
+    softness,
+    dateStamp,
+    splitToning,
+  );
 
   @override
   String toString() =>
       'PresetEffects(lightLeak: $lightLeak, dust: $dust, '
       'bloom: $bloom, halation: $halation, '
-      'lensDistortion: $lensDistortion)';
+      'lensDistortion: $lensDistortion, '
+      'chromaticAberration: $chromaticAberration, softness: $softness, '
+      'dateStamp: $dateStamp, splitToning: $splitToning)';
 }
 
 /// Dynamic, data-driven preset recipe model.

@@ -13,7 +13,7 @@ class GlShaderConstantsTest {
         assertOrder(
             shader,
             "vec2 sourceUv = applyLensDistortion(vTextureCoord);",
-            "texColor = texture2D(sTexture, sourceUv);"
+            "vec4 texColor = sampleSoftSource(sourceUv);"
         )
     }
 
@@ -53,6 +53,14 @@ class GlShaderConstantsTest {
     fun `single pass shader keeps final effects in analog stack order`() {
         val shader = GlShaderConstants.FRAGMENT_SHADER_EXPORT
 
+        assertTrue(shader.contains("uniform float uChromaticAberrationIntensity;"))
+        assertTrue(shader.contains("uniform float uFade;"))
+        assertTrue(shader.contains("uniform vec3 uShadowsTint;"))
+        assertTrue(shader.contains("uniform vec3 uHighlightsTint;"))
+        assertTrue(shader.contains("uChromaticAberrationIntensity * 0.015"))
+        assertOrder(shader, "color = applyRanaStyles(color);", "color = applyFade(color);")
+        assertOrder(shader, "color = applyFade(color);", "color = applySplitToning(color);")
+        assertOrder(shader, "color = applySplitToning(color);", "if (uBloomIntensity > 0.0)")
         assertOrder(shader, "color = applyLightLeak(color, vTextureCoord);", "color = applyDust(color, vTextureCoord);")
         assertOrder(shader, "color = applyDust(color, vTextureCoord);", "color = applyFilmGrain(color);")
         assertOrder(shader, "color = applyFilmGrain(color);", "color = applyVignette(color);")
@@ -65,8 +73,15 @@ class GlShaderConstantsTest {
         assertTrue(shader.contains("uniform float uTone;"))
         assertTrue(shader.contains("uniform float uColor;"))
         assertTrue(shader.contains("uniform float uStyleStrength;"))
+        assertTrue(shader.contains("uniform float uChromaticAberrationIntensity;"))
+        assertTrue(shader.contains("uniform float uFade;"))
+        assertTrue(shader.contains("uniform vec3 uShadowsTint;"))
+        assertTrue(shader.contains("uniform vec3 uHighlightsTint;"))
         assertTrue(shader.contains("color += vec3(uTextureVal * 0.0);"))
         assertOrder(shader, "color = applyRanaStyles(color);", "if (uBloomIntensity > 0.0)")
+        assertOrder(shader, "color = applyRanaStyles(color);", "color = applyFade(color);")
+        assertOrder(shader, "color = applyFade(color);", "color = applySplitToning(color);")
+        assertOrder(shader, "color = applySplitToning(color);", "if (uBloomIntensity > 0.0)")
         assertOrder(shader, "color = applyRanaStyles(color);", "color = applyLightLeak(color, vTextureCoord);")
     }
 

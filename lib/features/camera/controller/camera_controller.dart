@@ -418,8 +418,16 @@ class CameraController extends _$CameraController {
 
     final presetGrain = activePreset?.grain.intensity ?? 0.0;
     final presetDust = activePreset?.effects.dust.intensity ?? 0.0;
-    final textureVal = style.texture;
+    final presetGrainSize = activePreset?.grain.size ?? 1.0;
+    final presetSoftness = activePreset?.effects.softness ?? 0.0;
+    final textureVal = style.textureVal ?? style.texture;
     final styleStrength = style.styleStrength;
+    final shadowsTint =
+        activePreset?.effects.splitToning?.shadowsTint ??
+        const <double>[0, 0, 0];
+    final highlightsTint =
+        activePreset?.effects.splitToning?.highlightsTint ??
+        const <double>[0, 0, 0];
 
     final mapped = RanaTextureMapper.mapTexture(
       textureVal,
@@ -432,15 +440,17 @@ class CameraController extends _$CameraController {
         presetGrain * (1.0 - blend) + (mapped['grain'] ?? 0.0) * blend;
     final finalDust =
         presetDust * (1.0 - blend) + (mapped['dust'] ?? 0.0) * blend;
-    final finalGrainSize =
-        1.0 * (1.0 - blend) + (mapped['grainSize'] ?? 1.0) * blend;
-    final finalSoftness =
-        0.0 * (1.0 - blend) + (mapped['softness'] ?? 0.0) * blend;
+    final grainSizeMultiplier =
+        (1.0 - blend) + (mapped['grainSize'] ?? 1.0) * blend;
+    final finalGrainSize = presetGrainSize * grainSizeMultiplier;
+    final finalSoftness = (presetSoftness + (mapped['softness'] ?? 0.0) * blend)
+        .clamp(0.0, 1.0);
 
     return <String, dynamic>{
       'temperature': activePreset?.color.temperature ?? 0.0,
       'saturation': activePreset?.color.saturation ?? 0.0,
       'contrast': activePreset?.color.contrast ?? 0.0,
+      'fade': activePreset?.color.fade ?? 0.0,
       'grain': finalGrain,
       'vignette': activePreset?.vignette.intensity ?? 0.0,
       'lutPath': lutPath,
@@ -453,6 +463,15 @@ class CameraController extends _$CameraController {
       'halationIntensity': activePreset?.effects.halation.intensity ?? 0.0,
       'lensDistortionStrength':
           activePreset?.effects.lensDistortion.strength ?? 0.0,
+      'chromaticAberrationIntensity':
+          activePreset?.effects.chromaticAberration?.intensity ?? 0.0,
+      'dateStampEnable': activePreset?.effects.dateStamp?.enable ?? false,
+      'shadowsTintR': shadowsTint[0],
+      'shadowsTintG': shadowsTint[1],
+      'shadowsTintB': shadowsTint[2],
+      'highlightsTintR': highlightsTint[0],
+      'highlightsTintG': highlightsTint[1],
+      'highlightsTintB': highlightsTint[2],
       'tone': style.tone,
       'color': style.color,
       'textureVal': textureVal,
@@ -599,8 +618,14 @@ class CameraController extends _$CameraController {
 
     final presetGrain = preset.grain.intensity;
     final presetDust = preset.effects.dust.intensity;
-    final textureVal = effectiveStyle.texture;
+    final presetGrainSize = preset.grain.size ?? 1.0;
+    final presetSoftness = preset.effects.softness ?? 0.0;
+    final textureVal = effectiveStyle.textureVal ?? effectiveStyle.texture;
     final styleStrength = effectiveStyle.styleStrength;
+    final shadowsTint =
+        preset.effects.splitToning?.shadowsTint ?? const <double>[0, 0, 0];
+    final highlightsTint =
+        preset.effects.splitToning?.highlightsTint ?? const <double>[0, 0, 0];
 
     final mapped = RanaTextureMapper.mapTexture(
       textureVal,
@@ -613,15 +638,17 @@ class CameraController extends _$CameraController {
         presetGrain * (1.0 - blend) + (mapped['grain'] ?? 0.0) * blend;
     final finalDust =
         presetDust * (1.0 - blend) + (mapped['dust'] ?? 0.0) * blend;
-    final finalGrainSize =
-        1.0 * (1.0 - blend) + (mapped['grainSize'] ?? 1.0) * blend;
-    final finalSoftness =
-        0.0 * (1.0 - blend) + (mapped['softness'] ?? 0.0) * blend;
+    final grainSizeMultiplier =
+        (1.0 - blend) + (mapped['grainSize'] ?? 1.0) * blend;
+    final finalGrainSize = presetGrainSize * grainSizeMultiplier;
+    final finalSoftness = (presetSoftness + (mapped['softness'] ?? 0.0) * blend)
+        .clamp(0.0, 1.0);
 
     return <String, dynamic>{
       'temperature': preset.color.temperature,
       'contrast': preset.color.contrast,
       'saturation': preset.color.saturation,
+      'fade': preset.color.fade ?? 0.0,
       'grain': finalGrain,
       'vignette': preset.vignette.intensity,
       'lutPath': lutPath,
@@ -633,6 +660,15 @@ class CameraController extends _$CameraController {
       'bloomIntensity': preset.effects.bloom.intensity,
       'halationIntensity': preset.effects.halation.intensity,
       'lensDistortionStrength': preset.effects.lensDistortion.strength,
+      'chromaticAberrationIntensity':
+          preset.effects.chromaticAberration?.intensity ?? 0.0,
+      'dateStampEnable': preset.effects.dateStamp?.enable ?? false,
+      'shadowsTintR': shadowsTint[0],
+      'shadowsTintG': shadowsTint[1],
+      'shadowsTintB': shadowsTint[2],
+      'highlightsTintR': highlightsTint[0],
+      'highlightsTintG': highlightsTint[1],
+      'highlightsTintB': highlightsTint[2],
       'tone': effectiveStyle.tone,
       'color': effectiveStyle.color,
       'textureVal': textureVal,

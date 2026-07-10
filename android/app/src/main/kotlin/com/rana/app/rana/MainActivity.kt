@@ -344,50 +344,7 @@ class MainActivity : FlutterActivity() {
                     result.success(mapOf("status" to "released"))
                 }
                 "testOfflineProcessing" -> {
-                    val temp = (call.argument<Number>("temperature"))
-                        ?.toFloat() ?: 0f
-                    val sat = (call.argument<Number>("saturation"))
-                        ?.toFloat() ?: 0f
-                    val cont = (call.argument<Number>("contrast"))
-                        ?.toFloat() ?: 0f
-                    val grain = (call.argument<Number>("grain"))
-                        ?.toFloat() ?: 0f
-                    val vignette = (call.argument<Number>("vignette"))
-                        ?.toFloat() ?: 0f
-                    val lutPath = call.argument<String>("lutPath")
-                    val lutStrength = (call.argument<Number>("lutStrength"))
-                        ?.toFloat() ?: 0f
-                    val lightLeakIntensity = (call.argument<Number>("lightLeakIntensity"))
-                        ?.toFloat() ?: 0f
-                    val lightLeakVariant = (call.argument<Number>("lightLeakVariant"))
-                        ?.toInt() ?: -1
-                    val dustIntensity = (call.argument<Number>("dustIntensity"))
-                        ?.toFloat() ?: 0f
-                    val bloomThreshold = (call.argument<Number>("bloomThreshold"))
-                        ?.toFloat() ?: 0.8f
-                    val bloomIntensity = (call.argument<Number>("bloomIntensity"))
-                        ?.toFloat() ?: 0f
-                    val halationIntensity = (call.argument<Number>("halationIntensity"))
-                        ?.toFloat() ?: 0f
-                    val lensDistortionStrength = (
-                        call.argument<Number>("lensDistortionStrength")
-                    )?.toFloat() ?: 0f
-                    val tone = (call.argument<Number>("tone"))
-                        ?.toFloat() ?: 0f
-                    val color = (call.argument<Number>("color"))
-                        ?.toFloat() ?: 0f
-                    val textureVal = (call.argument<Number>("textureVal"))
-                        ?.toFloat() ?: 0f
-                    val styleStrength = (call.argument<Number>("styleStrength"))
-                        ?.toFloat() ?: 100f
-                    val undertoneX = (call.argument<Number>("undertoneX"))
-                        ?.toFloat() ?: 0f
-                    val undertoneY = (call.argument<Number>("undertoneY"))
-                        ?.toFloat() ?: 0f
-                    val grainSize = (call.argument<Number>("grainSize"))
-                        ?.toFloat() ?: 1f
-                    val softness = (call.argument<Number>("softness"))
-                        ?.toFloat() ?: 0f
+                    val params = offlineProcessParamsFromArguments(call.arguments)
 
                     val bitmap = android.graphics.Bitmap.createBitmap(
                         512, 512, android.graphics.Bitmap.Config.ARGB_8888
@@ -406,30 +363,6 @@ class MainActivity : FlutterActivity() {
                         .newSingleThreadExecutor()
                     executor.execute {
                         try {
-                            val params = OfflineProcessParams(
-                                temperature = temp,
-                                saturation = sat,
-                                contrast = cont,
-                                grain = grain,
-                                vignette = vignette,
-                                lutAssetPath = lutPath,
-                                lutStrength = lutStrength,
-                                lightLeakIntensity = lightLeakIntensity,
-                                lightLeakVariant = lightLeakVariant,
-                                dustIntensity = dustIntensity,
-                                bloomThreshold = bloomThreshold,
-                                bloomIntensity = bloomIntensity,
-                                halationIntensity = halationIntensity,
-                                lensDistortionStrength = lensDistortionStrength,
-                                tone = tone,
-                                color = color,
-                                textureVal = textureVal,
-                                styleStrength = styleStrength,
-                                undertoneX = undertoneX,
-                                undertoneY = undertoneY,
-                                grainSize = grainSize,
-                                softness = softness
-                            )
                             val out = OfflineGlProcessor.processImage(
                                 context, bitmap, params
                             )
@@ -494,35 +427,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun offlineParamsFromArgs(arguments: Any?): OfflineProcessParams {
-        val args = arguments as? Map<*, *>
-        fun numberArg(key: String): Float {
-            return (args?.get(key) as? Number)?.toFloat() ?: 0f
-        }
-
-        return OfflineProcessParams(
-            temperature = numberArg("temperature"),
-            saturation = numberArg("saturation"),
-            contrast = numberArg("contrast"),
-            grain = numberArg("grain"),
-            vignette = numberArg("vignette"),
-            lutAssetPath = args?.get("lutPath") as? String,
-            lutStrength = numberArg("lutStrength"),
-            lightLeakIntensity = numberArg("lightLeakIntensity"),
-            lightLeakVariant = (args?.get("lightLeakVariant") as? Number)?.toInt() ?: -1,
-            dustIntensity = numberArg("dustIntensity"),
-            bloomThreshold = (args?.get("bloomThreshold") as? Number)?.toFloat() ?: 0.8f,
-            bloomIntensity = numberArg("bloomIntensity"),
-            halationIntensity = numberArg("halationIntensity"),
-            lensDistortionStrength = numberArg("lensDistortionStrength"),
-            tone = numberArg("tone"),
-            color = numberArg("color"),
-            textureVal = numberArg("textureVal"),
-            styleStrength = (args?.get("styleStrength") as? Number)?.toFloat() ?: 100f,
-            undertoneX = numberArg("undertoneX"),
-            undertoneY = numberArg("undertoneY"),
-            grainSize = (args?.get("grainSize") as? Number)?.toFloat() ?: 1f,
-            softness = numberArg("softness")
-        )
+        return offlineProcessParamsFromArguments(arguments)
     }
 
     fun dispatchPreviewFps(fps: Int) {

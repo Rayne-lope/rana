@@ -489,6 +489,85 @@ void main() {
       expect(params['bloomIntensity'], equals(0.0));
       expect(params['halationIntensity'], equals(0.0));
       expect(params['lensDistortionStrength'], equals(0.0));
+      expect(params['chromaticAberrationIntensity'], equals(0.0));
+      expect(params['fade'], equals(0.0));
+      expect(params['dateStampEnable'], isFalse);
+      expect(params['shadowsTintR'], equals(0.0));
+      expect(params['shadowsTintG'], equals(0.0));
+      expect(params['shadowsTintB'], equals(0.0));
+      expect(params['highlightsTintR'], equals(0.0));
+      expect(params['highlightsTintG'], equals(0.0));
+      expect(params['highlightsTintB'], equals(0.0));
+    });
+
+    test('analog params match between preview and capture', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final controller = container.read(cameraControllerProvider.notifier);
+      await controller.initialize();
+      log.clear();
+
+      const preset = PresetModel(
+        id: 'analog_custom',
+        name: 'Analog Custom',
+        category: 'Custom',
+        color: PresetColor(
+          temperature: 0.1,
+          contrast: 0.2,
+          saturation: 0.3,
+          fade: 0.25,
+        ),
+        grain: PresetGrain(intensity: 0.4, size: 1.6),
+        vignette: PresetVignette(intensity: 0.5),
+        effects: PresetEffects(
+          lightLeak: LightLeakEffect(intensity: 0, variant: 0),
+          dust: DustEffect(intensity: 0),
+          chromaticAberration: PresetChromaticAberration(intensity: 0.12),
+          softness: 0.2,
+          dateStamp: PresetDateStamp(enable: true),
+          splitToning: PresetSplitToning(
+            shadowsTint: <double>[0.1, 0.2, 0.3],
+            highlightsTint: <double>[0.7, 0.8, 0.9],
+          ),
+        ),
+        style: RanaStyle(textureVal: 50, styleStrength: 50),
+      );
+
+      await controller.selectPreset(preset);
+      final previewCall = log.singleWhere(
+        (call) => call.method == 'selectPreset',
+      );
+      final previewArgs = previewCall.arguments as Map<dynamic, dynamic>;
+      final previewParams = previewArgs['params'] as Map<dynamic, dynamic>;
+      log.clear();
+
+      await controller.capture();
+      final captureCall = log.singleWhere(
+        (call) => call.method == 'beginCapture',
+      );
+      final captureParams = captureCall.arguments as Map<dynamic, dynamic>;
+
+      for (final key in <String>[
+        'chromaticAberrationIntensity',
+        'fade',
+        'dateStampEnable',
+        'shadowsTintR',
+        'shadowsTintG',
+        'shadowsTintB',
+        'highlightsTintR',
+        'highlightsTintG',
+        'highlightsTintB',
+        'textureVal',
+        'grainSize',
+        'softness',
+      ]) {
+        expect(captureParams[key], equals(previewParams[key]), reason: key);
+      }
+      expect(previewParams['textureVal'], 50.0);
+      expect(previewParams['grainSize'], closeTo(1.52, 0.0001));
+      expect(previewParams['softness'], closeTo(0.275, 0.0001));
+      expect(previewParams['dateStampEnable'], isTrue);
     });
 
     test('selectPreset seeds active style and sends style params', () async {

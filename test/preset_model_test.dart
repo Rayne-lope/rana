@@ -21,7 +21,9 @@ void main() {
       expect(model.color.temperature, 0.0);
       expect(model.color.contrast, 0.0);
       expect(model.color.saturation, 0.0);
+      expect(model.color.fade, 0.0);
       expect(model.grain.intensity, 0.0);
+      expect(model.grain.size, 1.0);
       expect(model.vignette.intensity, 0.0);
       expect(model.lut, isNull);
       expect(model.overlay, isNull);
@@ -33,15 +35,19 @@ void main() {
       expect(model.effects.bloom.intensity, 0.0);
       expect(model.effects.halation.intensity, 0.0);
       expect(model.effects.lensDistortion.strength, 0.0);
+      expect(model.effects.chromaticAberration?.intensity, 0.0);
+      expect(model.effects.softness, 0.0);
+      expect(model.effects.dateStamp?.enable, isFalse);
+      expect(model.effects.splitToning?.shadowsTint, <double>[0, 0, 0]);
+      expect(model.effects.splitToning?.highlightsTint, <double>[0, 0, 0]);
       expect(model.style, isNotNull);
       expect(model.style!.tone, 0.0);
       expect(model.style!.color, 0.0);
       expect(model.style!.styleStrength, 100.0);
       expect(model.style!.undertoneX, 0.0);
       expect(model.style!.undertoneY, 0.0);
+      expect(model.style!.textureVal, 0.0);
     });
-
-
 
     test('successfully parses Kodak Gold photographic style defaults', () {
       final file = File('assets/presets/kodak_gold_200.json');
@@ -102,9 +108,58 @@ void main() {
       expect(styleMap['tone'], 12.0);
       expect(styleMap['color'], -15.0);
       expect(styleMap['texture'], 25.0);
+      expect(styleMap['textureVal'], 25.0);
       expect(styleMap['styleStrength'], 85.0);
       expect(styleMap['undertoneX'], 0.35);
       expect(styleMap['undertoneY'], -0.45);
+    });
+
+    test('parses and serializes optional analog effects', () {
+      final model = PresetModel.fromJson(const <String, dynamic>{
+        'id': 'analog_custom',
+        'name': 'Analog Custom',
+        'category': 'Custom',
+        'color': <String, dynamic>{
+          'temperature': 0.1,
+          'contrast': 0.2,
+          'saturation': -0.1,
+          'fade': 0.3,
+        },
+        'grain': <String, dynamic>{'intensity': 0.4, 'size': 1.7},
+        'vignette': <String, dynamic>{'intensity': 0.2},
+        'effects': <String, dynamic>{
+          'chromaticAberration': <String, dynamic>{'intensity': 0.15},
+          'softness': 0.25,
+          'dateStamp': <String, dynamic>{'enable': true},
+          'splitToning': <String, dynamic>{
+            'shadowsTint': <dynamic>[0.1, 0.2],
+            'highlightsTint': <dynamic>[0.7, 'invalid', 0.9],
+          },
+        },
+        'style': <String, dynamic>{'textureVal': 30.0},
+      });
+
+      expect(model.color.fade, 0.3);
+      expect(model.grain.size, 1.7);
+      expect(model.effects.chromaticAberration?.intensity, 0.15);
+      expect(model.effects.softness, 0.25);
+      expect(model.effects.dateStamp?.enable, isTrue);
+      expect(model.effects.splitToning?.shadowsTint, <double>[0.1, 0.2, 0]);
+      expect(model.effects.splitToning?.highlightsTint, <double>[0.7, 0, 0.9]);
+      expect(model.style?.texture, 30.0);
+      expect(model.style?.textureVal, 30.0);
+
+      final serialized = model.toJson();
+      final effects = serialized['effects'] as Map<String, dynamic>;
+      expect(effects['softness'], 0.25);
+      expect(effects['dateStamp'], <String, dynamic>{'enable': true});
+      expect(effects['chromaticAberration'], <String, dynamic>{
+        'intensity': 0.15,
+      });
+      expect(effects['splitToning'], <String, dynamic>{
+        'shadowsTint': <double>[0.1, 0.2, 0],
+        'highlightsTint': <double>[0.7, 0, 0.9],
+      });
     });
   });
 }

@@ -68,7 +68,11 @@ object OfflineGlProcessor {
         val undertoneXLoc: Int,
         val undertoneYLoc: Int,
         val grainSizeLoc: Int,
-        val softnessLoc: Int
+        val softnessLoc: Int,
+        val chromaticAberrationIntensityLoc: Int,
+        val fadeLoc: Int,
+        val shadowsTintLoc: Int,
+        val highlightsTintLoc: Int
     )
 
     private data class BasePassProgram(
@@ -116,7 +120,11 @@ object OfflineGlProcessor {
         val textureValLoc: Int,
         val styleStrengthLoc: Int,
         val undertoneXLoc: Int,
-        val undertoneYLoc: Int
+        val undertoneYLoc: Int,
+        val chromaticAberrationIntensityLoc: Int,
+        val fadeLoc: Int,
+        val shadowsTintLoc: Int,
+        val highlightsTintLoc: Int
     )
 
     private data class FramebufferTarget(
@@ -214,7 +222,11 @@ object OfflineGlProcessor {
                 "lensDistortionStrength=${params.lensDistortionStrength} " +
                 "tone=${params.tone} color=${params.color} textureVal=${params.textureVal} styleStrength=${params.styleStrength} " +
                 "undertoneX=${params.undertoneX} undertoneY=${params.undertoneY} " +
-                "grainSize=${params.grainSize} softness=${params.softness}"
+                "grainSize=${params.grainSize} softness=${params.softness} " +
+                "chromaticAberration=${params.chromaticAberrationIntensity} " +
+                "fade=${params.fade} dateStamp=${params.dateStampEnable} " +
+                "shadowsTint=[${params.shadowsTintR},${params.shadowsTintG},${params.shadowsTintB}] " +
+                "highlightsTint=[${params.highlightsTintR},${params.highlightsTintG},${params.highlightsTintB}]"
         )
 
         var inputTextureId = -1
@@ -665,6 +677,23 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.undertoneYLoc, params.undertoneY)
         GLES20.glUniform1f(program.grainSizeLoc, effectScale.grainSize)
         GLES20.glUniform1f(program.softnessLoc, params.softness)
+        GLES20.glUniform1f(
+            program.chromaticAberrationIntensityLoc,
+            params.chromaticAberrationIntensity
+        )
+        GLES20.glUniform1f(program.fadeLoc, params.fade)
+        GLES20.glUniform3f(
+            program.shadowsTintLoc,
+            params.shadowsTintR,
+            params.shadowsTintG,
+            params.shadowsTintB
+        )
+        GLES20.glUniform3f(
+            program.highlightsTintLoc,
+            params.highlightsTintR,
+            params.highlightsTintG,
+            params.highlightsTintB
+        )
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, inputTextureId)
@@ -791,6 +820,23 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.undertoneYLoc, params.undertoneY)
         GLES20.glUniform1f(program.timeLoc, 0f)
         GLES20.glUniform1f(program.grainSizeLoc, effectScale.grainSize)
+        GLES20.glUniform1f(
+            program.chromaticAberrationIntensityLoc,
+            params.chromaticAberrationIntensity
+        )
+        GLES20.glUniform1f(program.fadeLoc, params.fade)
+        GLES20.glUniform3f(
+            program.shadowsTintLoc,
+            params.shadowsTintR,
+            params.shadowsTintG,
+            params.shadowsTintB
+        )
+        GLES20.glUniform3f(
+            program.highlightsTintLoc,
+            params.highlightsTintR,
+            params.highlightsTintG,
+            params.highlightsTintB
+        )
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, baseTextureId)
@@ -1011,7 +1057,14 @@ object OfflineGlProcessor {
             undertoneXLoc = GLES20.glGetUniformLocation(programId, "uUndertoneX"),
             undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY"),
             grainSizeLoc = GLES20.glGetUniformLocation(programId, "uGrainSize"),
-            softnessLoc = GLES20.glGetUniformLocation(programId, "uSoftness")
+            softnessLoc = GLES20.glGetUniformLocation(programId, "uSoftness"),
+            chromaticAberrationIntensityLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uChromaticAberrationIntensity"
+            ),
+            fadeLoc = GLES20.glGetUniformLocation(programId, "uFade"),
+            shadowsTintLoc = GLES20.glGetUniformLocation(programId, "uShadowsTint"),
+            highlightsTintLoc = GLES20.glGetUniformLocation(programId, "uHighlightsTint")
         )
     }
 
@@ -1082,7 +1135,14 @@ object OfflineGlProcessor {
             textureValLoc = GLES20.glGetUniformLocation(programId, "uTextureVal"),
             styleStrengthLoc = GLES20.glGetUniformLocation(programId, "uStyleStrength"),
             undertoneXLoc = GLES20.glGetUniformLocation(programId, "uUndertoneX"),
-            undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY")
+            undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY"),
+            chromaticAberrationIntensityLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uChromaticAberrationIntensity"
+            ),
+            fadeLoc = GLES20.glGetUniformLocation(programId, "uFade"),
+            shadowsTintLoc = GLES20.glGetUniformLocation(programId, "uShadowsTint"),
+            highlightsTintLoc = GLES20.glGetUniformLocation(programId, "uHighlightsTint")
         )
     }
 

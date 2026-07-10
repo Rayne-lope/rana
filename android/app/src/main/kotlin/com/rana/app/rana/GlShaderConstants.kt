@@ -212,6 +212,33 @@ object GlShaderConstants {
         }
     """.trimIndent()
 
+    private val ANALOG_COLOR_HELPERS = """
+        uniform float uChromaticAberrationIntensity;
+        uniform float uFade;
+        uniform vec3 uShadowsTint;
+        uniform vec3 uHighlightsTint;
+
+        vec2 chromaticAberrationOffset(vec2 uv) {
+            vec2 dir = uv - vec2(0.5);
+            float dist = length(dir);
+            return dir * dist * uChromaticAberrationIntensity * 0.015;
+        }
+
+        vec3 applyFade(vec3 color) {
+            float fadeAmount = clamp(uFade, 0.0, 1.0) * 0.1;
+            return vec3(fadeAmount) + color * (1.0 - fadeAmount);
+        }
+
+        vec3 applySplitToning(vec3 color) {
+            float luma = dot(color, vec3(0.299, 0.587, 0.114));
+            vec3 shadowColor = color +
+                uShadowsTint * (1.0 - luma) * 0.15;
+            vec3 highlightColor = color +
+                uHighlightsTint * luma * 0.15;
+            return mix(shadowColor, highlightColor, luma);
+        }
+    """.trimIndent()
+
     private val SINGLE_PASS_BODY = """
         uniform sampler2D uBloomTexture;
         uniform float uBloomIntensity;
@@ -220,24 +247,40 @@ object GlShaderConstants {
         $LUT_HELPERS
         $STYLE_HELPERS
         $FINAL_EFFECT_HELPERS
+        $ANALOG_COLOR_HELPERS
+
+        vec4 sampleSoftSource(vec2 uv) {
+            if (uSoftness <= 0.0) {
+                return texture2D(sTexture, uv);
+            }
+            float offset = 0.005 * uSoftness;
+            return (
+                texture2D(sTexture, uv) +
+                texture2D(sTexture, uv + vec2(offset, 0.0)) +
+                texture2D(sTexture, uv + vec2(-offset, 0.0)) +
+                texture2D(sTexture, uv + vec2(0.0, offset)) +
+                texture2D(sTexture, uv + vec2(0.0, -offset))
+            ) / 5.0;
+        }
 
         void main() {
             vec2 sourceUv = applyLensDistortion(vTextureCoord);
-            vec4 texColor;
-            if (uSoftness > 0.0) {
-                float offset = 0.005 * uSoftness;
-                texColor = (
-                    texture2D(sTexture, sourceUv) +
-                    texture2D(sTexture, sourceUv + vec2(offset, 0.0)) +
-                    texture2D(sTexture, sourceUv + vec2(-offset, 0.0)) +
-                    texture2D(sTexture, sourceUv + vec2(0.0, offset)) +
-                    texture2D(sTexture, sourceUv + vec2(0.0, -offset))
-                ) / 5.0;
-            } else {
-                texColor = texture2D(sTexture, sourceUv);
-            }
+            vec4 texColor = sampleSoftSource(sourceUv);
             vec3 color = applyColorGrade(texColor.rgb);
+            if (uChromaticAberrationIntensity > 0.0) {
+                vec2 channelOffset = chromaticAberrationOffset(sourceUv);
+                vec3 redSample = applyColorGrade(
+                    sampleSoftSource(clamp(sourceUv - channelOffset, 0.0, 1.0)).rgb
+                );
+                vec3 blueSample = applyColorGrade(
+                    sampleSoftSource(clamp(sourceUv + channelOffset, 0.0, 1.0)).rgb
+                );
+                color.r = redSample.r;
+                color.b = blueSample.b;
+            }
             color = applyRanaStyles(color);
+            color = applyFade(color);
+            color = applySplitToning(color);
 
             if (uBloomIntensity > 0.0) {
                 vec3 bloomColor = texture2D(uBloomTexture, vTextureCoord).rgb;
@@ -338,11 +381,25 @@ object GlShaderConstants {
 
         $STYLE_HELPERS
         $FINAL_EFFECT_HELPERS
+        $ANALOG_COLOR_HELPERS
 
         void main() {
             vec4 baseColor = texture2D(sTexture, vTextureCoord);
             vec3 color = baseColor.rgb;
+            if (uChromaticAberrationIntensity > 0.0) {
+                vec2 channelOffset = chromaticAberrationOffset(vTextureCoord);
+                color.r = texture2D(
+                    sTexture,
+                    clamp(vTextureCoord - channelOffset, 0.0, 1.0)
+                ).r;
+                color.b = texture2D(
+                    sTexture,
+                    clamp(vTextureCoord + channelOffset, 0.0, 1.0)
+                ).b;
+            }
             color = applyRanaStyles(color);
+            color = applyFade(color);
+            color = applySplitToning(color);
 
             if (uBloomIntensity > 0.0) {
                 vec3 bloomColor = texture2D(uBloomTexture, vTextureCoord).rgb;

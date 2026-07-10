@@ -62,7 +62,11 @@ class CameraGlRenderer(
         val undertoneXLoc: Int,
         val undertoneYLoc: Int,
         val grainSizeLoc: Int,
-        val softnessLoc: Int
+        val softnessLoc: Int,
+        val chromaticAberrationIntensityLoc: Int,
+        val fadeLoc: Int,
+        val shadowsTintLoc: Int,
+        val highlightsTintLoc: Int
     )
 
     private data class BasePassProgram(
@@ -110,7 +114,11 @@ class CameraGlRenderer(
         val textureValLoc: Int,
         val styleStrengthLoc: Int,
         val undertoneXLoc: Int,
-        val undertoneYLoc: Int
+        val undertoneYLoc: Int,
+        val chromaticAberrationIntensityLoc: Int,
+        val fadeLoc: Int,
+        val shadowsTintLoc: Int,
+        val highlightsTintLoc: Int
     )
 
     private val renderThread = HandlerThread("CameraGLThread").apply { start() }
@@ -157,6 +165,14 @@ class CameraGlRenderer(
     private var undertoneY = 0f
     private var grainSize = 1f
     private var softness = 0f
+    private var chromaticAberrationIntensity = 0f
+    private var fade = 0f
+    private var shadowsTintR = 0f
+    private var shadowsTintG = 0f
+    private var shadowsTintB = 0f
+    private var highlightsTintR = 0f
+    private var highlightsTintG = 0f
+    private var highlightsTintB = 0f
 
     private var activeLutTextureId = -1
     private var activeLutPath: String? = null
@@ -278,7 +294,15 @@ class CameraGlRenderer(
         undertoneX: Float,
         undertoneY: Float,
         grainSize: Float,
-        softness: Float
+        softness: Float,
+        chromaticAberrationIntensity: Float,
+        fade: Float,
+        shadowsTintR: Float,
+        shadowsTintG: Float,
+        shadowsTintB: Float,
+        highlightsTintR: Float,
+        highlightsTintG: Float,
+        highlightsTintB: Float
     ) {
         renderHandler.post {
             this.temperature = temperature
@@ -302,6 +326,14 @@ class CameraGlRenderer(
             this.undertoneY = undertoneY
             this.grainSize = grainSize
             this.softness = softness
+            this.chromaticAberrationIntensity = chromaticAberrationIntensity
+            this.fade = fade
+            this.shadowsTintR = shadowsTintR
+            this.shadowsTintG = shadowsTintG
+            this.shadowsTintB = shadowsTintB
+            this.highlightsTintR = highlightsTintR
+            this.highlightsTintG = highlightsTintG
+            this.highlightsTintB = highlightsTintB
 
             if (lutPath != activeLutPath) {
                 activeLutPath = lutPath
@@ -327,7 +359,10 @@ class CameraGlRenderer(
                     "lensDistortionStrength=$lensDistortionStrength " +
                     "tone=$tone color=$color textureVal=$textureVal styleStrength=$styleStrength " +
                     "undertoneX=$undertoneX undertoneY=$undertoneY " +
-                    "grainSize=$grainSize softness=$softness"
+                    "grainSize=$grainSize softness=$softness " +
+                    "chromaticAberration=$chromaticAberrationIntensity fade=$fade " +
+                    "shadowsTint=[$shadowsTintR,$shadowsTintG,$shadowsTintB] " +
+                    "highlightsTint=[$highlightsTintR,$highlightsTintG,$highlightsTintB]"
             )
         }
     }
@@ -536,7 +571,14 @@ class CameraGlRenderer(
             undertoneXLoc = GLES20.glGetUniformLocation(programId, "uUndertoneX"),
             undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY"),
             grainSizeLoc = GLES20.glGetUniformLocation(programId, "uGrainSize"),
-            softnessLoc = GLES20.glGetUniformLocation(programId, "uSoftness")
+            softnessLoc = GLES20.glGetUniformLocation(programId, "uSoftness"),
+            chromaticAberrationIntensityLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uChromaticAberrationIntensity"
+            ),
+            fadeLoc = GLES20.glGetUniformLocation(programId, "uFade"),
+            shadowsTintLoc = GLES20.glGetUniformLocation(programId, "uShadowsTint"),
+            highlightsTintLoc = GLES20.glGetUniformLocation(programId, "uHighlightsTint")
         )
     }
 
@@ -619,7 +661,20 @@ class CameraGlRenderer(
                     textureValLoc = GLES20.glGetUniformLocation(programId, "uTextureVal"),
                     styleStrengthLoc = GLES20.glGetUniformLocation(programId, "uStyleStrength"),
                     undertoneXLoc = GLES20.glGetUniformLocation(programId, "uUndertoneX"),
-                    undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY")
+                    undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY"),
+                    chromaticAberrationIntensityLoc = GLES20.glGetUniformLocation(
+                        programId,
+                        "uChromaticAberrationIntensity"
+                    ),
+                    fadeLoc = GLES20.glGetUniformLocation(programId, "uFade"),
+                    shadowsTintLoc = GLES20.glGetUniformLocation(
+                        programId,
+                        "uShadowsTint"
+                    ),
+                    highlightsTintLoc = GLES20.glGetUniformLocation(
+                        programId,
+                        "uHighlightsTint"
+                    )
                 )
                 Log.i(
                     "GlParams",
@@ -783,6 +838,23 @@ class CameraGlRenderer(
         GLES20.glUniform1f(singlePassProgram.undertoneYLoc, undertoneY)
         GLES20.glUniform1f(singlePassProgram.grainSizeLoc, grainSize)
         GLES20.glUniform1f(singlePassProgram.softnessLoc, softness)
+        GLES20.glUniform1f(
+            singlePassProgram.chromaticAberrationIntensityLoc,
+            chromaticAberrationIntensity
+        )
+        GLES20.glUniform1f(singlePassProgram.fadeLoc, fade)
+        GLES20.glUniform3f(
+            singlePassProgram.shadowsTintLoc,
+            shadowsTintR,
+            shadowsTintG,
+            shadowsTintB
+        )
+        GLES20.glUniform3f(
+            singlePassProgram.highlightsTintLoc,
+            highlightsTintR,
+            highlightsTintG,
+            highlightsTintB
+        )
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTextureId)
@@ -901,6 +973,23 @@ class CameraGlRenderer(
             (System.currentTimeMillis() - startTimeMs) / 1000f
         )
         GLES20.glUniform1f(composite.grainSizeLoc, grainSize)
+        GLES20.glUniform1f(
+            composite.chromaticAberrationIntensityLoc,
+            chromaticAberrationIntensity
+        )
+        GLES20.glUniform1f(composite.fadeLoc, fade)
+        GLES20.glUniform3f(
+            composite.shadowsTintLoc,
+            shadowsTintR,
+            shadowsTintG,
+            shadowsTintB
+        )
+        GLES20.glUniform3f(
+            composite.highlightsTintLoc,
+            highlightsTintR,
+            highlightsTintG,
+            highlightsTintB
+        )
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, baseTextureId)

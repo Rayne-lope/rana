@@ -4,9 +4,13 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.SurfaceTexture
+import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CaptureRequest
@@ -43,12 +47,30 @@ import java.io.File
 import java.io.IOException
 import java.io.OutputStream
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 private const val MAX_PENDING_CAPTURE_PIPELINES = 3
+private const val DATE_STAMP_TEXT_HEIGHT_RATIO = 0.045f
+private const val DATE_STAMP_MARGIN_RATIO = 0.05f
+
+internal fun dateStampTextSize(bitmapHeight: Int): Float =
+    bitmapHeight * DATE_STAMP_TEXT_HEIGHT_RATIO
+
+internal fun dateStampMargin(bitmapDimension: Int): Float =
+    bitmapDimension * DATE_STAMP_MARGIN_RATIO
+
+internal fun formatDateStamp(
+    date: Date,
+    timeZone: TimeZone = TimeZone.getDefault()
+): String = SimpleDateFormat("yy MM dd", Locale.US).run {
+    this.timeZone = timeZone
+    format(date)
+}
 
 @OptIn(ExperimentalCamera2Interop::class)
 class CameraPreviewView(
@@ -784,55 +806,40 @@ class CameraPreviewView(
         renderer: CameraGlRenderer,
         params: Map<String, Any>
     ) {
-        val temp = (params["temperature"] as? Number)?.toFloat() ?: 0.0f
-        val sat = (params["saturation"] as? Number)?.toFloat() ?: 0.0f
-        val cont = (params["contrast"] as? Number)?.toFloat() ?: 0.0f
-        val grain = (params["grain"] as? Number)?.toFloat() ?: 0.0f
-        val vignette = (params["vignette"] as? Number)?.toFloat() ?: 0.0f
-        val lutPath = params["lutPath"] as? String
-        val lutStrength = (params["lutStrength"] as? Number)
-            ?.toFloat() ?: 0.0f
-        val lightLeakIntensity = (params["lightLeakIntensity"] as? Number)?.toFloat() ?: 0.0f
-        val lightLeakVariant = (params["lightLeakVariant"] as? Number)?.toInt() ?: -1
-        val dustIntensity = (params["dustIntensity"] as? Number)?.toFloat() ?: 0.0f
-        val bloomThreshold = (params["bloomThreshold"] as? Number)?.toFloat() ?: 0.8f
-        val bloomIntensity = (params["bloomIntensity"] as? Number)?.toFloat() ?: 0.0f
-        val halationIntensity = (params["halationIntensity"] as? Number)?.toFloat() ?: 0.0f
-        val lensDistortionStrength = (
-            params["lensDistortionStrength"] as? Number
-        )?.toFloat() ?: 0.0f
-        val tone = (params["tone"] as? Number)?.toFloat() ?: 0.0f
-        val color = (params["color"] as? Number)?.toFloat() ?: 0.0f
-        val textureVal = (params["textureVal"] as? Number)?.toFloat() ?: 0.0f
-        val styleStrength = (params["styleStrength"] as? Number)?.toFloat() ?: 100.0f
-        val undertoneX = (params["undertoneX"] as? Number)?.toFloat() ?: 0.0f
-        val undertoneY = (params["undertoneY"] as? Number)?.toFloat() ?: 0.0f
-        val grainSize = (params["grainSize"] as? Number)?.toFloat() ?: 1.0f
-        val softness = (params["softness"] as? Number)?.toFloat() ?: 0.0f
+        val processParams = offlineProcessParamsFromArguments(params)
 
         renderer.applyPresetParams(
-            temperature = temp,
-            saturation = sat,
-            contrast = cont,
-            grain = grain,
-            vignette = vignette,
-            lutPath = lutPath,
-            lutStrength = lutStrength,
-            lightLeakIntensity = lightLeakIntensity,
-            lightLeakVariant = lightLeakVariant,
-            dustIntensity = dustIntensity,
-            bloomThreshold = bloomThreshold,
-            bloomIntensity = bloomIntensity,
-            halationIntensity = halationIntensity,
-            lensDistortionStrength = lensDistortionStrength,
-            tone = tone,
-            color = color,
-            textureVal = textureVal,
-            styleStrength = styleStrength,
-            undertoneX = undertoneX,
-            undertoneY = undertoneY,
-            grainSize = grainSize,
-            softness = softness
+            temperature = processParams.temperature,
+            saturation = processParams.saturation,
+            contrast = processParams.contrast,
+            grain = processParams.grain,
+            vignette = processParams.vignette,
+            lutPath = processParams.lutAssetPath,
+            lutStrength = processParams.lutStrength,
+            lightLeakIntensity = processParams.lightLeakIntensity,
+            lightLeakVariant = processParams.lightLeakVariant,
+            dustIntensity = processParams.dustIntensity,
+            bloomThreshold = processParams.bloomThreshold,
+            bloomIntensity = processParams.bloomIntensity,
+            halationIntensity = processParams.halationIntensity,
+            lensDistortionStrength = processParams.lensDistortionStrength,
+            tone = processParams.tone,
+            color = processParams.color,
+            textureVal = processParams.textureVal,
+            styleStrength = processParams.styleStrength,
+            undertoneX = processParams.undertoneX,
+            undertoneY = processParams.undertoneY,
+            grainSize = processParams.grainSize,
+            softness = processParams.softness,
+            chromaticAberrationIntensity =
+                processParams.chromaticAberrationIntensity,
+            fade = processParams.fade,
+            shadowsTintR = processParams.shadowsTintR,
+            shadowsTintG = processParams.shadowsTintG,
+            shadowsTintB = processParams.shadowsTintB,
+            highlightsTintR = processParams.highlightsTintR,
+            highlightsTintG = processParams.highlightsTintG,
+            highlightsTintB = processParams.highlightsTintB
         )
     }
 
@@ -1130,6 +1137,13 @@ class CameraPreviewView(
                     errorCode = "PROCESS_FAILED"
                     errorMessage = "OfflineGlProcessor returned null"
                 } else {
+                    if (effectiveParams.dateStampEnable) {
+                        val stampedBitmap = applyDateStamp(processedBitmap)
+                        if (stampedBitmap !== processedBitmap) {
+                            processedBitmap.safeRecycle()
+                        }
+                        processedBitmap = stampedBitmap
+                    }
                     savedUri = saveProcessedBitmap(processedBitmap, captureZoomRatio)
                     markProgress("save_done")
                     if (savedUri == null) {
@@ -1282,6 +1296,27 @@ class CameraPreviewView(
             matrix,
             true
         )
+    }
+
+    private fun applyDateStamp(bitmap: Bitmap): Bitmap {
+        val target = if (bitmap.isMutable) {
+            bitmap
+        } else {
+            bitmap.copy(Bitmap.Config.ARGB_8888, true) ?: bitmap
+        }
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(200, 255, 85, 0)
+            textSize = dateStampTextSize(target.height)
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+        }
+        val text = formatDateStamp(Date())
+        val marginX = dateStampMargin(target.width)
+        val marginY = dateStampMargin(target.height)
+        val x = (target.width - marginX - paint.measureText(text))
+            .coerceAtLeast(marginX)
+        val y = target.height - marginY - paint.fontMetrics.bottom
+        Canvas(target).drawText(text, x, y, paint)
+        return target
     }
 
     private fun saveProcessedBitmap(bitmap: Bitmap, zoomRatio: Float): Uri? {
