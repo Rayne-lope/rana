@@ -16,12 +16,12 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.view.Display
-import android.view.FrameLayout
 import android.view.OrientationEventListener
 import android.view.Surface
 import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
@@ -102,7 +102,7 @@ class CameraPreviewView(
         nativeMinZoomRatio = null,
         nativeMaxZoomRatio = null
     )
-    private var currentRotation: Int = Surface.ROTATION_0
+    private var lastSensorTargetRotation: Int? = null
     private val captureExecutor = Executors.newSingleThreadExecutor()
     private val isCapturing = AtomicBoolean(false)
     private var previewBindGeneration = 0
@@ -117,14 +117,8 @@ class CameraPreviewView(
 
     private val orientationEventListener = object : OrientationEventListener(context) {
         override fun onOrientationChanged(orientation: Int) {
-            if (orientation == ORIENTATION_UNKNOWN) return
-            val rotation = when (orientation) {
-                in 45 until 135 -> Surface.ROTATION_270
-                in 135 until 225 -> Surface.ROTATION_180
-                in 225 until 315 -> Surface.ROTATION_90
-                else -> Surface.ROTATION_0
-            }
-            currentRotation = rotation
+            val rotation = sensorOrientationToSurfaceRotation(orientation) ?: return
+            lastSensorTargetRotation = rotation
             previewUseCase?.targetRotation = rotation
             imageCapture?.targetRotation = rotation
         }
@@ -309,8 +303,12 @@ class CameraPreviewView(
                 }
                 this.previewUseCase = previewUseCase
 
+                val initialCaptureRotation = selectCaptureTargetRotation(
+                    lastSensorTargetRotation = lastSensorTargetRotation,
+                    displayRotation = displayRotation
+                )
                 val imageCaptureBuilder = ImageCapture.Builder()
-                    .setTargetRotation(displayRotation)
+                    .setTargetRotation(initialCaptureRotation.targetRotation)
                     .setResolutionSelector(resolutionSelector)
                     .setFlashMode(currentFlashMode)
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
@@ -372,8 +370,6 @@ class CameraPreviewView(
                     aspectRatio = currentAspectRatio,
                     zoomRatio = currentZoomRatio
                 )
-
-                syncCurrentRotationFromDisplay()
 
                 if (orientationEventListener.canDetectOrientation()) {
                     orientationEventListener.enable()
@@ -889,8 +885,12 @@ class CameraPreviewView(
             return
         }
 
-        syncCurrentRotationFromDisplay()
-        capture.targetRotation = currentRotation
+        val captureDisplayRotation = currentDisplayRotation()
+        val captureRotationDecision = selectCaptureTargetRotation(
+            lastSensorTargetRotation = lastSensorTargetRotation,
+            displayRotation = captureDisplayRotation
+        )
+        capture.targetRotation = captureRotationDecision.targetRotation
         val captureZoomRatio = currentZoomRatio
         val effectiveCaptureId = captureId ?: "executeCapture"
         markProgress("camera_request")
@@ -899,7 +899,10 @@ class CameraPreviewView(
             captureId = effectiveCaptureId,
             aspectRatio = currentAspectRatio,
             zoomRatio = captureZoomRatio,
-            imageCapture = capture
+            imageCapture = capture,
+            targetRotation = captureRotationDecision.targetRotation,
+            displayRotation = captureDisplayRotation,
+            orientationSource = captureRotationDecision.source.auditValue
         )
 
         capture.takePicture(
@@ -907,6 +910,14 @@ class CameraPreviewView(
             object : ImageCapture.OnImageCapturedCallback() {
                 override fun onCaptureSuccess(image: ImageProxy) {
                     markProgress("image_captured")
+                    CameraQualityAudit.logCaptureRotation(
+                        viewId = viewId,
+                        captureId = effectiveCaptureId,
+                        targetRotation = captureRotationDecision.targetRotation,
+                        displayRotation = captureDisplayRotation,
+                        orientationSource = captureRotationDecision.source.auditValue,
+                        imageRotationDegrees = image.imageInfo.rotationDegrees
+                    )
                     var decodedBitmap: Bitmap? = null
                     var inputBitmap: Bitmap? = null
                     var processedBitmap: Bitmap? = null
@@ -1143,13 +1154,6 @@ class CameraPreviewView(
             activity.windowManager.defaultDisplay.rotation
         }
         return displayRotation
-    }
-
-    private fun syncCurrentRotationFromDisplay() {
-        val displayRotation = currentDisplayRotation()
-        currentRotation = displayRotation
-        previewUseCase?.targetRotation = displayRotation
-        imageCapture?.targetRotation = displayRotation
     }
 
     private fun transformCapturedBitmap(

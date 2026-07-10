@@ -85,7 +85,7 @@ object CameraQualityAudit {
             }
             val capabilities = characteristics.get(
                 CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES
-            ).orEmpty()
+            ) ?: intArrayOf()
             if (!capabilities.contains(
                     CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA
                 )
@@ -108,7 +108,7 @@ object CameraQualityAudit {
         }
     }
 
-    fun inspectActiveBackCameraTopology(
+    internal fun inspectActiveBackCameraTopology(
         context: Context,
         camera: Camera?
     ): BackCameraTopology {
@@ -126,7 +126,7 @@ object CameraQualityAudit {
             val activeCameraId = camera2Info.cameraId
             val activeCapabilities = activeCharacteristics.get(
                 CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES
-            ).orEmpty()
+            ) ?: intArrayOf()
             val activeIsLogical = activeCapabilities.contains(
                 CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA
             )
@@ -139,7 +139,7 @@ object CameraQualityAudit {
                     }.getOrNull() ?: return@firstOrNull false
                     val capabilities = characteristics.get(
                         CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES
-                    ).orEmpty()
+                    ) ?: intArrayOf()
                     capabilities.contains(
                         CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA
                     ) && activeCameraId in characteristics.physicalCameraIds
@@ -179,7 +179,7 @@ object CameraQualityAudit {
         }
     }
 
-    fun logBackCameraTopology(status: String, topology: BackCameraTopology) {
+    internal fun logBackCameraTopology(status: String, topology: BackCameraTopology) {
         android.util.Log.d(
             RANA_QUALITY_AUDIT_TAG,
             "event=back_camera_topology status=$status " +
@@ -191,7 +191,7 @@ object CameraQualityAudit {
         )
     }
 
-    fun logLensSwitch(
+    internal fun logLensSwitch(
         viewId: Int,
         status: String,
         requestedZoomRatio: Float,
@@ -296,15 +296,37 @@ object CameraQualityAudit {
         captureId: String,
         aspectRatio: CameraAspectRatio,
         zoomRatio: Float,
-        imageCapture: ImageCapture
+        imageCapture: ImageCapture,
+        targetRotation: Int,
+        displayRotation: Int,
+        orientationSource: String
     ) {
         val captureInfo = imageCapture.resolutionInfo
         android.util.Log.d(
             RANA_QUALITY_AUDIT_TAG,
             "event=capture_request viewId=$viewId captureId=$captureId " +
                 "aspect=${aspectRatio.channelValue} zoom=${fmt(zoomRatio)} " +
+                "targetRotation=$targetRotation displayRotation=$displayRotation " +
+                "orientationSource=$orientationSource " +
                 "captureResolution=${captureInfo?.resolution?.toSizeString() ?: "unknown"} " +
                 "captureCrop=${captureInfo?.cropRect?.flattenToString() ?: "unknown"}"
+        )
+    }
+
+    fun logCaptureRotation(
+        viewId: Int,
+        captureId: String,
+        targetRotation: Int,
+        displayRotation: Int,
+        orientationSource: String,
+        imageRotationDegrees: Int
+    ) {
+        android.util.Log.d(
+            RANA_QUALITY_AUDIT_TAG,
+            "event=capture_rotation viewId=$viewId captureId=$captureId " +
+                "targetRotation=$targetRotation displayRotation=$displayRotation " +
+                "orientationSource=$orientationSource " +
+                "imageRotationDegrees=$imageRotationDegrees"
         )
     }
 
