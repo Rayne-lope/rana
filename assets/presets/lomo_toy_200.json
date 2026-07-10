@@ -1,0 +1,59 @@
+{
+  "id": "lomo_toy_200",
+  "name": "Lomo Toy 200",
+  "category": "Experimental",
+  "color": {
+    "temperature": 0.08,
+    "contrast": -0.14,
+    "saturation": 0.10,
+    "fade": 0.12
+  },
+  "grain": {
+    "intensity": 0.42,
+    "size": 1.25
+  },
+  "vignette": {
+    "intensity": 0.48
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.18,
+      "variant": 1
+    },
+    "dust": {
+      "intensity": 0.05
+    },
+    "bloom": {
+      "threshold": 0.86,
+      "intensity": 0.06
+    },
+    "halation": {
+      "intensity": 0.04
+    },
+    "lensDistortion": {
+      "strength": 0.62
+    },
+    "chromaticAberration": {
+      "intensity": 0.46
+    },
+    "softness": 0.58,
+    "dateStamp": {
+      "enable": false
+    },
+    "splitToning": {
+      "shadowsTint": [-0.02, 0.00, 0.03],
+      "highlightsTint": [0.05, 0.02, -0.01]
+    }
+  },
+  "style": {
+    "tone": -18.0,
+    "color": 8.0,
+    "styleStrength": 90.0,
+    "undertoneX": 0.06,
+    "undertoneY": -0.08,
+    "textureVal": 18.0
+  }
+}

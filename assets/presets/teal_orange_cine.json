@@ -1,0 +1,59 @@
+{
+  "id": "teal_orange_cine",
+  "name": "Teal & Orange Cine",
+  "category": "Experimental",
+  "color": {
+    "temperature": 0.02,
+    "contrast": 0.28,
+    "saturation": 0.14,
+    "fade": 0.05
+  },
+  "grain": {
+    "intensity": 0.18,
+    "size": 0.95
+  },
+  "vignette": {
+    "intensity": 0.16
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.00,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.00
+    },
+    "bloom": {
+      "threshold": 0.70,
+      "intensity": 0.26
+    },
+    "halation": {
+      "intensity": 0.18
+    },
+    "lensDistortion": {
+      "strength": 0.04
+    },
+    "chromaticAberration": {
+      "intensity": 0.04
+    },
+    "softness": 0.09,
+    "dateStamp": {
+      "enable": false
+    },
+    "splitToning": {
+      "shadowsTint": [-0.10, 0.10, 0.14],
+      "highlightsTint": [0.20, 0.08, -0.06]
+    }
+  },
+  "style": {
+    "tone": 20.0,
+    "color": 18.0,
+    "styleStrength": 96.0,
+    "undertoneX": -0.06,
+    "undertoneY": 0.06,
+    "textureVal": 8.0
+  }
+}

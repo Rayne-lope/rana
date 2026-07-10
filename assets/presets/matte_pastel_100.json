@@ -1,0 +1,59 @@
+{
+  "id": "matte_pastel_100",
+  "name": "Matte Pastel 100",
+  "category": "Experimental",
+  "color": {
+    "temperature": 0.06,
+    "contrast": -0.34,
+    "saturation": -0.18,
+    "fade": 0.48
+  },
+  "grain": {
+    "intensity": 0.16,
+    "size": 0.90
+  },
+  "vignette": {
+    "intensity": 0.08
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.00,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.01
+    },
+    "bloom": {
+      "threshold": 0.84,
+      "intensity": 0.08
+    },
+    "halation": {
+      "intensity": 0.02
+    },
+    "lensDistortion": {
+      "strength": 0.02
+    },
+    "chromaticAberration": {
+      "intensity": 0.03
+    },
+    "softness": 0.14,
+    "dateStamp": {
+      "enable": false
+    },
+    "splitToning": {
+      "shadowsTint": [-0.08, -0.01, 0.12],
+      "highlightsTint": [0.16, 0.10, -0.02]
+    }
+  },
+  "style": {
+    "tone": -30.0,
+    "color": -12.0,
+    "styleStrength": 94.0,
+    "undertoneX": 0.10,
+    "undertoneY": -0.04,
+    "textureVal": -10.0
+  }
+}

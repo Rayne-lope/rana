@@ -1,0 +1,59 @@
+{
+  "id": "neo_bw_3200",
+  "name": "Neo B&W 3200",
+  "category": "Experimental",
+  "color": {
+    "temperature": 0.00,
+    "contrast": 0.52,
+    "saturation": -1.00,
+    "fade": 0.03
+  },
+  "grain": {
+    "intensity": 0.84,
+    "size": 1.70
+  },
+  "vignette": {
+    "intensity": 0.22
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.00,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.02
+    },
+    "bloom": {
+      "threshold": 0.88,
+      "intensity": 0.01
+    },
+    "halation": {
+      "intensity": 0.00
+    },
+    "lensDistortion": {
+      "strength": 0.00
+    },
+    "chromaticAberration": {
+      "intensity": 0.00
+    },
+    "softness": 0.05,
+    "dateStamp": {
+      "enable": false
+    },
+    "splitToning": {
+      "shadowsTint": [0.00, 0.00, 0.00],
+      "highlightsTint": [0.00, 0.00, 0.00]
+    }
+  },
+  "style": {
+    "tone": 46.0,
+    "color": -100.0,
+    "styleStrength": 100.0,
+    "undertoneX": 0.00,
+    "undertoneY": 0.00,
+    "textureVal": 52.0
+  }
+}
