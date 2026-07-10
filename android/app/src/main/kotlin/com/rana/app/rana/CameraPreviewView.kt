@@ -892,12 +892,13 @@ class CameraPreviewView(
         )
         capture.targetRotation = captureRotationDecision.targetRotation
         val captureZoomRatio = currentZoomRatio
+        val captureAspectRatio = currentAspectRatio
         val effectiveCaptureId = captureId ?: "executeCapture"
         markProgress("camera_request")
         CameraQualityAudit.logCaptureRequest(
             viewId = viewId,
             captureId = effectiveCaptureId,
-            aspectRatio = currentAspectRatio,
+            aspectRatio = captureAspectRatio,
             zoomRatio = captureZoomRatio,
             imageCapture = capture,
             targetRotation = captureRotationDecision.targetRotation,
@@ -973,6 +974,15 @@ class CameraPreviewView(
                                 currentLensFacing == CameraSelector.LENS_FACING_FRONT
                             )
                             markProgress("transform_done")
+                            CameraQualityAudit.logCaptureGeometry(
+                                viewId = viewId,
+                                captureId = effectiveCaptureId,
+                                aspectRatio = captureAspectRatio,
+                                targetRotation = captureRotationDecision.targetRotation,
+                                imageCropRect = image.cropRect,
+                                imageRotationDegrees = image.imageInfo.rotationDegrees,
+                                outputBitmap = inputBitmap
+                            )
                             CameraQualityAudit.logBitmapStage(
                                 viewId,
                                 "transformed",
@@ -1120,30 +1130,15 @@ class CameraPreviewView(
             bitmapHeight = bitmap.height
         )
 
-        val needsViewportCrop =
-            sampledCropRect.left != 0 ||
-                sampledCropRect.top != 0 ||
-                sampledCropRect.width != bitmap.width ||
-                sampledCropRect.height != bitmap.height
-
-        if (needsViewportCrop) {
-            return cropBitmapToRect(
-                bitmap,
-                Rect(
-                    sampledCropRect.left,
-                    sampledCropRect.top,
-                    sampledCropRect.right,
-                    sampledCropRect.bottom
-                )
+        return cropBitmapToRect(
+            bitmap,
+            Rect(
+                sampledCropRect.left,
+                sampledCropRect.top,
+                sampledCropRect.right,
+                sampledCropRect.bottom
             )
-        }
-
-        val bitmapAspectRatio = bitmap.width.toFloat() / bitmap.height.toFloat()
-        return if (kotlin.math.abs(bitmapAspectRatio - currentAspectRatio.captureCropRatio) > 0.001f) {
-            cropBitmapToAspectRatio(bitmap, currentAspectRatio.captureCropRatio)
-        } else {
-            bitmap
-        }
+        )
     }
 
     private fun currentDisplayRotation(): Int {

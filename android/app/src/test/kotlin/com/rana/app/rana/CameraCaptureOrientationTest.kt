@@ -55,4 +55,60 @@ class CameraCaptureOrientationTest {
         assertEquals(Surface.ROTATION_90, decision.targetRotation)
         assertEquals(CaptureTargetRotationSource.DISPLAY_FALLBACK, decision.source)
     }
+
+    @Test
+    fun `portrait ratios become wide ratios in physical landscape`() {
+        assertEquals(
+            4f / 3f,
+            expectedCaptureOutputAspectRatio(
+                CameraAspectRatio.PORTRAIT_3_4,
+                Surface.ROTATION_90
+            ),
+            0.0001f
+        )
+        assertEquals(
+            16f / 9f,
+            expectedCaptureOutputAspectRatio(
+                CameraAspectRatio.PORTRAIT_9_16,
+                Surface.ROTATION_270
+            ),
+            0.0001f
+        )
+    }
+
+    @Test
+    fun `portrait and reverse portrait keep portrait ratios`() {
+        assertEquals(
+            3f / 4f,
+            expectedCaptureOutputAspectRatio(
+                CameraAspectRatio.PORTRAIT_3_4,
+                Surface.ROTATION_0
+            ),
+            0.0001f
+        )
+        assertEquals(
+            9f / 16f,
+            expectedCaptureOutputAspectRatio(
+                CameraAspectRatio.PORTRAIT_9_16,
+                Surface.ROTATION_180
+            ),
+            0.0001f
+        )
+    }
+
+    @Test
+    fun `square output remains square for every orientation`() {
+        listOf(
+            Surface.ROTATION_0,
+            Surface.ROTATION_90,
+            Surface.ROTATION_180,
+            Surface.ROTATION_270
+        ).forEach { rotation ->
+            assertEquals(
+                1f,
+                expectedCaptureOutputAspectRatio(CameraAspectRatio.SQUARE_1_1, rotation),
+                0.0001f
+            )
+        }
+    }
 }

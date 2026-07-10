@@ -16,7 +16,6 @@ enum class CameraAspectRatio(
     val viewfinderRatio: Float,
     val viewportNumerator: Int,
     val viewportDenominator: Int,
-    val captureCropRatio: Float,
 ) {
     PORTRAIT_3_4(
         channelValue = "portrait_3_4",
@@ -24,7 +23,6 @@ enum class CameraAspectRatio(
         viewfinderRatio = 3f / 4f,
         viewportNumerator = 3,
         viewportDenominator = 4,
-        captureCropRatio = 3f / 4f,
     ),
     SQUARE_1_1(
         channelValue = "square_1_1",
@@ -32,7 +30,6 @@ enum class CameraAspectRatio(
         viewfinderRatio = 1f,
         viewportNumerator = 1,
         viewportDenominator = 1,
-        captureCropRatio = 1f,
     ),
     PORTRAIT_9_16(
         channelValue = "portrait_9_16",
@@ -40,7 +37,6 @@ enum class CameraAspectRatio(
         viewfinderRatio = 9f / 16f,
         viewportNumerator = 9,
         viewportDenominator = 16,
-        captureCropRatio = 9f / 16f,
     );
 
     val cameraXTargetAspectRatio: Int
@@ -173,16 +169,4 @@ internal fun cropBitmapToRect(
         safeRight - safeLeft,
         safeBottom - safeTop
     )
-}
-
-internal fun cropBitmapToAspectRatio(
-    bitmap: Bitmap,
-    targetAspectRatio: Float,
-): Bitmap {
-    val bounds = calculateCenterCropBounds(bitmap.width, bitmap.height, targetAspectRatio)
-    if (bounds.width == bitmap.width && bounds.height == bitmap.height) {
-        return bitmap
-    }
-
-    return Bitmap.createBitmap(bitmap, bounds.left, bounds.top, bounds.width, bounds.height)
 }

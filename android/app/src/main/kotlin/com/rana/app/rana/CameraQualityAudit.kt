@@ -330,6 +330,36 @@ object CameraQualityAudit {
         )
     }
 
+    fun logCaptureGeometry(
+        viewId: Int,
+        captureId: String,
+        aspectRatio: CameraAspectRatio,
+        targetRotation: Int,
+        imageCropRect: Rect,
+        imageRotationDegrees: Int,
+        outputBitmap: Bitmap
+    ) {
+        val expectedAspectRatio = expectedCaptureOutputAspectRatio(
+            aspectRatio = aspectRatio,
+            targetRotation = targetRotation
+        )
+        val actualAspectRatio = outputBitmap.width.toFloat() / outputBitmap.height.toFloat()
+        val aspectMatches = kotlin.math.abs(actualAspectRatio - expectedAspectRatio) <= 0.02f
+        val message =
+            "event=capture_geometry viewId=$viewId captureId=$captureId " +
+                "aspect=${aspectRatio.channelValue} targetRotation=$targetRotation " +
+                "imageRotationDegrees=$imageRotationDegrees " +
+                "crop=${imageCropRect.flattenToString()} " +
+                "output=${outputBitmap.width}x${outputBitmap.height} " +
+                "expectedRatio=${fmt(expectedAspectRatio)} " +
+                "actualRatio=${fmt(actualAspectRatio)} aspectMatches=$aspectMatches"
+        if (aspectMatches) {
+            android.util.Log.d(RANA_QUALITY_AUDIT_TAG, message)
+        } else {
+            android.util.Log.w(RANA_QUALITY_AUDIT_TAG, message)
+        }
+    }
+
     fun logDecodePlan(
         viewId: Int,
         sourceWidth: Int,

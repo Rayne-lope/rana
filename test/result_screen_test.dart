@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,9 +14,11 @@ void main() {
     const methodChannel = MethodChannel('com.rana.app/camera_control');
     const imageUri = 'content://rana/test-photo.jpg';
     final methodCalls = <MethodCall>[];
+    late Uint8List capturedImageBytes;
 
     setUp(() {
       methodCalls.clear();
+      capturedImageBytes = _testImageBytes();
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(methodChannel, (methodCall) async {
             methodCalls.add(methodCall);
@@ -27,7 +30,7 @@ void main() {
               case 'loadCapturedImageBytes':
                 return Future<Uint8List>.delayed(
                   const Duration(milliseconds: 50),
-                  _testImageBytes,
+                  () => capturedImageBytes,
                 );
               case 'openMediaInGallery':
                 return null;
@@ -70,10 +73,50 @@ void main() {
         isTrue,
       );
     });
+
+    testWidgets('contains a landscape result without forcing portrait', (
+      WidgetTester tester,
+    ) async {
+      capturedImageBytes = _landscapeTestImageBytes();
+
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(home: ResultScreen(imageUri: imageUri)),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.pumpAndSettle();
+
+      final imageFinder = find.byType(Image);
+      final image = tester.widget<Image>(imageFinder);
+      final codec = (await tester.runAsync(
+        () => ui.instantiateImageCodec(capturedImageBytes),
+      ))!;
+      final frame = (await tester.runAsync(codec.getNextFrame))!;
+      addTearDown(() {
+        frame.image.dispose();
+        codec.dispose();
+      });
+
+      expect(image.fit, BoxFit.contain);
+      expect(image.width, isNull);
+      expect(image.height, isNull);
+      expect(
+        find.ancestor(of: imageFinder, matching: find.byType(AspectRatio)),
+        findsNothing,
+      );
+      expect(frame.image.width, greaterThan(frame.image.height));
+      expect(frame.image.width / frame.image.height, closeTo(16 / 9, 0.02));
+    });
   });
 }
 
 Uint8List _testImageBytes() => base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMA'
   'ASsJTYQAAAAASUVORK5CYII=',
+);
+
+Uint8List _landscapeTestImageBytes() => base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAABAAAAAJCAYAAAA7KqwyAAAAFklEQVR4nGO406PxnxLM'
+  'MGrAqAFADAARhHCA1uhxAQAAAABJRU5ErkJggg==',
 );

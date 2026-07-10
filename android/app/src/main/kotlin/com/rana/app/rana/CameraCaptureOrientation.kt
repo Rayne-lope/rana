@@ -38,3 +38,12 @@ internal fun selectCaptureTargetRotation(
             source = CaptureTargetRotationSource.DISPLAY_FALLBACK
         )
     }
+
+/** Returns the saved pixel width/height ratio expected for the physical orientation. */
+internal fun expectedCaptureOutputAspectRatio(
+    aspectRatio: CameraAspectRatio,
+    targetRotation: Int
+): Float = when (targetRotation) {
+    Surface.ROTATION_90, Surface.ROTATION_270 -> 1f / aspectRatio.viewfinderRatio
+    else -> aspectRatio.viewfinderRatio
+}

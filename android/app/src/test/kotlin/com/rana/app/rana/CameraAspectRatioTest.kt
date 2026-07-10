@@ -65,4 +65,45 @@ class CameraAspectRatioTest {
         assertEquals(2016, bounds.width)
         assertEquals(1134, bounds.height)
     }
+
+    @Test
+    fun `full CameraX crops remain full for wide and four by three buffers`() {
+        listOf(
+            Triple(4032, 2268, Pair(2016, 1134)),
+            Triple(4032, 3024, Pair(2016, 1512)),
+        ).forEach { (sourceWidth, sourceHeight, sampledSize) ->
+            val bounds = calculateSampledCropBounds(
+                cropLeft = 0,
+                cropTop = 0,
+                cropRight = sourceWidth,
+                cropBottom = sourceHeight,
+                sampleSize = 2,
+                bitmapWidth = sampledSize.first,
+                bitmapHeight = sampledSize.second,
+            )
+
+            assertEquals(0, bounds.left)
+            assertEquals(0, bounds.top)
+            assertEquals(sampledSize.first, bounds.width)
+            assertEquals(sampledSize.second, bounds.height)
+        }
+    }
+
+    @Test
+    fun `square CameraX crop scales once into sampled buffer coordinates`() {
+        val bounds = calculateSampledCropBounds(
+            cropLeft = 504,
+            cropTop = 0,
+            cropRight = 3528,
+            cropBottom = 3024,
+            sampleSize = 2,
+            bitmapWidth = 2016,
+            bitmapHeight = 1512,
+        )
+
+        assertEquals(252, bounds.left)
+        assertEquals(0, bounds.top)
+        assertEquals(1512, bounds.width)
+        assertEquals(1512, bounds.height)
+    }
 }
