@@ -1,0 +1,45 @@
+{
+  "id": "rana_rust",
+  "name": "Rana Rust",
+  "category": "Rana",
+  "color": {
+    "temperature": 0.26,
+    "contrast": -0.12,
+    "saturation": -0.18
+  },
+  "grain": {
+    "intensity": 0.24
+  },
+  "vignette": {
+    "intensity": 0.10
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.83,
+      "intensity": 0.08
+    },
+    "halation": {
+      "intensity": 0.03
+    },
+    "lensDistortion": {
+      "strength": 0.01
+    }
+  },
+  "style": {
+    "tone": -24.0,
+    "color": -22.0,
+    "styleStrength": 88.0,
+    "undertoneX": 0.28,
+    "undertoneY": 0.10
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "id": "rana_nocturne",
+  "name": "Rana Nocturne",
+  "category": "Rana",
+  "color": {
+    "temperature": -0.36,
+    "contrast": 0.34,
+    "saturation": -0.14
+  },
+  "grain": {
+    "intensity": 0.58
+  },
+  "vignette": {
+    "intensity": 0.22
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.70,
+      "intensity": 0.18
+    },
+    "halation": {
+      "intensity": 0.10
+    },
+    "lensDistortion": {
+      "strength": 0.03
+    }
+  },
+  "style": {
+    "tone": 38.0,
+    "color": -18.0,
+    "styleStrength": 95.0,
+    "undertoneX": -0.40,
+    "undertoneY": -0.16
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "id": "rana_dusk",
+  "name": "Rana Dusk",
+  "category": "Rana",
+  "color": {
+    "temperature": 0.32,
+    "contrast": 0.22,
+    "saturation": 0.16
+  },
+  "grain": {
+    "intensity": 0.20
+  },
+  "vignette": {
+    "intensity": 0.11
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.79,
+      "intensity": 0.14
+    },
+    "halation": {
+      "intensity": 0.08
+    },
+    "lensDistortion": {
+      "strength": 0.01
+    }
+  },
+  "style": {
+    "tone": 24.0,
+    "color": 18.0,
+    "styleStrength": 92.0,
+    "undertoneX": 0.34,
+    "undertoneY": 0.06
+  }
+}

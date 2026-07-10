@@ -1,0 +1,45 @@
+{
+  "id": "rana_chroma",
+  "name": "Rana Chroma",
+  "category": "Rana",
+  "color": {
+    "temperature": -0.04,
+    "contrast": 0.28,
+    "saturation": 0.30
+  },
+  "grain": {
+    "intensity": 0.10
+  },
+  "vignette": {
+    "intensity": 0.06
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.88,
+      "intensity": 0.05
+    },
+    "halation": {
+      "intensity": 0.03
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  },
+  "style": {
+    "tone": 30.0,
+    "color": 34.0,
+    "styleStrength": 96.0,
+    "undertoneX": -0.06,
+    "undertoneY": -0.12
+  }
+}

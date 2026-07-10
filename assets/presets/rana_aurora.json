@@ -1,0 +1,45 @@
+{
+  "id": "rana_aurora",
+  "name": "Rana Aurora",
+  "category": "Rana",
+  "color": {
+    "temperature": -0.12,
+    "contrast": -0.08,
+    "saturation": 0.10
+  },
+  "grain": {
+    "intensity": 0.14
+  },
+  "vignette": {
+    "intensity": 0.05
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.86,
+      "intensity": 0.18
+    },
+    "halation": {
+      "intensity": 0.04
+    },
+    "lensDistortion": {
+      "strength": 0.01
+    }
+  },
+  "style": {
+    "tone": -18.0,
+    "color": 12.0,
+    "styleStrength": 84.0,
+    "undertoneX": 0.10,
+    "undertoneY": 0.08
+  }
+}
