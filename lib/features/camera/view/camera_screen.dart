@@ -41,8 +41,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   bool _isEditingUndertone = false;
   int _activeStyleTab = 0; // 0: Tone, 1: Color, 2: Palette
   RanaStyle? _originalStyle;
-  double _originalUndertoneX = 0;
-  double _originalUndertoneY = 0;
   bool _isSelectingPreset = false;
   String? _originalPresetId;
 
@@ -265,10 +263,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
             ),
           ],
 
-          if (_isEditingUndertone)
-            _buildUndertoneActionsRow(state, controller)
-          else
-            _buildStylesSelectorTabBar(),
+          if (!_isEditingUndertone) _buildStylesSelectorTabBar(),
         ],
       ),
     );
@@ -403,16 +398,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         IconButton(
           onPressed: () {
             if (_isEditingUndertone) {
-              // Revert only undertone changes from this session
-              controller.updateActiveStyle(
-                state.activeStyle.copyWith(
-                  undertoneX: _originalUndertoneX,
-                  undertoneY: _originalUndertoneY,
-                ),
-              );
               setState(() {
                 _isEditingUndertone = false;
-                _isEditingStyle = true;
+                _isEditingStyle = false;
               });
             } else {
               // Revert all style changes
@@ -446,10 +434,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         TextButton(
           onPressed: () {
             if (_isEditingUndertone) {
-              // Save undertone coordinate (by returning to sliders view)
               setState(() {
                 _isEditingUndertone = false;
-                _isEditingStyle = true;
+                _isEditingStyle = false;
               });
             } else {
               // Commit all changes
@@ -458,9 +445,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               });
             }
           },
-          child: Text(
-            _isEditingUndertone ? 'APPLY' : 'DONE',
-            style: const TextStyle(
+          child: const Text(
+            'DONE',
+            style: TextStyle(
               color: Color(0xFFF39C12),
               fontSize: 13,
               fontWeight: FontWeight.w800,
@@ -582,9 +569,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       onTap: () {
         setState(() {
           if (index == 3) {
-            final activeStyle = ref.read(cameraControllerProvider).activeStyle;
-            _originalUndertoneX = activeStyle.undertoneX;
-            _originalUndertoneY = activeStyle.undertoneY;
             _isEditingUndertone = true;
             _isEditingStyle = false;
           } else {
@@ -608,59 +592,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       ),
     );
   }
-
-  Widget _buildUndertoneActionsRow(
-    CameraState state,
-    CameraController controller,
-  ) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _buildCompactActionButton(
-          label: 'RESET',
-          color: Colors.white54,
-          onPressed: () {
-            controller.updateActiveStyle(
-              state.activeStyle.copyWith(undertoneX: 0, undertoneY: 0),
-            );
-          },
-        ),
-        _buildCompactActionButton(
-          label: 'APPLY',
-          color: const Color(0xFFF39C12),
-          onPressed: () {
-            setState(() {
-              _isEditingUndertone = false;
-              _isEditingStyle = true;
-            });
-          },
-        ),
-      ],
-    ),
-  );
-
-  Widget _buildCompactActionButton({
-    required String label,
-    required Color color,
-    required VoidCallback onPressed,
-  }) => TextButton(
-    style: TextButton.styleFrom(
-      minimumSize: Size.zero,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-    ),
-    onPressed: onPressed,
-    child: Text(
-      label,
-      style: TextStyle(
-        color: color,
-        fontSize: 11,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 1,
-      ),
-    ),
-  );
 
   Widget _buildGlassIconButton({
     required IconData icon,
@@ -1293,8 +1224,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                         onPressed: () {
                           setState(() {
                             _originalStyle = state.activeStyle;
-                            _originalUndertoneX = state.activeStyle.undertoneX;
-                            _originalUndertoneY = state.activeStyle.undertoneY;
                             _isEditingStyle = true;
                             _isEditingUndertone = false;
                             _activeStyleTab = 0;

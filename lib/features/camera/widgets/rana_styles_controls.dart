@@ -27,22 +27,80 @@ class RanaInteractiveUndertonePad extends StatefulWidget {
       _RanaInteractiveUndertonePadState();
 }
 
+@immutable
+class _MatrixSelection {
+  const _MatrixSelection({required this.column, required this.row});
+
+  factory _MatrixSelection.fromUndertone(
+    double undertoneX,
+    double undertoneY,
+  ) => _MatrixSelection(
+    column: _snapIndex((undertoneX.clamp(-1.0, 1.0) + 1) / 2),
+    row: _snapIndex((1 - undertoneY.clamp(-1.0, 1.0)) / 2),
+  );
+
+  factory _MatrixSelection.fromLocalPosition(
+    Offset localPosition,
+    Size size,
+    double paddingFraction,
+  ) {
+    final horizontalInset = size.width * paddingFraction;
+    final verticalInset = size.height * paddingFraction;
+    final clampedX = localPosition.dx.clamp(
+      horizontalInset,
+      size.width - horizontalInset,
+    );
+    final clampedY = localPosition.dy.clamp(
+      verticalInset,
+      size.height - verticalInset,
+    );
+    final normalizedX =
+        (clampedX - horizontalInset) / (size.width - horizontalInset * 2);
+    final normalizedY =
+        (clampedY - verticalInset) / (size.height - verticalInset * 2);
+    return _MatrixSelection(
+      column: _snapIndex(normalizedX),
+      row: _snapIndex(normalizedY),
+    );
+  }
+
+  static const int axisCount = 11;
+
+  static int _snapIndex(num normalized) =>
+      (normalized * (axisCount - 1)).round().clamp(0, axisCount - 1);
+
+  final int column;
+  final int row;
+
+  double get undertoneX => -1 + (column / (axisCount - 1)) * 2;
+  double get undertoneY => 1 - (row / (axisCount - 1)) * 2;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _MatrixSelection && other.column == column && other.row == row;
+
+  @override
+  int get hashCode => Object.hash(column, row);
+}
+
 class _RanaInteractiveUndertonePadState
     extends State<RanaInteractiveUndertonePad>
     with SingleTickerProviderStateMixin {
-  static const int _matrixCount = 11;
+  static const int _matrixCount = _MatrixSelection.axisCount;
   static const double _gridPaddingFraction = 0.085;
-  static const double _headerReserve = 32;
+  static const double _headerReserve = 24;
+  static const double _outerAxisReserve = 33;
+  static const double _sideAxisWidth = 32;
 
   late final AnimationController _pulseController;
-  late final ValueNotifier<Offset> _puckPosition;
+  late final ValueNotifier<_MatrixSelection> _selection;
   late final ValueNotifier<bool> _isDragging;
 
   @override
   void initState() {
     super.initState();
-    _puckPosition = ValueNotifier<Offset>(
-      _toPuckPosition(widget.undertoneX, widget.undertoneY),
+    _selection = ValueNotifier<_MatrixSelection>(
+      _MatrixSelection.fromUndertone(widget.undertoneX, widget.undertoneY),
     );
     _isDragging = ValueNotifier<bool>(false);
     _pulseController = AnimationController(
@@ -57,7 +115,7 @@ class _RanaInteractiveUndertonePadState
     if (!_isDragging.value &&
         (oldWidget.undertoneX != widget.undertoneX ||
             oldWidget.undertoneY != widget.undertoneY)) {
-      _puckPosition.value = _toPuckPosition(
+      _selection.value = _MatrixSelection.fromUndertone(
         widget.undertoneX,
         widget.undertoneY,
       );
@@ -67,50 +125,22 @@ class _RanaInteractiveUndertonePadState
   @override
   void dispose() {
     _pulseController.dispose();
-    _puckPosition.dispose();
+    _selection.dispose();
     _isDragging.dispose();
     super.dispose();
   }
 
-  Offset _toPuckPosition(double undertoneX, double undertoneY) {
-    const usableSpan = 1 - (_gridPaddingFraction * 2);
-    return Offset(
-      _gridPaddingFraction +
-          (((undertoneX.clamp(-1.0, 1.0) + 1) / 2) * usableSpan),
-      _gridPaddingFraction +
-          (((1 - undertoneY.clamp(-1.0, 1.0)) / 2) * usableSpan),
-    );
-  }
-
-  double _toUndertoneValue(double normalized) {
-    const usableSpan = 1 - (_gridPaddingFraction * 2);
-    return (((normalized - _gridPaddingFraction) / usableSpan) * 2 - 1).clamp(
-      -1.0,
-      1.0,
-    );
-  }
-
   void _updateFromLocalPosition(Offset localPosition, Size size) {
     if (size.isEmpty) return;
+    final selection = _MatrixSelection.fromLocalPosition(
+      localPosition,
+      size,
+      _gridPaddingFraction,
+    );
+    if (selection == _selection.value) return;
 
-    final minX = size.width * _gridPaddingFraction;
-    final maxX = size.width - minX;
-    final minY = size.height * _gridPaddingFraction;
-    final maxY = size.height - minY;
-    final clamped = Offset(
-      localPosition.dx.clamp(minX, maxX),
-      localPosition.dy.clamp(minY, maxY),
-    );
-    final normalized = Offset(
-      clamped.dx / size.width,
-      clamped.dy / size.height,
-    );
-
-    _puckPosition.value = normalized;
-    widget.onChanged(
-      _toUndertoneValue(normalized.dx),
-      -_toUndertoneValue(normalized.dy),
-    );
+    _selection.value = selection;
+    widget.onChanged(selection.undertoneX, selection.undertoneY);
   }
 
   void _startDrag(Offset localPosition, Size size) {
@@ -132,59 +162,70 @@ class _RanaInteractiveUndertonePadState
   }
 
   @override
-  Widget build(BuildContext context) {
-    final normalizedStrength = (widget.styleStrength / 100).clamp(0.0, 1.0);
+  Widget build(BuildContext context) => Padding(
+    padding: widget.contentPadding,
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final availableHeight = constraints.maxHeight.isFinite
+            ? math.max<double>(
+                0,
+                constraints.maxHeight - _headerReserve - _outerAxisReserve,
+              )
+            : widget.maxPadSize;
+        final availableWidth = constraints.maxWidth.isFinite
+            ? math.max<double>(0, constraints.maxWidth - _sideAxisWidth * 2)
+            : widget.maxPadSize;
+        final matrixSize = math.min<double>(
+          widget.maxPadSize,
+          math.min<double>(availableWidth, availableHeight),
+        );
 
-    return Padding(
-      padding: widget.contentPadding,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final maxHeight = constraints.maxHeight.isFinite
-              ? math.max<double>(0, constraints.maxHeight - _headerReserve)
-              : widget.maxPadSize;
-          final maxWidth = constraints.maxWidth.isFinite
-              ? constraints.maxWidth
-              : widget.maxPadSize;
-          final size = math.min<double>(
-            widget.maxPadSize,
-            math.min<double>(maxWidth, maxHeight),
-          );
-
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Text(
-                    'UNDERTONE',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'UNDERTONE',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const Spacer(),
+                ValueListenableBuilder<_MatrixSelection>(
+                  valueListenable: _selection,
+                  builder: (context, selection, child) => Text(
+                    '${_formatAxis(selection.undertoneX)} / '
+                    '${_formatAxis(selection.undertoneY)}',
+                    style: const TextStyle(
+                      color: Color(0xFFF39C12),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      fontFamily: 'monospace',
                     ),
                   ),
-                  const Spacer(),
-                  ValueListenableBuilder<Offset>(
-                    valueListenable: _puckPosition,
-                    builder: (context, position, child) => Text(
-                      '${_formatAxis(_toUndertoneValue(position.dx))} / '
-                      '${_formatAxis(-_toUndertoneValue(position.dy))}',
-                      style: const TextStyle(
-                        color: Color(0xFFF39C12),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const _PadAxisLabel(label: 'MAGENTA', alignment: TextAlign.center),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(
+                  width: _sideAxisWidth,
+                  child: _PadAxisLabel(
+                    label: 'WARM',
+                    alignment: TextAlign.center,
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Center(
-                child: SizedBox.square(
-                  dimension: size,
+                ),
+                SizedBox.square(
+                  dimension: matrixSize,
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final paintSize = constraints.biggest;
@@ -203,76 +244,38 @@ class _RanaInteractiveUndertonePadState
                         ),
                         onPanEnd: (_) => _endDrag(),
                         onPanCancel: _endDrag,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Positioned.fill(
-                              child: RepaintBoundary(
-                                child: CustomPaint(
-                                  painter: _UndertoneMatrixPainter(
-                                    puckPosition: _puckPosition,
-                                    isDragging: _isDragging,
-                                    pulse: _pulseController,
-                                    styleStrength: normalizedStrength,
-                                    columns: _matrixCount,
-                                    rows: _matrixCount,
-                                    paddingFraction: _gridPaddingFraction,
-                                  ),
-                                ),
-                              ),
+                        child: RepaintBoundary(
+                          child: CustomPaint(
+                            painter: _UndertoneMatrixPainter(
+                              selection: _selection,
+                              isDragging: _isDragging,
+                              pulse: _pulseController,
+                              columns: _matrixCount,
+                              rows: _matrixCount,
+                              paddingFraction: _gridPaddingFraction,
                             ),
-                            const Positioned(
-                              top: 10,
-                              left: 0,
-                              right: 0,
-                              child: _PadAxisLabel(
-                                label: 'MAGENTA',
-                                alignment: TextAlign.center,
-                              ),
-                            ),
-                            const Positioned(
-                              bottom: 10,
-                              left: 0,
-                              right: 0,
-                              child: _PadAxisLabel(
-                                label: 'GREEN',
-                                alignment: TextAlign.center,
-                              ),
-                            ),
-                            const Positioned(
-                              left: 12,
-                              top: 0,
-                              bottom: 0,
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: _PadAxisLabel(label: 'WARM'),
-                              ),
-                            ),
-                            const Positioned(
-                              right: 12,
-                              top: 0,
-                              bottom: 0,
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: _PadAxisLabel(
-                                  label: 'COOL',
-                                  alignment: TextAlign.right,
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       );
                     },
                   ),
                 ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
+                const SizedBox(
+                  width: _sideAxisWidth,
+                  child: _PadAxisLabel(
+                    label: 'COOL',
+                    alignment: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const _PadAxisLabel(label: 'GREEN', alignment: TextAlign.center),
+          ],
+        );
+      },
+    ),
+  );
 }
 
 class _PadAxisLabel extends StatelessWidget {
@@ -296,19 +299,17 @@ class _PadAxisLabel extends StatelessWidget {
 
 class _UndertoneMatrixPainter extends CustomPainter {
   _UndertoneMatrixPainter({
-    required this.puckPosition,
+    required this.selection,
     required this.isDragging,
     required this.pulse,
-    required this.styleStrength,
     required this.columns,
     required this.rows,
     required this.paddingFraction,
-  }) : super(repaint: Listenable.merge([puckPosition, isDragging, pulse]));
+  }) : super(repaint: Listenable.merge([selection, isDragging, pulse]));
 
-  final ValueListenable<Offset> puckPosition;
+  final ValueListenable<_MatrixSelection> selection;
   final ValueListenable<bool> isDragging;
   final Animation<double> pulse;
-  final double styleStrength;
   final int columns;
   final int rows;
   final double paddingFraction;
@@ -326,17 +327,15 @@ class _UndertoneMatrixPainter extends CustomPainter {
     final rect = Offset.zero & size;
     final cornerRadius = Radius.circular(size.shortestSide * 0.12);
     final roundedRect = RRect.fromRectAndRadius(rect, cornerRadius);
-    final puck = Offset(
-      puckPosition.value.dx * size.width,
-      puckPosition.value.dy * size.height,
-    );
+    final selected = selection.value;
+    final puck = _pointFor(size, selected.column, selected.row);
     final dragging = isDragging.value;
     final pulseValue = pulse.value;
 
     canvas.save();
     canvas.clipRRect(roundedRect);
-    _drawBackground(canvas, rect, puck, styleStrength);
-    _drawMatrix(canvas, size, puck, dragging, pulseValue);
+    _drawBackground(canvas, rect);
+    _drawMatrix(canvas, size, selected, dragging, pulseValue);
     _drawPuck(canvas, size, puck, dragging, pulseValue);
     canvas.restore();
 
@@ -349,7 +348,7 @@ class _UndertoneMatrixPainter extends CustomPainter {
     );
   }
 
-  void _drawBackground(Canvas canvas, Rect rect, Offset puck, double strength) {
+  void _drawBackground(Canvas canvas, Rect rect) {
     canvas.drawRect(
       rect,
       Paint()
@@ -382,50 +381,52 @@ class _UndertoneMatrixPainter extends CustomPainter {
           ],
         ).createShader(rect),
     );
-    canvas.drawCircle(
-      puck,
-      rect.width * 0.42,
-      Paint()
-        ..shader = ui.Gradient.radial(puck, rect.width * 0.42, [
-          Colors.white.withValues(alpha: 0.05 + strength * 0.10),
-          Colors.transparent,
-        ]),
-    );
   }
 
   void _drawMatrix(
     Canvas canvas,
     Size size,
-    Offset puck,
+    _MatrixSelection selected,
     bool dragging,
     double pulseValue,
   ) {
     final baseRadius = math.max(1.15, size.shortestSide * 0.0083);
-    final influenceRadius = size.shortestSide * (dragging ? 0.32 : 0.22);
 
     for (var row = 0; row < rows; row++) {
       for (var column = 0; column < columns; column++) {
         final point = _pointFor(size, column, row);
-        final distance = (point - puck).distance;
-        final proximity = (1 - distance / influenceRadius).clamp(0.0, 1.0);
-        final onAxis =
-            (point.dx - puck.dx).abs() < baseRadius * 1.5 ||
-            (point.dy - puck.dy).abs() < baseRadius * 1.5;
-        final glow = dragging ? proximity : (onAxis ? proximity * 0.65 : 0.0);
-        final radius =
-            baseRadius + glow * baseRadius * (1.4 + pulseValue * 0.35);
+        final onAxis = column == selected.column || row == selected.row;
+        final gridDistance = math.sqrt(
+          math.pow(column - selected.column, 2) +
+              math.pow(row - selected.row, 2),
+        );
+        final isNear = dragging && gridDistance <= 1.25;
+        final isMedium =
+            dragging && gridDistance > 1.25 && gridDistance <= 2.25;
+        final radius = isNear
+            ? baseRadius * (1.75 + pulseValue * 0.15)
+            : isMedium
+            ? baseRadius * (1.30 + pulseValue * 0.08)
+            : baseRadius;
+        final alpha = isNear
+            ? 1.0
+            : isMedium
+            ? 0.82
+            : onAxis
+            ? 0.98
+            : 0.56;
 
-        if (glow > 0) {
+        if (isNear || isMedium) {
           canvas.drawCircle(
             point,
-            radius * 2.4,
+            radius * (isNear ? 2.8 : 2.2),
             Paint()
               ..color = const Color(
                 0xFFFFD3C1,
-              ).withValues(alpha: (0.08 + glow * 0.34).clamp(0.0, 0.42))
+              ).withValues(alpha: isNear ? 0.42 + pulseValue * 0.12 : 0.20)
               ..maskFilter = ui.MaskFilter.blur(
                 ui.BlurStyle.normal,
-                size.shortestSide * 0.025,
+                size.shortestSide * (isNear ? 0.032 : 0.020),
               ),
           );
         }
@@ -433,10 +434,7 @@ class _UndertoneMatrixPainter extends CustomPainter {
         canvas.drawCircle(
           point,
           radius,
-          Paint()
-            ..color = Colors.white.withValues(
-              alpha: (0.56 + proximity * 0.38).clamp(0.0, 0.98),
-            ),
+          Paint()..color = Colors.white.withValues(alpha: alpha),
         );
       }
     }
@@ -485,19 +483,31 @@ class _UndertoneMatrixPainter extends CustomPainter {
         ..strokeWidth = math.max(1, size.shortestSide * 0.003)
         ..color = const Color(0xFF242327).withValues(alpha: 0.82),
     );
-    canvas.drawCircle(
-      puck,
-      puckRadius - size.shortestSide * 0.006,
+    canvas.drawArc(
+      puckRect.deflate(size.shortestSide * 0.004),
+      0,
+      math.pi,
+      false,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = math.max(0.8, size.shortestSide * 0.002)
+        ..color = const Color(0xFF797775).withValues(alpha: 0.46),
+    );
+    canvas.drawArc(
+      puckRect.deflate(size.shortestSide * 0.007),
+      math.pi,
+      math.pi,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(0.7, size.shortestSide * 0.0018)
         ..color = Colors.white.withValues(alpha: 0.58),
     );
 
     final glossRect = Rect.fromCenter(
-      center: puck.translate(-puckRadius * 0.12, -puckRadius * 0.42),
-      width: puckRadius * 1.12,
-      height: puckRadius * 0.42,
+      center: puck.translate(-puckRadius * 0.10, -puckRadius * 0.40),
+      width: puckRadius * 1.16,
+      height: puckRadius * 0.38,
     );
     canvas.drawOval(
       glossRect,
@@ -515,7 +525,6 @@ class _UndertoneMatrixPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _UndertoneMatrixPainter oldDelegate) =>
-      oldDelegate.styleStrength != styleStrength ||
       oldDelegate.columns != columns ||
       oldDelegate.rows != rows ||
       oldDelegate.paddingFraction != paddingFraction;

@@ -144,6 +144,22 @@ void main() {
       final pad = find.byKey(const Key('undertone-pad'));
       final rect = tester.getRect(pad);
       expect(rect.height, lessThanOrEqualTo(220));
+      expect(
+        tester.getRect(find.text('MAGENTA')).bottom,
+        lessThanOrEqualTo(rect.top),
+      );
+      expect(
+        tester.getRect(find.text('GREEN')).top,
+        greaterThanOrEqualTo(rect.bottom),
+      );
+      expect(
+        tester.getRect(find.text('WARM')).right,
+        lessThanOrEqualTo(rect.left),
+      );
+      expect(
+        tester.getRect(find.text('COOL')).left,
+        greaterThanOrEqualTo(rect.right),
+      );
 
       // Tap near the top-right corner
       await tester.tapAt(rect.topRight + const Offset(-10, 10));
@@ -183,7 +199,7 @@ void main() {
       expect(padRect.width, lessThanOrEqualTo(188));
     });
 
-    testWidgets('RanaInteractiveUndertonePad maps grid bounds continuously', (
+    testWidgets('RanaInteractiveUndertonePad snaps to the nearest grid point', (
       WidgetTester tester,
     ) async {
       double changedX = 0;
@@ -212,6 +228,24 @@ void main() {
       await tester.tapAt(rect.center);
       expect(changedX, closeTo(0, 0.0001));
       expect(changedY, closeTo(0, 0.0001));
+
+      const paddingFraction = 0.085;
+      final gridOrigin = Offset(
+        rect.left + rect.width * paddingFraction,
+        rect.top + rect.height * paddingFraction,
+      );
+      final gridSpan = rect.width * (1 - paddingFraction * 2);
+      final betweenDots = gridOrigin + Offset(gridSpan * 0.35, gridSpan * 0.75);
+      await tester.tapAt(betweenDots);
+      expect(changedX, closeTo(-0.2, 0.0001));
+      expect(changedY, closeTo(-0.6, 0.0001));
+
+      await tester.dragFrom(
+        rect.center,
+        Offset(gridSpan * 0.3, -gridSpan * 0.3),
+      );
+      expect(changedX, closeTo(0.6, 0.0001));
+      expect(changedY, closeTo(0.6, 0.0001));
 
       await tester.tapAt(Offset(rect.right - 1, rect.bottom - 1));
       expect(changedX, closeTo(1, 0.0001));
@@ -242,7 +276,7 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('UNDERTONE'), findsOneWidget);
-      expect(find.text('-91 / +53'), findsOneWidget);
+      expect(find.text('-100 / +60'), findsOneWidget);
 
       final padRect = tester.getRect(find.byKey(const Key('undertone-pad')));
       expect(padRect.height, lessThanOrEqualTo(150));
