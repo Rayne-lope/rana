@@ -17,12 +17,31 @@ class PresetThumbnailWidget extends StatelessWidget {
   /// The width of the Instax paper card.
   final double size;
 
+  String _shortenName(String name) {
+    var clean = name.toUpperCase();
+    if (clean.startsWith('RANA ')) {
+      clean = clean.replaceFirst('RANA ', '');
+    } else if (clean.startsWith('KODAK ')) {
+      clean = clean.replaceFirst('KODAK ', '');
+    } else if (clean.startsWith('FUJIFILM ')) {
+      clean = clean.replaceFirst('FUJIFILM ', '');
+    } else if (clean.startsWith('ILFORD ')) {
+      clean = clean.replaceFirst('ILFORD ', '');
+    } else if (clean.startsWith('AGFA ')) {
+      clean = clean.replaceFirst('AGFA ', '');
+    }
+
+    if (clean.length > 6) {
+      return '${clean.substring(0, 5)}.';
+    }
+    return clean;
+  }
+
   @override
   Widget build(BuildContext context) {
     final width = size;
-    final height = size * 1.25;
+    final height = size * 1.35;
     final paddingVal = width * 0.08;
-    final bottomPaddingVal = width * 0.24;
 
     return Center(
       child: Container(
@@ -32,30 +51,82 @@ class PresetThumbnailWidget extends StatelessWidget {
           paddingVal,
           paddingVal,
           paddingVal,
-          bottomPaddingVal,
+          paddingVal * 0.8,
         ),
         decoration: BoxDecoration(
-          color: const Color(0xFFF9F9FB), // Clean off-white paper color
+          color: const Color(0xFFFBFBFC), // Premium off-white paper color
           borderRadius: BorderRadius.circular(width * 0.08),
+          border: Border.all(
+            color: Colors.black.withValues(alpha: 0.06),
+            width: 0.5,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 4,
-              offset: const Offset(0, 1.5),
+              color: Colors.black.withValues(alpha: 0.22),
+              blurRadius: 3.5,
+              offset: const Offset(0, 1.2),
             ),
           ],
         ),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: const Color(0xFF16161A), // Dark photo backing
-            borderRadius: BorderRadius.circular(width * 0.03),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(width * 0.03),
-            child: CustomPaint(
-              painter: PresetIllustrationPainter(preset),
+        child: Column(
+          children: [
+            Expanded(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF16161A), // Dark photo backing
+                  borderRadius: BorderRadius.circular(width * 0.04),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(width * 0.04),
+                        child: CustomPaint(
+                          painter: PresetIllustrationPainter(preset),
+                        ),
+                      ),
+                    ),
+                    // Glossy shine diagonal overlay
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(width * 0.04),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.white.withValues(alpha: 0.16),
+                                Colors.white.withValues(alpha: 0.05),
+                                Colors.transparent,
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.22, 0.32, 1.0],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
+            SizedBox(height: width * 0.08),
+            // Typed preset label in signature area
+            Text(
+              _shortenName(preset.name),
+              style: TextStyle(
+                color: const Color(0xFF7E7E84).withValues(alpha: 0.85),
+                fontSize: width * 0.105,
+                fontWeight: FontWeight.w900,
+                fontFamily: 'monospace',
+                letterSpacing: 0.3,
+                height: 1.0,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.clip,
+            ),
+          ],
         ),
       ),
     );

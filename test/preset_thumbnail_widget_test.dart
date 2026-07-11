@@ -54,7 +54,7 @@ void main() {
       ).first;
       final size = tester.getSize(containerFinder);
       expect(size.width, equals(24));
-      expect(size.height, equals(24 * 1.25));
+      expect(size.height, equals(24 * 1.35));
     });
   });
 }
