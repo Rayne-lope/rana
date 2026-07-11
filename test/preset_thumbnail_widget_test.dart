@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
+import 'package:rana/features/preset/widgets/preset_illustration_painter.dart';
 import 'package:rana/features/preset/widgets/preset_thumbnail_widget.dart';
 
 void main() {
@@ -22,9 +23,12 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: PresetThumbnailWidget(
-              preset: testPreset,
-              size: 24,
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: PresetThumbnailWidget(
+                preset: testPreset,
+                size: 24,
+              ),
             ),
           ),
         ),
@@ -33,15 +37,24 @@ void main() {
       final widgetFinder = find.byType(PresetThumbnailWidget);
       expect(widgetFinder, findsOneWidget);
 
-      final size = tester.getSize(widgetFinder);
-      expect(size.width, equals(24));
-      expect(size.height, equals(24));
-
-      final iconFinder = find.descendant(
+      // Verify it renders the custom paint for illustrations
+      final customPaintFinder = find.descendant(
         of: widgetFinder,
-        matching: find.byIcon(Icons.photo_camera_outlined),
+        matching: find.byType(CustomPaint),
       );
-      expect(iconFinder, findsOneWidget);
+      expect(customPaintFinder, findsOneWidget);
+
+      final customPaint = tester.widget<CustomPaint>(customPaintFinder);
+      expect(customPaint.painter, isA<PresetIllustrationPainter>());
+
+      // Find the card container inside
+      final containerFinder = find.descendant(
+        of: widgetFinder,
+        matching: find.byType(Container),
+      ).first;
+      final size = tester.getSize(containerFinder);
+      expect(size.width, equals(24));
+      expect(size.height, equals(24 * 1.25));
     });
   });
 }

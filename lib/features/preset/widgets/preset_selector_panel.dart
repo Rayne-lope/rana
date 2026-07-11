@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/saved_rana_style.dart';
+import 'package:rana/features/preset/widgets/preset_thumbnail_widget.dart';
 
 /// A simple metadata container to hold grouped presets.
 class BrandGroup {
@@ -418,12 +419,8 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
                                                 ]
                                               : null,
                                         ),
-                                        child: Icon(
-                                          Icons.photo_camera_back_outlined,
-                                          size: 20,
-                                          color: isSelected
-                                              ? const Color(0xFFF39C12)
-                                              : Colors.white54,
+                                        child: PresetThumbnailWidget(
+                                          preset: preset,
                                         ),
                                       ),
                                       if (isSavedStyle &&
