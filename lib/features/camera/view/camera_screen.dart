@@ -14,6 +14,7 @@ import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/camera/view/permission_screen.dart';
 import 'package:rana/features/camera/widgets/latest_capture_thumbnail.dart';
 import 'package:rana/features/camera/widgets/rana_styles_controls.dart';
+import 'package:rana/features/camera/widgets/premium_shutter_button.dart';
 import 'package:rana/features/camera/widgets/style_mood_chips.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
@@ -44,6 +45,52 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   bool _isSelectingPreset = false;
   String? _originalPresetId;
 
+  ShutterStatus _shutterStatus = ShutterStatus.ready;
+  bool _showFlash = false;
+  bool _showToast = false;
+
+  Timer? _flashTimer;
+  Timer? _toastTimer;
+
+  void _triggerCaptureEffects() {
+    _flashTimer?.cancel();
+    _toastTimer?.cancel();
+
+    setState(() {
+      _showFlash = true;
+      _showToast = true;
+    });
+
+    _flashTimer = Timer(const Duration(milliseconds: 120), () {
+      if (mounted) {
+        setState(() {
+          _showFlash = false;
+        });
+      }
+    });
+
+    _toastTimer = Timer(const Duration(milliseconds: 900), () {
+      if (mounted) {
+        setState(() {
+          _showToast = false;
+        });
+      }
+    });
+  }
+
+  String _shutterStatusName(ShutterStatus status) {
+    switch (status) {
+      case ShutterStatus.ready:
+        return 'READY';
+      case ShutterStatus.focusing:
+        return 'FOCUSING';
+      case ShutterStatus.focusLock:
+        return 'FOCUS LOCK';
+      case ShutterStatus.captured:
+        return 'CAPTURED';
+    }
+  }
+
   Offset? _tapFocusPoint;
   bool _isFocusLocked = false;
   late final AnimationController _focusAnimationController;
@@ -72,6 +119,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   @override
   void dispose() {
+    _flashTimer?.cancel();
+    _toastTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _focusResetTimer?.cancel();
     _focusAnimationController.dispose();
@@ -194,37 +243,84 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
     final isEditing = _isEditingStyle || _isEditingUndertone;
     final editingTitle = _isEditingUndertone ? 'Undertone' : 'Rana Styles';
-    return Scaffold(
-      backgroundColor: const Color(0xFF242424), // Premium matte charcoal
-      body: SafeArea(
-        child: Column(
-          children: [
-            if (isEditing)
-              _buildStylesEditingHeader(editingTitle, cameraState, controller)
-            else if (_isSelectingPreset)
-              _buildPresetSelectionHeader(cameraState, controller)
-            else
-              const SizedBox.shrink(),
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: const Color(0xFF242424), // Premium matte charcoal
+          body: SafeArea(
+            child: Column(
+              children: [
+                if (isEditing)
+                  _buildStylesEditingHeader(editingTitle, cameraState, controller)
+                else if (_isSelectingPreset)
+                  _buildPresetSelectionHeader(cameraState, controller)
+                else
+                  const SizedBox.shrink(),
 
-            Expanded(
-              child: _buildViewfinder(
-                cameraState,
-                controller,
-                layoutMode: (isEditing || _isSelectingPreset)
-                    ? _ViewfinderLayoutMode.styleEditor
-                    : _ViewfinderLayoutMode.capture,
+                Expanded(
+                  child: _buildViewfinder(
+                    cameraState,
+                    controller,
+                    layoutMode: (isEditing || _isSelectingPreset)
+                        ? _ViewfinderLayoutMode.styleEditor
+                        : _ViewfinderLayoutMode.capture,
+                  ),
+                ),
+
+                if (isEditing)
+                  _buildStylesEditingContent(cameraState, controller)
+                else if (_isSelectingPreset)
+                  _buildPresetSelectionContent(cameraState, controller)
+                else
+                  _buildBottomPanel(cameraState, controller),
+              ],
+            ),
+          ),
+        ),
+        if (_showFlash)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Container(
+                color: Colors.white,
               ),
             ),
-
-            if (isEditing)
-              _buildStylesEditingContent(cameraState, controller)
-            else if (_isSelectingPreset)
-              _buildPresetSelectionContent(cameraState, controller)
-            else
-              _buildBottomPanel(cameraState, controller),
-          ],
-        ),
-      ),
+          ),
+        if (_showToast)
+          Positioned(
+            bottom: 120,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: Center(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xCC141416),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    child: const Text(
+                      'PHOTO CAPTURED',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.5,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -1161,7 +1257,46 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          // Shutter status label
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _shutterStatus == ShutterStatus.ready
+                      ? Colors.white24
+                      : const Color(0xFFF4C44F),
+                  boxShadow: _shutterStatus == ShutterStatus.ready
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: const Color(0xFFF4C44F).withValues(alpha: 0.55),
+                            blurRadius: 10,
+                            spreadRadius: 1,
+                          )
+                        ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _shutterStatusName(_shutterStatus),
+                style: TextStyle(
+                  color: _shutterStatus == ShutterStatus.ready
+                      ? Colors.white38
+                      : const Color(0xFFF4C44F),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.8,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
 
           // Shutter Button Row
           Row(
@@ -1174,27 +1309,19 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               ),
 
               // Shutter capture button (center)
-              GestureDetector(
+              PremiumShutterButton(
                 key: const ValueKey<String>('camera-shutter-button'),
-                onTap: isReady ? controller.handleShutterPressed : null,
-                child: Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 4),
-                    color: Colors.transparent,
-                  ),
-                  padding: const EdgeInsets.all(4),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: state.isCameraInitialized
-                          ? Colors.white
-                          : Colors.white12,
-                    ),
-                  ),
-                ),
+                size: 72,
+                isEnabled: isReady,
+                onStatusChanged: (status) {
+                  setState(() {
+                    _shutterStatus = status;
+                  });
+                },
+                onCapture: () {
+                  _triggerCaptureEffects();
+                  controller.handleShutterPressed();
+                },
               ),
 
               // Style and Reset Button (right)
