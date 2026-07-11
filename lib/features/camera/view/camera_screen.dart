@@ -259,7 +259,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               ),
               const SizedBox(height: 2),
             ],
-            _buildCompactValuesRow(state.activeStyle),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
               child: _buildActiveStyleControl(state, controller),
@@ -473,52 +472,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     ),
   );
 
-  Widget _buildCompactValuesRow(RanaStyle style) {
-    final toneVal = style.tone.round();
-    final colorVal = style.color.round();
-    final paletteVal = style.styleStrength.round();
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 6, 0, 5),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _buildCompactValueLabel('TONE', toneVal),
-          const SizedBox(width: 18),
-          _buildCompactValueLabel('COLOR', colorVal),
-          const SizedBox(width: 18),
-          _buildCompactValueLabel('PALETTE', paletteVal),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompactValueLabel(String label, int value) => RichText(
-    text: TextSpan(
-      style: const TextStyle(
-        fontSize: 10,
-        fontFamily: 'monospace',
-        letterSpacing: 0.5,
-      ),
-      children: [
-        TextSpan(
-          text: '$label ',
-          style: const TextStyle(
-            color: Colors.white54,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        TextSpan(
-          text: '$value',
-          style: const TextStyle(
-            color: Color(0xFFF39C12),
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ],
-    ),
-  );
-
   Widget _buildActiveStyleControl(
     CameraState state,
     CameraController controller,
@@ -549,6 +502,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           max: 100,
           bottomPadding: 4,
           labelGap: 4,
+          toneReadout: _formatSliderValue(state.activeStyle.tone),
+          colorReadout: _formatSliderValue(state.activeStyle.color),
+          warmthReadout: _formatSliderValue(state.activeStyle.undertoneX * 100),
           onChanged: (val) {
             controller.updateActiveStyle(state.activeStyle.copyWith(tone: val));
           },
@@ -563,6 +519,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           max: 100,
           bottomPadding: 4,
           labelGap: 4,
+          toneReadout: _formatSliderValue(state.activeStyle.tone),
+          colorReadout: _formatSliderValue(state.activeStyle.color),
+          warmthReadout: _formatSliderValue(state.activeStyle.undertoneX * 100),
           onChanged: (val) {
             controller.updateActiveStyle(
               state.activeStyle.copyWith(color: val),
@@ -579,6 +538,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           max: 100,
           bottomPadding: 4,
           labelGap: 4,
+          toneReadout: _formatSliderValue(state.activeStyle.tone),
+          colorReadout: _formatSliderValue(state.activeStyle.color),
+          warmthReadout: _formatSliderValue(state.activeStyle.undertoneX * 100),
           onChanged: (val) {
             controller.updateActiveStyle(
               state.activeStyle.copyWith(styleStrength: val),

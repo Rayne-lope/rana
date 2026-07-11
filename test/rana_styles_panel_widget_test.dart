@@ -83,6 +83,35 @@ void main() {
       expect(changedVal, greaterThan(0));
     });
 
+    testWidgets('RanaInteractiveSlider renders synchronized style readouts', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: RanaInteractiveSlider(
+              label: 'Color',
+              valueLabel: '+12',
+              value: 12,
+              min: -100,
+              max: 100,
+              toneReadout: '-8',
+              colorReadout: '+12',
+              warmthReadout: '-35',
+              onChanged: _ignoreValue,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('TONE'), findsOneWidget);
+      expect(find.text('COLOR'), findsNWidgets(2));
+      expect(find.text('WARMTH'), findsOneWidget);
+      expect(find.text('-8'), findsOneWidget);
+      expect(find.text('+12'), findsNWidgets(2));
+      expect(find.text('-35'), findsOneWidget);
+    });
+
     testWidgets('RanaInteractiveUndertonePad renders labels and coordinates', (
       WidgetTester tester,
     ) async {
@@ -154,6 +183,41 @@ void main() {
       expect(padRect.width, lessThanOrEqualTo(188));
     });
 
+    testWidgets('RanaInteractiveUndertonePad maps grid bounds continuously', (
+      WidgetTester tester,
+    ) async {
+      double changedX = 0;
+      double changedY = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RanaInteractiveUndertonePad(
+              undertoneX: 0,
+              undertoneY: 0,
+              styleStrength: 100,
+              onChanged: (x, y) {
+                changedX = x;
+                changedY = y;
+              },
+            ),
+          ),
+        ),
+      );
+
+      final rect = tester.getRect(find.byKey(const Key('undertone-pad')));
+      await tester.tapAt(Offset(rect.left + 1, rect.top + 1));
+      expect(changedX, closeTo(-1, 0.0001));
+      expect(changedY, closeTo(1, 0.0001));
+
+      await tester.tapAt(rect.center);
+      expect(changedX, closeTo(0, 0.0001));
+      expect(changedY, closeTo(0, 0.0001));
+
+      await tester.tapAt(Offset(rect.right - 1, rect.bottom - 1));
+      expect(changedX, closeTo(1, 0.0001));
+      expect(changedY, closeTo(-1, 0.0001));
+    });
+
     testWidgets('RanaInteractiveUndertonePad shrinks in tight vertical space', (
       WidgetTester tester,
     ) async {
@@ -185,3 +249,5 @@ void main() {
     });
   });
 }
+
+void _ignoreValue(double _) {}
