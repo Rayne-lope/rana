@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 
-/// Painter that renders highly detailed minimalist vector illustrations inside Instax frames
-/// representing the unique style of each film preset.
+/// Painter that renders highly detailed minimalist vector illustrations
+/// inside Instax frames representing the unique style of each film preset.
 class PresetIllustrationPainter extends CustomPainter {
   /// Constructor.
   PresetIllustrationPainter(this.preset);
@@ -72,7 +72,7 @@ class PresetIllustrationPainter extends CustomPainter {
     // 2. Glowing Pink/Orange Light Leak in top-left
     final leakPaint = Paint()
       ..shader = RadialGradient(
-        center: const Alignment(-1.0, -1.0),
+        center: Alignment.topLeft,
         radius: 1.4,
         colors: [
           const Color(0xFFFF3366).withValues(alpha: 0.45),
@@ -143,12 +143,36 @@ class PresetIllustrationPainter extends CustomPainter {
 
     // 2. Grain particles (Tiny random starry dots in B&W)
     final grainPaint = Paint()..color = Colors.white.withValues(alpha: 0.12);
-    canvas.drawCircle(Offset(size.width * 0.15, size.height * 0.15), 0.8, grainPaint);
-    canvas.drawCircle(Offset(size.width * 0.38, size.height * 0.28), 0.6, grainPaint);
-    canvas.drawCircle(Offset(size.width * 0.74, size.height * 0.12), 0.8, grainPaint);
-    canvas.drawCircle(Offset(size.width * 0.24, size.height * 0.44), 0.5, grainPaint);
-    canvas.drawCircle(Offset(size.width * 0.85, size.height * 0.35), 0.7, grainPaint);
-    canvas.drawCircle(Offset(size.width * 0.55, size.height * 0.20), 0.6, grainPaint);
+    canvas.drawCircle(
+      Offset(size.width * 0.15, size.height * 0.15),
+      0.8,
+      grainPaint,
+    );
+    canvas.drawCircle(
+      Offset(size.width * 0.38, size.height * 0.28),
+      0.6,
+      grainPaint,
+    );
+    canvas.drawCircle(
+      Offset(size.width * 0.74, size.height * 0.12),
+      0.8,
+      grainPaint,
+    );
+    canvas.drawCircle(
+      Offset(size.width * 0.24, size.height * 0.44),
+      0.5,
+      grainPaint,
+    );
+    canvas.drawCircle(
+      Offset(size.width * 0.85, size.height * 0.35),
+      0.7,
+      grainPaint,
+    );
+    canvas.drawCircle(
+      Offset(size.width * 0.55, size.height * 0.20),
+      0.6,
+      grainPaint,
+    );
 
     // 3. Detailed Crescent Moon
     final moonPath = Path()
@@ -183,7 +207,7 @@ class PresetIllustrationPainter extends CustomPainter {
       Paint()..color = const Color(0xFFF0F0F3).withValues(alpha: 0.9),
     );
 
-    // 4. Overlapping Sea waves (Layered paths with slight contrast difference)
+    // 4. Overlapping Sea waves (Layered paths)
     final wavePaint1 = Paint()..color = const Color(0xFF1D1D22);
     final wavePaint2 = Paint()..color = const Color(0xFF121216);
     final wavePaint3 = Paint()..color = const Color(0xFF08080A);
@@ -270,18 +294,59 @@ class PresetIllustrationPainter extends CustomPainter {
           Colors.transparent,
         ],
         stops: const [0.0, 0.7, 1.0],
-      ).createShader(Rect.fromCircle(center: sunCenter, radius: sunRadius * 1.8));
+      ).createShader(
+        Rect.fromCircle(center: sunCenter, radius: sunRadius * 1.8),
+      );
 
     canvas.drawCircle(sunCenter, sunRadius * 1.8, sunGlow);
-    canvas.drawCircle(sunCenter, sunRadius, Paint()..color = const Color(0xFFFFF099));
+    canvas.drawCircle(
+      sunCenter,
+      sunRadius,
+      Paint()..color = const Color(0xFFFFF099),
+    );
 
     // 3. Silhouette pine trees at the bottom
-    final treeColor = const Color(0xFF140D0B);
-    _drawTree(canvas, size.width * 0.16, size.height * 0.84, 18, 11, treeColor);
-    _drawTree(canvas, size.width * 0.34, size.height * 0.88, 14, 9, treeColor);
-    _drawTree(canvas, size.width * 0.50, size.height * 0.90, 24, 14, treeColor);
-    _drawTree(canvas, size.width * 0.68, size.height * 0.86, 16, 10, treeColor);
-    _drawTree(canvas, size.width * 0.84, size.height * 0.83, 20, 12, treeColor);
+    const treeColor = Color(0xFF140D0B);
+    _drawTree(
+      canvas,
+      size.width * 0.16,
+      size.height * 0.84,
+      18,
+      11,
+      treeColor,
+    );
+    _drawTree(
+      canvas,
+      size.width * 0.34,
+      size.height * 0.88,
+      14,
+      9,
+      treeColor,
+    );
+    _drawTree(
+      canvas,
+      size.width * 0.50,
+      size.height * 0.90,
+      24,
+      14,
+      treeColor,
+    );
+    _drawTree(
+      canvas,
+      size.width * 0.68,
+      size.height * 0.86,
+      16,
+      10,
+      treeColor,
+    );
+    _drawTree(
+      canvas,
+      size.width * 0.84,
+      size.height * 0.83,
+      20,
+      12,
+      treeColor,
+    );
 
     // Ground block
     canvas.drawRect(
@@ -330,7 +395,9 @@ class PresetIllustrationPainter extends CustomPainter {
             const Color(0xFFFF5722).withValues(alpha: 0.35),
             Colors.transparent,
           ],
-        ).createShader(Rect.fromCircle(center: orbCenter, radius: orbRadius * 1.5)),
+        ).createShader(
+          Rect.fromCircle(center: orbCenter, radius: orbRadius * 1.5),
+        ),
     );
 
     // Clean white center
@@ -419,7 +486,9 @@ class PresetIllustrationPainter extends CustomPainter {
         text: TextSpan(
           text: "'98 07 12",
           style: TextStyle(
-            color: const Color(0xFFFF5722).withValues(alpha: 0.92), // Retro digital orange-red
+            color: const Color(0xFFFF5722).withValues(
+              alpha: 0.92,
+            ), // Retro digital orange-red
             fontSize: size.width * 0.11,
             fontWeight: FontWeight.w900,
             fontFamily: 'monospace',
@@ -446,36 +515,60 @@ class PresetIllustrationPainter extends CustomPainter {
   }
 
   void _paintDefault(Canvas canvas, Size size, Rect rect) {
-    // 1. Sky Blue background
+    // 1. Sky Gradient (Light blue to warm peach)
     final bgPaint = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFF5DADE2), Color(0xFF3498DB)],
+        colors: [Color(0xFF5DADE2), Color(0xFFF5B041)],
+        stops: [0.35, 1.0],
       ).createShader(rect);
     canvas.drawRect(rect, bgPaint);
 
-    // 2. Sun in top right corner
+    // 2. Soft layered sun
+    final sunCenter = Offset(size.width * 0.72, size.height * 0.38);
+    final sunRadius = size.width * 0.14;
     canvas.drawCircle(
-      Offset(size.width * 0.75, size.height * 0.32),
-      size.width * 0.16,
-      Paint()..color = const Color(0xFFF1C40F),
+      sunCenter,
+      sunRadius * 1.4,
+      Paint()..color = Colors.white.withOpacity(0.2),
+    );
+    canvas.drawCircle(
+      sunCenter,
+      sunRadius,
+      Paint()..color = const Color(0xFFFFF6D1),
     );
 
-    // 3. Simple ground hill
-    final groundPaint = Paint()..color = const Color(0xFF2E4053);
-    final ground = Path()
+    // 3. Layered minimalist valley hills
+    final hillPaint1 = Paint()..color = const Color(0xFF2E4053);
+    final hillPaint2 = Paint()..color = const Color(0xFF1B2631);
+
+    final hill1 = Path()
       ..moveTo(0, size.height)
       ..quadraticBezierTo(
-        size.width * 0.5,
-        size.height * 0.75,
+        size.width * 0.45,
+        size.height * 0.72,
         size.width,
-        size.height * 0.82,
+        size.height * 0.84,
       )
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();
-    canvas.drawPath(ground, groundPaint);
+
+    final hill2 = Path()
+      ..moveTo(0, size.height)
+      ..quadraticBezierTo(
+        size.width * 0.65,
+        size.height * 0.86,
+        size.width,
+        size.height * 0.78,
+      )
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    canvas.drawPath(hill1, hillPaint1);
+    canvas.drawPath(hill2, hillPaint2);
   }
 
   @override

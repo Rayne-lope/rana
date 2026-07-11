@@ -121,7 +121,7 @@ class PresetThumbnailWidget extends StatelessWidget {
                 fontWeight: FontWeight.w900,
                 fontFamily: 'monospace',
                 letterSpacing: 0.3,
-                height: 1.0,
+                height: 1,
               ),
               maxLines: 1,
               overflow: TextOverflow.clip,
