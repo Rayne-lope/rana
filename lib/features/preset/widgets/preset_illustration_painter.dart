@@ -413,7 +413,7 @@ class PresetIllustrationPainter extends CustomPainter {
     canvas.drawPath(dune2, dunePaint2);
 
     // 4. Render Orange Retro Date Stamp if date stamp is enabled in preset
-    final hasDate = preset.effects.dateStamp.enable;
+    final hasDate = preset.effects.dateStamp?.enable ?? false;
     if (hasDate) {
       final textPainter = TextPainter(
         text: TextSpan(
