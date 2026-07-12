@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -892,49 +893,54 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         child: LatestCaptureThumbnail(imageUri: state.lastCapturedPath),
       ),
     ),
-  );
-
-  Widget _buildViewfinder(
+  );  Widget _buildViewfinder(
     CameraState state,
     CameraController controller, {
     required _ViewfinderLayoutMode layoutMode,
-  }) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.05),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final previewSize = _previewGateSize(
-              constraints,
-              state.aspectRatio.viewfinderRatio,
-            );
+  }) {
+    final presetsList = ref.watch(presetsProvider).valueOrNull ?? [];
+    final activePreset = _findActivePreset(state, presetsList);
+    final isReady = state.isCameraInitialized &&
+        state.captureStatus == CaptureStatus.idle &&
+        !state.isSelfTimerRunning;
 
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                Center(
-                  child: SizedBox(
-                    width: previewSize.width,
-                    height: previewSize.height,
-                    child: _buildPreviewGate(state, controller),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.05),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final previewSize = _previewGateSize(
+                constraints,
+                state.aspectRatio.viewfinderRatio,
+              );
+
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  Center(
+                    child: SizedBox(
+                      width: previewSize.width,
+                      height: previewSize.height,
+                      child: _buildPreviewGate(state, controller),
+                    ),
                   ),
-                ),
 
                 // Top controls stay anchored to the fixed camera stage.
                 if (layoutMode == _ViewfinderLayoutMode.capture)
@@ -943,6 +949,72 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                     left: 16,
                     right: 16,
                     child: _buildTopOverlayControls(state, controller),
+                  ),
+
+                // Floating Preset selector overlay at the bottom center of the viewfinder
+                if (layoutMode == _ViewfinderLayoutMode.capture)
+                  Positioned(
+                    bottom: 16,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: isReady
+                            ? () {
+                                setState(() {
+                                  _originalPresetId = state.activePresetId;
+                                  _isSelectingPreset = true;
+                                });
+                              }
+                            : null,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: BackdropFilter(
+                            filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.42),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.08),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.photo_camera_back_outlined,
+                                    size: 13,
+                                    color: Color(0xFFF39C12),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    (activePreset?.name ?? 'NORMAL').toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Color(0xFFF39C12),
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.keyboard_arrow_up_rounded,
+                                    size: 13,
+                                    color: Colors.white54,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
 
                 // Self timer countdown overlay
@@ -1031,6 +1103,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       ),
     ),
   );
+}
 
   Size _previewGateSize(BoxConstraints constraints, double aspectRatio) {
     final maxWidth = constraints.maxWidth;
@@ -1202,62 +1275,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
     return Container(
       decoration: const BoxDecoration(color: Colors.transparent),
-      padding: const EdgeInsets.only(top: 16, bottom: 24),
+      padding: const EdgeInsets.only(top: 8, bottom: 20),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Single clean active preset selector pill button
-          Center(
-            child: GestureDetector(
-              onTap: isReady
-                  ? () {
-                      setState(() {
-                        _originalPresetId = state.activePresetId;
-                        _isSelectingPreset = true;
-                      });
-                    }
-                  : null,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF16161A), // Match visual layout
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.photo_camera_back_outlined,
-                      size: 14,
-                      color: Color(0xFFF39C12),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      (activePreset?.name ?? 'NORMAL').toUpperCase(),
-                      style: const TextStyle(
-                        color: Color(0xFFF39C12),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(
-                      Icons.keyboard_arrow_up_rounded,
-                      size: 14,
-                      color: Colors.white54,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
           // Shutter status label
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
