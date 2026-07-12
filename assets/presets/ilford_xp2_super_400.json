@@ -1,0 +1,45 @@
+{
+  "id": "ilford_xp2_super_400",
+  "name": "Ilford XP2 Super 400",
+  "category": "Classic",
+  "color": {
+    "temperature": 0.03,
+    "contrast": 0.06,
+    "saturation": -1.0
+  },
+  "grain": {
+    "intensity": 0.10
+  },
+  "vignette": {
+    "intensity": 0.03
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.84,
+      "intensity": 0.01
+    },
+    "halation": {
+      "intensity": 0.0
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  },
+  "style": {
+    "tone": 1.0,
+    "color": 0.0,
+    "styleStrength": 92.0,
+    "undertoneX": 0.04,
+    "undertoneY": 0.0
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "id": "cinestill_400dynamic",
+  "name": "CineStill 400Dynamic",
+  "category": "Cinematic",
+  "color": {
+    "temperature": 0.09,
+    "contrast": 0.05,
+    "saturation": 0.08
+  },
+  "grain": {
+    "intensity": 0.15
+  },
+  "vignette": {
+    "intensity": 0.05
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.79,
+      "intensity": 0.14
+    },
+    "halation": {
+      "intensity": 0.34
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  },
+  "style": {
+    "tone": 3.0,
+    "color": 6.0,
+    "styleStrength": 93.0,
+    "undertoneX": 0.12,
+    "undertoneY": -0.08
+  }
+}

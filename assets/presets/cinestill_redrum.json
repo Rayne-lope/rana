@@ -1,0 +1,45 @@
+{
+  "id": "cinestill_redrum",
+  "name": "CineStill Redrum",
+  "category": "Cinematic",
+  "color": {
+    "temperature": 0.78,
+    "contrast": 0.10,
+    "saturation": 0.18
+  },
+  "grain": {
+    "intensity": 0.32
+  },
+  "vignette": {
+    "intensity": 0.10
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.06,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.68,
+      "intensity": 0.24
+    },
+    "halation": {
+      "intensity": 0.62
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  },
+  "style": {
+    "tone": 3.0,
+    "color": 16.0,
+    "styleStrength": 100.0,
+    "undertoneX": 0.72,
+    "undertoneY": 0.08
+  }
+}

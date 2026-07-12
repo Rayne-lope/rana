@@ -1,0 +1,45 @@
+{
+  "id": "ilford_pan_f_plus_50",
+  "name": "Ilford Pan F Plus 50",
+  "category": "Classic",
+  "color": {
+    "temperature": 0.00,
+    "contrast": 0.34,
+    "saturation": -1.0
+  },
+  "grain": {
+    "intensity": 0.04
+  },
+  "vignette": {
+    "intensity": 0.04
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.88,
+      "intensity": 0.0
+    },
+    "halation": {
+      "intensity": 0.0
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  },
+  "style": {
+    "tone": 13.0,
+    "color": 0.0,
+    "styleStrength": 98.0,
+    "undertoneX": 0.0,
+    "undertoneY": 0.0
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "id": "cinestill_50d",
+  "name": "CineStill 50D",
+  "category": "Cinematic",
+  "color": {
+    "temperature": 0.05,
+    "contrast": 0.18,
+    "saturation": 0.18
+  },
+  "grain": {
+    "intensity": 0.08
+  },
+  "vignette": {
+    "intensity": 0.04
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.84,
+      "intensity": 0.08
+    },
+    "halation": {
+      "intensity": 0.28
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    }
+  },
+  "style": {
+    "tone": 7.0,
+    "color": 8.0,
+    "styleStrength": 95.0,
+    "undertoneX": 0.08,
+    "undertoneY": 0.02
+  }
+}

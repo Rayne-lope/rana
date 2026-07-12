@@ -27,6 +27,10 @@ class PresetIllustrationPainter extends CustomPainter {
         idLower.contains('toy') ||
         idLower.contains('metropolis');
 
+    final isCinematic = categoryLower == 'cinematic' ||
+        idLower.contains('cinestill') ||
+        idLower.contains('cinema');
+
     final isDisposable = categoryLower == 'disposable' ||
         idLower.contains('quicksnap') ||
         idLower.contains('lebox') ||
@@ -38,7 +42,6 @@ class PresetIllustrationPainter extends CustomPainter {
 
     final isCool = idLower.contains('aurora') ||
         idLower.contains('cool') ||
-        idLower.contains('cinestill') ||
         (preset.color.temperature < -0.05);
 
     final isForest = idLower.contains('dusk') ||
@@ -58,6 +61,8 @@ class PresetIllustrationPainter extends CustomPainter {
       _paintLomo(canvas, size, rect);
     } else if (isMonochrome) {
       _paintMonochrome(canvas, size, rect);
+    } else if (isCinematic) {
+      _paintCinematic(canvas, size, rect);
     } else if (isDisposable) {
       _paintDisposable(canvas, size, rect);
     } else if (isInstant) {
@@ -731,6 +736,82 @@ class PresetIllustrationPainter extends CustomPainter {
           end: Alignment.bottomCenter,
           colors: [Color(0xFF85C1E9), Color(0xFFF5B041)],
         ).createShader(photoRect.outerRect),
+    );
+  }
+
+  void _paintCinematic(Canvas canvas, Size size, Rect rect) {
+    // 1. Gradient background: Deep cinematic teal/slate
+    final bgPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
+      ).createShader(rect);
+    canvas.drawRect(rect, bgPaint);
+
+    // 2. Vertical film strip sprocket pattern on the left side
+    final stripWidth = size.width * 0.16;
+    final stripPaint = Paint()..color = const Color(0xFF050B0D);
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, stripWidth, size.height),
+      stripPaint,
+    );
+
+    // Draw tiny sprocket holes (rounded rectangles)
+    final holePaint = Paint()..color = const Color(0xFFD5DBDB).withValues(alpha: 0.8);
+    final holeWidth = stripWidth * 0.5;
+    final holeHeight = size.height * 0.08;
+    final holeLeft = (stripWidth - holeWidth) / 2;
+
+    for (var i = 0; i < 4; i++) {
+      final holeTop = size.height * 0.12 + i * (size.height * 0.24);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(holeLeft, holeTop, holeWidth, holeHeight),
+          Radius.circular(size.width * 0.015),
+        ),
+        holePaint,
+      );
+    }
+
+    // 3. Glowing projector beam lens light / halation ring
+    final centerX = size.width * 0.62;
+    final centerY = size.height * 0.46;
+    final radius = size.width * 0.22;
+
+    // Outer red/orange halation bloom ring (resembling CineStill's signature)
+    canvas.drawCircle(
+      Offset(centerX, centerY),
+      radius * 1.6,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            const Color(0xFFFF3333).withValues(alpha: 0.48),
+            const Color(0xFFFF6600).withValues(alpha: 0.12),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.6, 1.0],
+        ).createShader(Rect.fromCircle(
+          center: Offset(centerX, centerY),
+          radius: radius * 1.6,
+        )),
+    );
+
+    // Inner bright golden light source
+    canvas.drawCircle(
+      Offset(centerX, centerY),
+      radius,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Colors.white,
+            const Color(0xFFFFF0B3),
+            const Color(0xFFFF9933).withValues(alpha: 0.2),
+          ],
+        ).createShader(Rect.fromCircle(
+          center: Offset(centerX, centerY),
+          radius: radius,
+        )),
     );
   }
 
