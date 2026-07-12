@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rana Preset Creator Console</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="logo">RANA PRESET CREATOR</div>
+    <div class="subtitle">Interactive Visual Recipe Console</div>
+  </header>
+
+  <div class="app-container">
+    <!-- Left Panel: Controls -->
+    <aside class="control-panel">
+      <!-- Section: Meta Details -->
+      <section class="control-section">
+        <h3>1. Recipe Metadata</h3>
+        <div class="control-group-row">
+          <div class="input-field">
+            <label for="preset-id">Preset ID</label>
+            <input type="text" id="preset-id" value="custom_preset_1">
+          </div>
+          <div class="input-field">
+            <label for="preset-name">Preset Name</label>
+            <input type="text" id="preset-name" value="Custom Preset 1">
+          </div>
+          <div class="input-field">
+            <label for="preset-category">Category</label>
+            <select id="preset-category">
+              <option value="Classic">Classic</option>
+              <option value="Vintage">Vintage</option>
+              <option value="Cinematic">Cinematic</option>
+              <option value="Experimental">Experimental</option>
+              <option value="Disposable">Disposable</option>
+              <option value="Rana">Rana</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Color Settings -->
+      <section class="control-section">
+        <h3>2. Color & Tone</h3>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-temperature">Temperature</label>
+            <span class="value-readout" id="readout-temperature">0.00</span>
+          </div>
+          <input type="range" id="param-temperature" min="-1" max="1" step="0.01" value="0.00">
+        </div>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-contrast">Contrast</label>
+            <span class="value-readout" id="readout-contrast">0.00</span>
+          </div>
+          <input type="range" id="param-contrast" min="-1" max="1" step="0.01" value="0.00">
+        </div>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-saturation">Saturation</label>
+            <span class="value-readout" id="readout-saturation">0.00</span>
+          </div>
+          <input type="range" id="param-saturation" min="-1" max="1" step="0.01" value="0.00">
+        </div>
+      </section>
+
+      <!-- Section: Grain & Vignette -->
+      <section class="control-section">
+        <h3>3. Textures & Shading</h3>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-grain">Grain Intensity</label>
+            <span class="value-readout" id="readout-grain">0.00</span>
+          </div>
+          <input type="range" id="param-grain" min="0" max="1" step="0.01" value="0.00">
+        </div>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-vignette">Vignette Intensity</label>
+            <span class="value-readout" id="readout-vignette">0.00</span>
+          </div>
+          <input type="range" id="param-vignette" min="0" max="1" step="0.01" value="0.00">
+        </div>
+      </section>
+
+      <!-- Section: Analog Effects -->
+      <section class="control-section">
+        <h3>4. Analog Effects</h3>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-lightLeak">Light Leak Intensity</label>
+            <span class="value-readout" id="readout-lightLeak">0.00</span>
+          </div>
+          <input type="range" id="param-lightLeak" min="0" max="1" step="0.01" value="0.00">
+        </div>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-lightLeakVariant">Light Leak Variant</label>
+            <span class="value-readout" id="readout-lightLeakVariant">-1</span>
+          </div>
+          <input type="range" id="param-lightLeakVariant" min="-1" max="4" step="1" value="-1">
+        </div>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-dust">Dust Intensity</label>
+            <span class="value-readout" id="readout-dust">0.00</span>
+          </div>
+          <input type="range" id="param-dust" min="0" max="1" step="0.01" value="0.00">
+        </div>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-bloom">Bloom Intensity</label>
+            <span class="value-readout" id="readout-bloom">0.00</span>
+          </div>
+          <input type="range" id="param-bloom" min="0" max="1" step="0.01" value="0.00">
+        </div>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-bloomThreshold">Bloom Threshold</label>
+            <span class="value-readout" id="readout-bloomThreshold">0.88</span>
+          </div>
+          <input type="range" id="param-bloomThreshold" min="0" max="1" step="0.01" value="0.88">
+        </div>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-halation">Halation Intensity</label>
+            <span class="value-readout" id="readout-halation">0.00</span>
+          </div>
+          <input type="range" id="param-halation" min="0" max="1" step="0.01" value="0.00">
+        </div>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-lensDistortion">Lens Distortion Strength</label>
+            <span class="value-readout" id="readout-lensDistortion">0.00</span>
+          </div>
+          <input type="range" id="param-lensDistortion" min="0" max="1" step="0.01" value="0.00">
+        </div>
+      </section>
+
+      <!-- Section: Photographic Style -->
+      <section class="control-section">
+        <h3>5. Photographic Style Controls</h3>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-styleTone">Style Tone</label>
+            <span class="value-readout" id="readout-styleTone">0.0</span>
+          </div>
+          <input type="range" id="param-styleTone" min="-100" max="100" step="1" value="0">
+        </div>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-styleColor">Style Color</label>
+            <span class="value-readout" id="readout-styleColor">0.0</span>
+          </div>
+          <input type="range" id="param-styleColor" min="-100" max="100" step="1" value="0">
+        </div>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-styleStrength">Style Strength</label>
+            <span class="value-readout" id="readout-styleStrength">100.0</span>
+          </div>
+          <input type="range" id="param-styleStrength" min="0" max="100" step="1" value="100">
+        </div>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-undertoneX">Undertone X</label>
+            <span class="value-readout" id="readout-undertoneX">0.00</span>
+          </div>
+          <input type="range" id="param-undertoneX" min="-1" max="1" step="0.01" value="0.00">
+        </div>
+        <div class="slider-control">
+          <div class="slider-header">
+            <label for="param-undertoneY">Undertone Y</label>
+            <span class="value-readout" id="readout-undertoneY">0.00</span>
+          </div>
+          <input type="range" id="param-undertoneY" min="-1" max="1" step="0.01" value="0.00">
+        </div>
+      </section>
+    </aside>
+
+    <!-- Right Stage: Preview & JSON -->
+    <main class="stage-container">
+      <!-- Section: Preview Grid -->
+      <section class="preview-panel">
+        <div class="preview-header">
+          <h2>Live Photo Previews</h2>
+          <div class="help-text">Place sample1.jpg to sample5.jpg in the <code>images/</code> folder to activate.</div>
+        </div>
+        <div class="preview-grid">
+          <div class="preview-card">
+            <div class="img-wrapper">
+              <img id="prev-img-1" src="images/sample1.jpg" alt="No sample1.jpg found">
+              <div class="vignette-overlay" id="vignette-1"></div>
+              <div class="lightleak-overlay" id="lightleak-1"></div>
+            </div>
+            <div class="card-caption">Sample 1</div>
+          </div>
+          <div class="preview-card">
+            <div class="img-wrapper">
+              <img id="prev-img-2" src="images/sample2.jpg" alt="No sample2.jpg found">
+              <div class="vignette-overlay" id="vignette-2"></div>
+              <div class="lightleak-overlay" id="lightleak-2"></div>
+            </div>
+            <div class="card-caption">Sample 2</div>
+          </div>
+          <div class="preview-card">
+            <div class="img-wrapper">
+              <img id="prev-img-3" src="images/sample3.jpg" alt="No sample3.jpg found">
+              <div class="vignette-overlay" id="vignette-3"></div>
+              <div class="lightleak-overlay" id="lightleak-3"></div>
+            </div>
+            <div class="card-caption">Sample 3</div>
+          </div>
+          <div class="preview-card">
+            <div class="img-wrapper">
+              <img id="prev-img-4" src="images/sample4.jpg" alt="No sample4.jpg found">
+              <div class="vignette-overlay" id="vignette-4"></div>
+              <div class="lightleak-overlay" id="lightleak-4"></div>
+            </div>
+            <div class="card-caption">Sample 4</div>
+          </div>
+          <div class="preview-card">
+            <div class="img-wrapper">
+              <img id="prev-img-5" src="images/sample5.jpg" alt="No sample5.jpg found">
+              <div class="vignette-overlay" id="vignette-5"></div>
+              <div class="lightleak-overlay" id="lightleak-5"></div>
+            </div>
+            <div class="card-caption">Sample 5</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: JSON Export Console -->
+      <section class="json-panel">
+        <div class="json-header">
+          <h2>Generated Preset Recipe JSON</h2>
+          <div class="json-actions">
+            <button class="btn btn-secondary" id="btn-copy">Copy JSON</button>
+            <button class="btn btn-primary" id="btn-download">Download .json</button>
+          </div>
+        </div>
+        <div class="console-wrapper">
+          <pre id="json-output"></pre>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
