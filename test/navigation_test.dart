@@ -149,7 +149,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Gallery screen shows its AppBar title.
-      expect(find.text('Gallery'), findsWidgets);
+      expect(find.text('RANA GALLERY'), findsWidgets);
     });
 
     testWidgets('tapping Settings cog navigates to Settings Screen', (

@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -61,33 +62,55 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         (galleryState.status == GalleryStatus.loading &&
             galleryState.items.isEmpty);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F0F11),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0F0F11),
-        foregroundColor: Colors.white,
-        title: const Text(
-          'Gallery',
-          style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.4),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF2D3037), // Top sheet titanium
+            Color(0xFF1E2025), // Mid sheet gunmetal
+            Color(0xFF121316), // Bottom sheet deep charcoal metal
+          ],
+          stops: [0.0, 0.5, 1.0],
         ),
-        leading: BackButton(onPressed: () => context.go(AppRoutes.camera)),
-        actions: [
-          IconButton(
-            onPressed: showLoader ? null : controller.loadGallery,
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Refresh gallery',
-          ),
-        ],
       ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topCenter,
-            radius: 1.2,
-            colors: [Color(0xFF15151A), Color(0xFF0F0F11)],
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leadingWidth: 72,
+          leading: Center(
+            child: _AppBarActionButton(
+              icon: Icons.arrow_back_rounded,
+              onPressed: () => context.go(AppRoutes.camera),
+              tooltip: 'Back to Camera',
+            ),
           ),
+          title: const Text(
+            'RANA GALLERY',
+            style: TextStyle(
+              color: Color(0xFFF39C12),
+              fontFamily: 'monospace',
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.0,
+            ),
+          ),
+          centerTitle: true,
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: _AppBarActionButton(
+                icon: Icons.refresh_rounded,
+                onPressed: showLoader ? null : controller.loadGallery,
+                tooltip: 'Refresh gallery',
+              ),
+            ),
+          ],
         ),
-        child: RefreshIndicator(
+        body: RefreshIndicator(
           color: const Color(0xFFF39C12),
           backgroundColor: const Color(0xFF17171B),
           onRefresh: controller.loadGallery,
@@ -665,10 +688,14 @@ class _GalleryTileState extends State<_GalleryTile> {
     onLongPress: widget.onLongPress,
     child: ClipRRect(
       borderRadius: BorderRadius.circular(18),
-      child: DecoratedBox(
+      child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF17171B),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          color: const Color(0xFF16171B),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.08),
+            width: 0.8,
+          ),
+          borderRadius: BorderRadius.circular(18),
         ),
         child: Stack(
           fit: StackFit.expand,
@@ -702,7 +729,7 @@ class _GalleryTileState extends State<_GalleryTile> {
             const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.transparent, Color(0xC2000000)],
+                  colors: [Colors.transparent, Color(0x66000000)],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -715,38 +742,62 @@ class _GalleryTileState extends State<_GalleryTile> {
                 child: Icon(
                   Icons.favorite_rounded,
                   color: Color(0xFFF39C12),
-                  size: 22,
+                  size: 20,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black45,
+                      blurRadius: 4,
+                      offset: Offset(0, 1),
+                    )
+                  ],
                 ),
               ),
             Positioned(
-              left: 12,
-              right: 12,
-              bottom: 10,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    widget.item.captureStamp,
-                    style: const TextStyle(
-                      color: Color(0xFFF39C12),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(17),
+                  bottomRight: Radius.circular(17),
+                ),
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    color: Colors.black.withValues(alpha: 0.35),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.item.captureStamp,
+                          style: const TextStyle(
+                            color: Color(0xFFF39C12),
+                            fontFamily: 'monospace',
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.item.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    widget.item.displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ],
@@ -825,35 +876,122 @@ class _GalleryFilterStrip extends StatelessWidget {
     required bool isSelected,
     required ValueChanged<bool> onSelected,
     IconData? icon,
-  }) =>
-      ChoiceChip(
-        avatar: icon != null
-            ? Icon(
-                icon,
-                size: 13,
-                color: isSelected ? Colors.black : const Color(0xFFF39C12),
-              )
-            : null,
-        label: Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.1,
-            color: isSelected ? Colors.black : Colors.white70,
+  }) => GestureDetector(
+        onTap: () => onSelected(!isSelected),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: isSelected
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFF4C44F), Color(0xFFF39C12)],
+                  )
+                : null,
+            color: isSelected ? null : Colors.black.withValues(alpha: 0.36),
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFFF39C12)
+                  : Colors.white.withValues(alpha: 0.08),
+              width: 0.8,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFFF39C12).withValues(alpha: 0.24),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
+                : null,
           ),
-        ),
-        selected: isSelected,
-        onSelected: onSelected,
-        selectedColor: const Color(0xFFF39C12),
-        backgroundColor: const Color(0xFF1E1E24),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: isSelected
-                ? const Color(0xFFF39C12)
-                : Colors.white.withValues(alpha: 0.08),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(
+                  icon,
+                  size: 12,
+                  color: isSelected ? Colors.black : const Color(0xFFF39C12),
+                ),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.black : Colors.white70,
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
           ),
         ),
       );
+}
+
+class _AppBarActionButton extends StatelessWidget {
+  const _AppBarActionButton({
+    required this.icon,
+    required this.onPressed,
+    this.tooltip,
+  });
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final isEnabled = onPressed != null;
+    return Tooltip(
+      message: tooltip ?? '',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(18),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                center: const Alignment(-0.15, -0.2),
+                colors: isEnabled
+                    ? const [Color(0xFF3E424B), Color(0xFF202227), Color(0xFF131416)]
+                    : const [Color(0xFF24262A), Color(0xFF181A1C), Color(0xFF0F1011)],
+                stops: const [0.0, 0.7, 1.0],
+              ),
+              border: Border.all(
+                color: isEnabled
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.white.withValues(alpha: 0.03),
+                width: 0.8,
+              ),
+              boxShadow: isEnabled
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.28),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      )
+                    ]
+                  : null,
+            ),
+            child: Icon(
+              icon,
+              size: 16,
+              color: isEnabled ? const Color(0xFFF39C12) : Colors.white24,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
