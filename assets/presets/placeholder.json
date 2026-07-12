@@ -1,14 +1,21 @@
 {
-  "_comment": "Placeholder preset — replace with real LUT/shader config in Phase 3",
   "id": "placeholder",
   "name": "Placeholder",
-  "version": 1,
-  "parameters": {
-    "lutPath": null,
-    "grain": 0.0,
-    "vignette": 0.0,
-    "warmth": 0.0
+  "category": "Rana",
+  "color": {
+    "temperature": 0.0,
+    "contrast": 0.0,
+    "saturation": 0.0
   },
+  "grain": {
+    "intensity": 0.0
+  },
+  "vignette": {
+    "intensity": 0.0
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
   "effects": {
     "lightLeak": {
       "intensity": 0.0,
