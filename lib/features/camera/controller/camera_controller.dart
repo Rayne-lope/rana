@@ -10,6 +10,7 @@ import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:rana/features/preset/model/rana_style_mood.dart';
 import 'package:rana/features/preset/utils/rana_texture_mapper.dart';
+import 'package:rana/features/settings/provider/settings_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'camera_controller.g.dart';
@@ -308,6 +309,7 @@ class CameraController extends _$CameraController {
       captureError: null,
       completedCaptureId: null,
       captureElapsedMs: 0,
+      lastCaptureOutput: null,
     );
 
     try {
@@ -428,6 +430,8 @@ class CameraController extends _$CameraController {
     final highlightsTint =
         activePreset?.effects.splitToning?.highlightsTint ??
         const <double>[0, 0, 0];
+    final outputQuality =
+        ref.read(outputQualityProvider).valueOrNull ?? OutputQuality.highJpeg;
 
     final mapped = RanaTextureMapper.mapTexture(
       textureVal,
@@ -480,6 +484,7 @@ class CameraController extends _$CameraController {
       'undertoneY': style.undertoneY,
       'grainSize': finalGrainSize,
       'softness': finalSoftness,
+      'outputQuality': outputQuality.storageValue,
     };
   }
 
@@ -572,6 +577,7 @@ class CameraController extends _$CameraController {
       captureError: null,
       errorMessage: null,
       lastCapturedPath: imageUri ?? state.lastCapturedPath,
+      lastCaptureOutput: CaptureOutputMetadata.fromEvent(event),
     );
     _randomizeNextVariantForPreview();
   }

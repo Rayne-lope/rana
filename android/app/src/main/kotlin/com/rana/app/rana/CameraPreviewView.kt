@@ -18,6 +18,7 @@ import android.hardware.camera2.CaptureResult
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.view.Display
 import android.view.OrientationEventListener
@@ -41,6 +42,7 @@ import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.DisplayOrientedMeteringPointFactory
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import androidx.heifwriter.HeifWriter
 import com.google.common.util.concurrent.ListenableFuture
 import io.flutter.plugin.platform.PlatformView
 import java.io.File
@@ -1144,7 +1146,21 @@ class CameraPreviewView(
                         }
                         processedBitmap = stampedBitmap
                     }
-                    savedUri = saveProcessedBitmap(processedBitmap, captureZoomRatio)
+                    val savedOutput = saveProcessedBitmap(
+                        processedBitmap,
+                        captureZoomRatio,
+                        params.outputQuality
+                    )
+                    savedUri = savedOutput?.uri
+                    qualityMetadata = qualityMetadata?.copy(
+                        requestedOutputQuality = params.outputQuality.channelValue,
+                        actualOutputFormat = savedOutput?.profile?.extension ?: "",
+                        outputMimeType = savedOutput?.profile?.mimeType ?: "",
+                        outputWidth = processedBitmap.width,
+                        outputHeight = processedBitmap.height,
+                        fileSizeBytes = savedOutput?.fileSizeBytes ?: 0,
+                        fallbackReason = savedOutput?.fallbackReason
+                    )
                     markProgress("save_done")
                     if (savedUri == null) {
                         errorCode = "SAVE_FAILED"
@@ -1319,14 +1335,46 @@ class CameraPreviewView(
         return target
     }
 
-    private fun saveProcessedBitmap(bitmap: Bitmap, zoomRatio: Float): Uri? {
+    private fun saveProcessedBitmap(
+        bitmap: Bitmap,
+        zoomRatio: Float,
+        requestedProfile: OutputQualityProfile
+    ): SavedOutput? {
+        val resolved = resolveOutputQuality(requestedProfile)
+        val primary = saveBitmapWithProfile(
+            bitmap,
+            zoomRatio,
+            resolved.actual,
+            resolved.fallbackReason
+        )
+        if (primary != null) return primary
+
+        // A codec can fail after passing the static HEVC probe. Preserve the
+        // photo by retrying once as the established High JPEG output.
+        if (resolved.actual == OutputQualityProfile.EFFICIENT_HEIC) {
+            return saveBitmapWithProfile(
+                bitmap,
+                zoomRatio,
+                OutputQualityProfile.HIGH_JPEG,
+                "heic_encode_failed"
+            )
+        }
+        return null
+    }
+
+    private fun saveBitmapWithProfile(
+        bitmap: Bitmap,
+        zoomRatio: Float,
+        profile: OutputQualityProfile,
+        fallbackReason: String?
+    ): SavedOutput? {
         val name = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
             .format(System.currentTimeMillis())
-        val displayName = "Rana_$name.jpg"
+        val displayName = "Rana_$name.${profile.extension}"
         val resolver = context.contentResolver
         val contentValues = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
-            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+            put(MediaStore.MediaColumns.MIME_TYPE, profile.mimeType)
             put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis())
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Rana")
@@ -1338,9 +1386,7 @@ class CameraPreviewView(
                     ),
                     "Rana"
                 )
-                if (!directory.exists()) {
-                    directory.mkdirs()
-                }
+                if (!directory.exists()) directory.mkdirs()
                 put(
                     MediaStore.Images.Media.DATA,
                     File(directory, displayName).absolutePath
@@ -1356,13 +1402,34 @@ class CameraPreviewView(
         var success = false
         var bytesWritten = 0L
         try {
-            resolver.openOutputStream(uri)?.use { stream ->
-                val countingStream = CountingOutputStream(stream)
-                if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 95, countingStream)) {
-                    throw IOException("Bitmap compression failed")
+            when (profile) {
+                OutputQualityProfile.STANDARD_JPEG,
+                OutputQualityProfile.HIGH_JPEG -> {
+                    resolver.openOutputStream(uri)?.use { stream ->
+                        val countingStream = CountingOutputStream(stream)
+                        if (!bitmap.compress(
+                                Bitmap.CompressFormat.JPEG,
+                                profile.encoderQuality,
+                                countingStream
+                            )
+                        ) {
+                            throw IOException("Bitmap compression failed")
+                        }
+                        bytesWritten = countingStream.bytesWritten
+                    } ?: throw IOException("Unable to open MediaStore output stream")
                 }
-                bytesWritten = countingStream.bytesWritten
-            } ?: throw IOException("Unable to open MediaStore output stream")
+                OutputQualityProfile.EFFICIENT_HEIC -> {
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+                        throw IOException("HEIC requires Android 9 or later")
+                    }
+                    resolver.openFileDescriptor(uri, "w")?.use { descriptor ->
+                        writeHeic(bitmap, descriptor, profile.encoderQuality)
+                    } ?: throw IOException("Unable to open MediaStore file descriptor")
+                    bytesWritten = resolver.openAssetFileDescriptor(uri, "r")?.use {
+                        it.length.coerceAtLeast(0L)
+                    } ?: 0L
+                }
+            }
             CameraQualityAudit.logCaptureSaved(
                 viewId = viewId,
                 bitmap = bitmap,
@@ -1377,14 +1444,40 @@ class CameraPreviewView(
                 resolver.update(uri, publishValues, null, null)
             }
             success = true
-            return uri
+            android.util.Log.i(
+                "RanaCaptureQuality",
+                "format=${profile.channelValue} bytes=$bytesWritten " +
+                    "size=${bitmap.width}x${bitmap.height} fallback=$fallbackReason"
+            )
+            return SavedOutput(uri, profile, bytesWritten, fallbackReason)
         } catch (e: Exception) {
             android.util.Log.e("CameraPreviewView", "Failed to save capture", e)
             return null
         } finally {
-            if (!success) {
-                resolver.delete(uri, null, null)
-            }
+            if (!success) resolver.delete(uri, null, null)
+        }
+    }
+
+    private fun writeHeic(
+        bitmap: Bitmap,
+        descriptor: ParcelFileDescriptor,
+        quality: Int
+    ) {
+        val writer = HeifWriter.Builder(
+            descriptor.fileDescriptor,
+            bitmap.width,
+            bitmap.height,
+            HeifWriter.INPUT_MODE_BITMAP
+        )
+            .setQuality(quality)
+            .setMaxImages(1)
+            .build()
+        try {
+            writer.start()
+            writer.addBitmap(bitmap)
+            writer.stop(10_000)
+        } finally {
+            writer.close()
         }
     }
 
@@ -1485,7 +1578,21 @@ class CameraPreviewView(
     data class CaptureQualityMetadata(
         val qualityReduced: Boolean,
         val inSampleSize: Int,
-        val lutSkipped: Boolean
+        val lutSkipped: Boolean,
+        val requestedOutputQuality: String = OutputQualityProfile.HIGH_JPEG.channelValue,
+        val actualOutputFormat: String = "jpeg",
+        val outputMimeType: String = "image/jpeg",
+        val outputWidth: Int = 0,
+        val outputHeight: Int = 0,
+        val fileSizeBytes: Long = 0,
+        val fallbackReason: String? = null
+    )
+
+    private data class SavedOutput(
+        val uri: Uri,
+        val profile: OutputQualityProfile,
+        val fileSizeBytes: Long,
+        val fallbackReason: String?
     )
 
     private data class DecodedCapture(

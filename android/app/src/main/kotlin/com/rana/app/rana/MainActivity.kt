@@ -3,6 +3,7 @@ package com.rana.app.rana
 import android.app.Activity
 import android.app.RecoverableSecurityException
 import android.content.ContentUris
+import android.content.ClipData
 import android.content.Intent
 import android.content.IntentSender
 import android.database.Cursor
@@ -18,8 +19,11 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import androidx.camera.core.CameraSelector
+import androidx.core.content.FileProvider
 import android.provider.MediaStore
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -38,6 +42,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        cleanupShareCache()
 
         // Register the camera preview platform view
         flutterEngine.platformViewsController.registry.registerViewFactory(
@@ -48,6 +53,9 @@ class MainActivity : FlutterActivity() {
         // Setup MethodChannel for camera control actions
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
+                "getOutputCapabilities" -> {
+                    result.success(outputCapabilities().asChannelMap())
+                }
                 "initializeCamera" -> {
                     val preview = activePreviewView
                     if (preview != null) {
@@ -113,7 +121,23 @@ class MainActivity : FlutterActivity() {
                                             ),
                                         "lutSkipped" to (
                                             qualityMetadata?.lutSkipped ?: false
-                                            )
+                                        ),
+                                        "requestedOutputQuality" to (
+                                            qualityMetadata?.requestedOutputQuality
+                                                ?: OutputQualityProfile.HIGH_JPEG.channelValue
+                                        ),
+                                        "actualOutputFormat" to (
+                                            qualityMetadata?.actualOutputFormat ?: "jpeg"
+                                        ),
+                                        "outputMimeType" to (
+                                            qualityMetadata?.outputMimeType ?: "image/jpeg"
+                                        ),
+                                        "outputWidth" to (qualityMetadata?.outputWidth ?: 0),
+                                        "outputHeight" to (qualityMetadata?.outputHeight ?: 0),
+                                        "fileSizeBytes" to (
+                                            qualityMetadata?.fileSizeBytes ?: 0
+                                        ),
+                                        "fallbackReason" to qualityMetadata?.fallbackReason
                                     )
                                 )
                             } else {
@@ -485,7 +509,21 @@ class MainActivity : FlutterActivity() {
                     "elapsedMs" to elapsedMs,
                     "qualityReduced" to (qualityMetadata?.qualityReduced ?: false),
                     "inSampleSize" to (qualityMetadata?.inSampleSize ?: 1),
-                    "lutSkipped" to (qualityMetadata?.lutSkipped ?: false)
+                    "lutSkipped" to (qualityMetadata?.lutSkipped ?: false),
+                    "requestedOutputQuality" to (
+                        qualityMetadata?.requestedOutputQuality
+                            ?: OutputQualityProfile.HIGH_JPEG.channelValue
+                    ),
+                    "actualOutputFormat" to (
+                        qualityMetadata?.actualOutputFormat ?: "jpeg"
+                    ),
+                    "outputMimeType" to (
+                        qualityMetadata?.outputMimeType ?: "image/jpeg"
+                    ),
+                    "outputWidth" to (qualityMetadata?.outputWidth ?: 0),
+                    "outputHeight" to (qualityMetadata?.outputHeight ?: 0),
+                    "fileSizeBytes" to (qualityMetadata?.fileSizeBytes ?: 0),
+                    "fallbackReason" to qualityMetadata?.fallbackReason
                 )
             )
         }
@@ -776,18 +814,93 @@ class MainActivity : FlutterActivity() {
         uri: Uri,
         result: MethodChannel.Result
     ) {
-        handler.post {
+        mediaStoreExecutor.execute {
             try {
-                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "image/*"
-                    putExtra(Intent.EXTRA_STREAM, uri)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                val sourceMimeType = contentResolver.getType(uri) ?: "image/*"
+                val shareUri = if (sourceMimeType.equals("image/heic", true) ||
+                    sourceMimeType.equals("image/heif", true)
+                ) {
+                    createCompatibleShareJpeg(uri)
+                } else {
+                    uri
                 }
-                startActivity(Intent.createChooser(shareIntent, "Share Rana photo"))
-                result.success(null)
+                val shareMimeType = if (shareUri == uri) sourceMimeType else "image/jpeg"
+                handler.post {
+                    try {
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = shareMimeType
+                            putExtra(Intent.EXTRA_STREAM, shareUri)
+                            clipData = ClipData.newRawUri("Rana photo", shareUri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        startActivity(Intent.createChooser(shareIntent, "Share Rana photo"))
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("SHARE_MEDIA_FAILED", e.message, null)
+                    }
+                }
             } catch (e: Exception) {
-                result.error("SHARE_MEDIA_FAILED", e.message, null)
+                handler.post { result.error("SHARE_MEDIA_FAILED", e.message, null) }
             }
+        }
+    }
+
+    /** Produces a share-only JPEG; the original HEIC in MediaStore is untouched. */
+    private fun createCompatibleShareJpeg(sourceUri: Uri): Uri {
+        cleanupShareCache()
+        val bitmap = decodeShareBitmap(sourceUri)
+        val directory = File(cacheDir, "share").apply { mkdirs() }
+        val file = File.createTempFile("rana-share-", ".jpg", directory)
+        try {
+            FileOutputStream(file).use { output ->
+                if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 95, output)) {
+                    throw IOException("Unable to encode compatible share image")
+                }
+            }
+        } finally {
+            bitmap.safeRecycle()
+        }
+        return FileProvider.getUriForFile(this, "$packageName.rana.share", file)
+    }
+
+    private fun decodeShareBitmap(uri: Uri): Bitmap {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, bounds)
+        } ?: throw IOException("Unable to open image for share")
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+            throw IOException("Unable to read image dimensions for share")
+        }
+        val sampleSize = calculateSampleSize(bounds.outWidth, bounds.outHeight, 4096)
+        val bitmap = contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(
+                stream,
+                null,
+                BitmapFactory.Options().apply {
+                    inSampleSize = sampleSize
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
+            )
+        } ?: throw IOException("Unable to decode image for share")
+        val longestEdge = maxOf(bitmap.width, bitmap.height)
+        if (longestEdge <= 4096) return bitmap
+        val scale = 4096f / longestEdge
+        val scaled = Bitmap.createScaledBitmap(
+            bitmap,
+            (bitmap.width * scale).toInt().coerceAtLeast(1),
+            (bitmap.height * scale).toInt().coerceAtLeast(1),
+            true
+        )
+        if (scaled !== bitmap) bitmap.safeRecycle()
+        return scaled
+    }
+
+    private fun cleanupShareCache() {
+        val now = System.currentTimeMillis()
+        val maxAgeMs = 24L * 60L * 60L * 1000L
+        val directory = File(cacheDir, "share")
+        directory.listFiles()?.forEach { file ->
+            if (now - file.lastModified() > maxAgeMs) file.delete()
         }
     }
 

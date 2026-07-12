@@ -79,6 +79,79 @@ enum SelfTimerMode {
 /// States representing the capturing flow animation.
 enum CaptureStatus { idle, capturing, processing, success, error }
 
+/// The actual encoded result of a completed capture.
+@immutable
+class CaptureOutputMetadata {
+  const CaptureOutputMetadata({
+    required this.requestedOutputQuality,
+    required this.actualOutputFormat,
+    required this.outputMimeType,
+    required this.outputWidth,
+    required this.outputHeight,
+    required this.fileSizeBytes,
+    required this.qualityReduced,
+    required this.lutSkipped,
+    this.fallbackReason,
+  });
+
+  factory CaptureOutputMetadata.fromEvent(Map<String, dynamic> event) =>
+      CaptureOutputMetadata(
+        requestedOutputQuality:
+            event['requestedOutputQuality'] as String? ?? 'high_jpeg',
+        actualOutputFormat: event['actualOutputFormat'] as String? ?? 'jpeg',
+        outputMimeType: event['outputMimeType'] as String? ?? 'image/jpeg',
+        outputWidth: (event['outputWidth'] as num?)?.toInt() ?? 0,
+        outputHeight: (event['outputHeight'] as num?)?.toInt() ?? 0,
+        fileSizeBytes: (event['fileSizeBytes'] as num?)?.toInt() ?? 0,
+        qualityReduced: event['qualityReduced'] == true,
+        lutSkipped: event['lutSkipped'] == true,
+        fallbackReason: event['fallbackReason'] as String?,
+      );
+
+  final String requestedOutputQuality;
+  final String actualOutputFormat;
+  final String outputMimeType;
+  final int outputWidth;
+  final int outputHeight;
+  final int fileSizeBytes;
+  final bool qualityReduced;
+  final bool lutSkipped;
+  final String? fallbackReason;
+
+  String get formatLabel => actualOutputFormat.toUpperCase();
+
+  String get fileSizeLabel {
+    if (fileSizeBytes <= 0) return 'UNKNOWN SIZE';
+    return '${(fileSizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is CaptureOutputMetadata &&
+      other.requestedOutputQuality == requestedOutputQuality &&
+      other.actualOutputFormat == actualOutputFormat &&
+      other.outputMimeType == outputMimeType &&
+      other.outputWidth == outputWidth &&
+      other.outputHeight == outputHeight &&
+      other.fileSizeBytes == fileSizeBytes &&
+      other.qualityReduced == qualityReduced &&
+      other.lutSkipped == lutSkipped &&
+      other.fallbackReason == fallbackReason;
+
+  @override
+  int get hashCode => Object.hashAll([
+    requestedOutputQuality,
+    actualOutputFormat,
+    outputMimeType,
+    outputWidth,
+    outputHeight,
+    fileSizeBytes,
+    qualityReduced,
+    lutSkipped,
+    fallbackReason,
+  ]);
+}
+
 /// Immutable state model containing the current camera interface configuration.
 @immutable
 class CameraState {
@@ -107,6 +180,7 @@ class CameraState {
     this.completedCaptureId,
     this.captureError,
     this.captureElapsedMs = 0,
+    this.lastCaptureOutput,
     this.errorMessage,
   });
 
@@ -157,6 +231,7 @@ class CameraState {
   final String? completedCaptureId;
   final String? captureError;
   final int captureElapsedMs;
+  final CaptureOutputMetadata? lastCaptureOutput;
   final String? errorMessage;
 
   bool get isSelfTimerRunning => selfTimerRemainingSeconds > 0;
@@ -196,6 +271,7 @@ class CameraState {
     Object? completedCaptureId = _unset,
     Object? captureError = _unset,
     int? captureElapsedMs,
+    Object? lastCaptureOutput = _unset,
     Object? errorMessage = _unset,
   }) => CameraState(
     flashMode: flashMode ?? this.flashMode,
@@ -230,6 +306,9 @@ class CameraState {
         ? this.captureError
         : captureError as String?,
     captureElapsedMs: captureElapsedMs ?? this.captureElapsedMs,
+    lastCaptureOutput: identical(lastCaptureOutput, _unset)
+        ? this.lastCaptureOutput
+        : lastCaptureOutput as CaptureOutputMetadata?,
     errorMessage: identical(errorMessage, _unset)
         ? this.errorMessage
         : errorMessage as String?,
@@ -262,6 +341,7 @@ class CameraState {
         other.completedCaptureId == completedCaptureId &&
         other.captureError == captureError &&
         other.captureElapsedMs == captureElapsedMs &&
+        other.lastCaptureOutput == lastCaptureOutput &&
         other.errorMessage == errorMessage;
   }
 
@@ -290,6 +370,7 @@ class CameraState {
     completedCaptureId,
     captureError,
     captureElapsedMs,
+    lastCaptureOutput,
     errorMessage,
   ]);
 
@@ -310,5 +391,6 @@ class CameraState {
       'activeCaptureId: $activeCaptureId, '
       'completedCaptureId: $completedCaptureId, '
       'captureElapsedMs: $captureElapsedMs, '
+      'lastCaptureOutput: $lastCaptureOutput, '
       'lastCapturedPath: $lastCapturedPath, errorMessage: $errorMessage)';
 }

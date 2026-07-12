@@ -34,7 +34,8 @@ data class OfflineProcessParams(
     val shadowsTintB: Float = 0f,
     val highlightsTintR: Float = 0f,
     val highlightsTintG: Float = 0f,
-    val highlightsTintB: Float = 0f
+    val highlightsTintB: Float = 0f,
+    val outputQuality: OutputQualityProfile = OutputQualityProfile.HIGH_JPEG
 )
 
 /** Parses MethodChannel arguments while preserving neutral legacy defaults. */
@@ -77,6 +78,9 @@ internal fun offlineProcessParamsFromArguments(
         shadowsTintB = numberArg("shadowsTintB"),
         highlightsTintR = numberArg("highlightsTintR"),
         highlightsTintG = numberArg("highlightsTintG"),
-        highlightsTintB = numberArg("highlightsTintB")
+        highlightsTintB = numberArg("highlightsTintB"),
+        outputQuality = OutputQualityProfile.fromChannelValue(
+            args?.get("outputQuality") as? String
+        )
     )
 }

@@ -1429,6 +1429,7 @@ void main() {
       expect(args['vignette'], equals(0.05));
       expect(args['lutPath'], equals('assets/luts/rana_warm_v1.png'));
       expect(args['lutStrength'], equals(1.0));
+      expect(args['outputQuality'], equals('high_jpeg'));
       expect(args['lightLeakIntensity'], equals(0.22));
       expect(args['lightLeakVariant'], equals(previewVariant));
       expect(args['dustIntensity'], equals(0.06));

@@ -49,5 +49,6 @@ dependencies {
     implementation("androidx.camera:camera-camera2:$cameraxVersion")
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
     implementation("androidx.camera:camera-view:$cameraxVersion")
+    implementation("androidx.heifwriter:heifwriter:1.0.0")
     testImplementation("junit:junit:4.13.2")
 }

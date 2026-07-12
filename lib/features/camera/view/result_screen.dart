@@ -115,6 +115,9 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
         : 0;
     final imageFuture = _imageBytesFuture;
     final canUseFinalImage = _imageUri != null;
+    final output = cameraState.completedCaptureId == widget.captureId
+        ? cameraState.lastCaptureOutput
+        : null;
 
     return PopScope<void>(
       onPopInvokedWithResult: (didPop, result) {
@@ -129,7 +132,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
             children: [
               Positioned.fill(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 180),
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 235),
                   child: Center(
                     child: imageFuture == null
                         ? _DevelopingFilmPlaceholder(elapsedMs: elapsedMs)
@@ -184,10 +187,18 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
                 left: 20,
                 right: 20,
                 bottom: 20,
-                child: _ResultActions(
-                  dateStamp: _buildDateStamp(),
-                  onShootAgain: canUseFinalImage ? _dismissResult : null,
-                  onViewInGallery: canUseFinalImage ? _openInGallery : null,
+                child: Column(
+                  children: [
+                    if (output != null) ...[
+                      _CaptureOutputSummary(output: output),
+                      const SizedBox(height: 10),
+                    ],
+                    _ResultActions(
+                      dateStamp: _buildDateStamp(),
+                      onShootAgain: canUseFinalImage ? _dismissResult : null,
+                      onViewInGallery: canUseFinalImage ? _openInGallery : null,
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -205,6 +216,55 @@ class _ResultScreenState extends ConsumerState<ResultScreen> {
     final hour = now.hour.toString().padLeft(2, '0');
     final minute = now.minute.toString().padLeft(2, '0');
     return '$day $month $year  $hour:$minute';
+  }
+}
+
+class _CaptureOutputSummary extends StatelessWidget {
+  const _CaptureOutputSummary({required this.output});
+
+  final CaptureOutputMetadata output;
+
+  @override
+  Widget build(BuildContext context) {
+    final warnings = <String>[
+      if (output.fallbackReason != null)
+        'HEIC unavailable. Saved as High JPEG.',
+      if (output.qualityReduced)
+        'Saved at reduced resolution to complete capture safely.',
+      if (output.lutSkipped) 'LUT skipped to complete capture safely.',
+    ];
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${output.formatLabel} · ${output.fileSizeLabel}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1,
+              ),
+            ),
+            for (final warning in warnings) ...[
+              const SizedBox(height: 5),
+              Text(
+                warning,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFFF39C12), fontSize: 11),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -29,6 +29,24 @@ class CameraPlatformService {
     }
   }
 
+  /// Returns whether the device can encode Rana's final bitmap as HEIC.
+  Future<Map<String, dynamic>> getOutputCapabilities() async {
+    try {
+      final result = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>(
+        'getOutputCapabilities',
+      );
+      return Map<String, dynamic>.from(result ?? {});
+    } on PlatformException catch (e, stack) {
+      AppLogger.e(
+        'CameraPlatformService',
+        'Failed to query output capabilities',
+        e,
+        stack,
+      );
+      rethrow;
+    }
+  }
+
   /// Sets the active film/analog preset on the native rendering pipeline.
   Future<Map<String, dynamic>> selectPreset(
     String presetId,
