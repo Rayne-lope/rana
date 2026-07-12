@@ -39,6 +39,40 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('prev-img-5')
   ];
 
+  // Auto fallback for extensions (.jpg -> .jpeg -> .png)
+  images.forEach((img, index) => {
+    if (!img) return;
+    const sampleNum = index + 1;
+
+    function tryNextExtension() {
+      const currentSrc = img.getAttribute('src') || '';
+      if (currentSrc.endsWith('.jpg')) {
+        img.setAttribute('src', `images/sample${sampleNum}.jpeg`);
+      } else if (currentSrc.endsWith('.jpeg')) {
+        img.setAttribute('src', `images/sample${sampleNum}.png`);
+      } else {
+        img.classList.remove('loaded');
+      }
+    }
+
+    img.addEventListener('error', tryNextExtension);
+    
+    img.addEventListener('load', () => {
+      if (img.naturalWidth > 0) {
+        img.classList.add('loaded');
+      }
+    });
+
+    // Initial check in case it's already loaded or failed
+    if (img.complete) {
+      if (img.naturalWidth > 0) {
+        img.classList.add('loaded');
+      } else {
+        tryNextExtension();
+      }
+    }
+  });
+
   const vignettes = [
     document.getElementById('vignette-1'),
     document.getElementById('vignette-2'),

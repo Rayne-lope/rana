@@ -232,17 +232,15 @@ body {
 }
 
 .img-wrapper img {
+  display: none;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
+  z-index: 1;
 }
 
-/* Image fallback placeholder style */
-.img-wrapper img:not([src]), 
-.img-wrapper img[src=""],
-.img-wrapper img[alt*="found"] {
-  display: none;
+.img-wrapper img.loaded {
+  display: block;
 }
 
 .img-wrapper::after {
@@ -254,17 +252,15 @@ body {
   padding: 10px;
   position: absolute;
   pointer-events: none;
+  white-space: pre-wrap;
+  line-height: 1.4;
 }
 
-.preview-card:nth-child(1) .img-wrapper::after { content: "Missing\nsample1.jpg"; }
-.preview-card:nth-child(2) .img-wrapper::after { content: "Missing\nsample2.jpg"; }
-.preview-card:nth-child(3) .img-wrapper::after { content: "Missing\nsample3.jpg"; }
-.preview-card:nth-child(4) .img-wrapper::after { content: "Missing\nsample4.jpg"; }
-.preview-card:nth-child(5) .img-wrapper::after { content: "Missing\nsample5.jpg"; }
-
-.img-wrapper img {
-  z-index: 1;
-}
+.preview-card:nth-child(1) .img-wrapper::after { content: "Missing\Asample1.jpg"; }
+.preview-card:nth-child(2) .img-wrapper::after { content: "Missing\Asample2.jpg"; }
+.preview-card:nth-child(3) .img-wrapper::after { content: "Missing\Asample3.jpg"; }
+.preview-card:nth-child(4) .img-wrapper::after { content: "Missing\Asample4.jpg"; }
+.preview-card:nth-child(5) .img-wrapper::after { content: "Missing\Asample5.jpg"; }
 
 /* Custom Overlays for live simulation */
 .vignette-overlay {
