@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Helper to get color gradients for light leak variants
   function getLightLeakGradient(variant, intensity) {
     if (intensity <= 0 || variant < 0) return 'none';
-    const alpha = intensity * 0.5;
+    const alpha = intensity * 0.75;
     switch (parseInt(variant)) {
       case 0: // Orange sweep
         return `linear-gradient(135deg, rgba(243, 156, 18, ${alpha}) 0%, rgba(231, 76, 60, ${alpha}) 50%, transparent 100%)`;
@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const vig = parseFloat(sliders.vignette.value);
     vignettes.forEach(vigDiv => {
       if (vigDiv) {
-        vigDiv.style.background = `radial-gradient(circle, transparent ${Math.max(20, 100 - vig * 65)}%, rgba(0,0,0,${vig * 0.88}) 100%)`;
+        vigDiv.style.background = `radial-gradient(circle, transparent ${Math.max(10, 100 - vig * 75)}%, rgba(0,0,0,${vig * 0.95}) 100%)`;
       }
     });
 
