@@ -419,6 +419,8 @@ class PresetEffects {
     this.lensDistortion = const PresetLensDistortion(strength: 0),
     this.chromaticAberration,
     this.softness,
+    this.highlightRollOff = 0.0,
+    this.shadowRollOff = 0.0,
     this.dateStamp,
     this.splitToning,
   });
@@ -454,6 +456,8 @@ class PresetEffects {
           ? PresetChromaticAberration.fromJson(chromaticAberrationJson)
           : const PresetChromaticAberration(intensity: 0),
       softness: (json['softness'] as num?)?.toDouble() ?? 0.0,
+      highlightRollOff: (json['highlightRollOff'] as num?)?.toDouble() ?? 0.0,
+      shadowRollOff: (json['shadowRollOff'] as num?)?.toDouble() ?? 0.0,
       dateStamp: dateStampJson != null
           ? PresetDateStamp.fromJson(dateStampJson)
           : const PresetDateStamp(enable: false),
@@ -487,6 +491,12 @@ class PresetEffects {
   /// Soft-focus amount.
   final double? softness;
 
+  /// Highlight shoulder strength, from 0 (neutral) to 1 (maximum).
+  final double highlightRollOff;
+
+  /// Shadow toe strength, from 0 (neutral) to 1 (maximum).
+  final double shadowRollOff;
+
   /// Retro date stamp configuration.
   final PresetDateStamp? dateStamp;
 
@@ -504,6 +514,8 @@ class PresetEffects {
         (chromaticAberration ?? const PresetChromaticAberration(intensity: 0))
             .toJson(),
     'softness': softness ?? 0.0,
+    'highlightRollOff': highlightRollOff,
+    'shadowRollOff': shadowRollOff,
     'dateStamp': (dateStamp ?? const PresetDateStamp(enable: false)).toJson(),
     'splitToning':
         (splitToning ??
@@ -525,6 +537,8 @@ class PresetEffects {
         other.lensDistortion == lensDistortion &&
         other.chromaticAberration == chromaticAberration &&
         other.softness == softness &&
+        other.highlightRollOff == highlightRollOff &&
+        other.shadowRollOff == shadowRollOff &&
         other.dateStamp == dateStamp &&
         other.splitToning == splitToning;
   }
@@ -538,6 +552,8 @@ class PresetEffects {
     lensDistortion,
     chromaticAberration,
     softness,
+    highlightRollOff,
+    shadowRollOff,
     dateStamp,
     splitToning,
   );
@@ -548,6 +564,7 @@ class PresetEffects {
       'bloom: $bloom, halation: $halation, '
       'lensDistortion: $lensDistortion, '
       'chromaticAberration: $chromaticAberration, softness: $softness, '
+      'highlightRollOff: $highlightRollOff, shadowRollOff: $shadowRollOff, '
       'dateStamp: $dateStamp, splitToning: $splitToning)';
 }
 

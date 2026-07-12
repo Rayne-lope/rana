@@ -116,6 +116,8 @@ Low-level shader operations applied in the final compositing step:
 * **`chromaticAberration`** *(Object, **Optional**)*:
   * `intensity` *(Float, Range: 0.0 to 1.0)*: Red-blue color fringing shift towards the edges of the frame, simulating vintage lens dispersion. Default: `0.0`.
 * **`softness`** *(Float, Range: 0.0 to 1.0, **Optional**)*: Soft-focus factor. Blurs the image slightly using box-blur sampling to emulate vintage soft-focus lenses. Default: `0.0`.
+* **`highlightRollOff`** *(Float, Range: 0.0 to 1.0, **Optional**)*: Shoulder strength that progressively compresses bright values to preserve highlight detail. Default: `0.0`.
+* **`shadowRollOff`** *(Float, Range: 0.0 to 1.0, **Optional**)*: Toe strength that gently rolls deep shadows toward black. Default: `0.0`.
 * **`dateStamp`** *(Object, **Optional**)*:
   * `enable` *(Boolean)*: When enabled, burns a classic monospace orange digital-clock date stamp (e.g. `'26 07 10`) at the bottom-right corner of the saved photo. Default: `false`.
 

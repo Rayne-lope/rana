@@ -71,6 +71,8 @@ object OfflineGlProcessor {
         val softnessLoc: Int,
         val chromaticAberrationIntensityLoc: Int,
         val fadeLoc: Int,
+        val highlightRollOffLoc: Int,
+        val shadowRollOffLoc: Int,
         val shadowsTintLoc: Int,
         val highlightsTintLoc: Int
     )
@@ -123,6 +125,8 @@ object OfflineGlProcessor {
         val undertoneYLoc: Int,
         val chromaticAberrationIntensityLoc: Int,
         val fadeLoc: Int,
+        val highlightRollOffLoc: Int,
+        val shadowRollOffLoc: Int,
         val shadowsTintLoc: Int,
         val highlightsTintLoc: Int
     )
@@ -682,6 +686,8 @@ object OfflineGlProcessor {
             params.chromaticAberrationIntensity
         )
         GLES20.glUniform1f(program.fadeLoc, params.fade)
+        GLES20.glUniform1f(program.highlightRollOffLoc, params.highlightRollOff)
+        GLES20.glUniform1f(program.shadowRollOffLoc, params.shadowRollOff)
         GLES20.glUniform3f(
             program.shadowsTintLoc,
             params.shadowsTintR,
@@ -825,6 +831,8 @@ object OfflineGlProcessor {
             params.chromaticAberrationIntensity
         )
         GLES20.glUniform1f(program.fadeLoc, params.fade)
+        GLES20.glUniform1f(program.highlightRollOffLoc, params.highlightRollOff)
+        GLES20.glUniform1f(program.shadowRollOffLoc, params.shadowRollOff)
         GLES20.glUniform3f(
             program.shadowsTintLoc,
             params.shadowsTintR,
@@ -1063,6 +1071,14 @@ object OfflineGlProcessor {
                 "uChromaticAberrationIntensity"
             ),
             fadeLoc = GLES20.glGetUniformLocation(programId, "uFade"),
+            highlightRollOffLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uHighlightRollOff"
+            ),
+            shadowRollOffLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uShadowRollOff"
+            ),
             shadowsTintLoc = GLES20.glGetUniformLocation(programId, "uShadowsTint"),
             highlightsTintLoc = GLES20.glGetUniformLocation(programId, "uHighlightsTint")
         )
@@ -1141,6 +1157,14 @@ object OfflineGlProcessor {
                 "uChromaticAberrationIntensity"
             ),
             fadeLoc = GLES20.glGetUniformLocation(programId, "uFade"),
+            highlightRollOffLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uHighlightRollOff"
+            ),
+            shadowRollOffLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uShadowRollOff"
+            ),
             shadowsTintLoc = GLES20.glGetUniformLocation(programId, "uShadowsTint"),
             highlightsTintLoc = GLES20.glGetUniformLocation(programId, "uHighlightsTint")
         )

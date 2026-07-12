@@ -65,6 +65,8 @@ class CameraGlRenderer(
         val softnessLoc: Int,
         val chromaticAberrationIntensityLoc: Int,
         val fadeLoc: Int,
+        val highlightRollOffLoc: Int,
+        val shadowRollOffLoc: Int,
         val shadowsTintLoc: Int,
         val highlightsTintLoc: Int
     )
@@ -117,6 +119,8 @@ class CameraGlRenderer(
         val undertoneYLoc: Int,
         val chromaticAberrationIntensityLoc: Int,
         val fadeLoc: Int,
+        val highlightRollOffLoc: Int,
+        val shadowRollOffLoc: Int,
         val shadowsTintLoc: Int,
         val highlightsTintLoc: Int
     )
@@ -167,6 +171,8 @@ class CameraGlRenderer(
     private var softness = 0f
     private var chromaticAberrationIntensity = 0f
     private var fade = 0f
+    private var highlightRollOff = 0f
+    private var shadowRollOff = 0f
     private var shadowsTintR = 0f
     private var shadowsTintG = 0f
     private var shadowsTintB = 0f
@@ -297,6 +303,8 @@ class CameraGlRenderer(
         softness: Float,
         chromaticAberrationIntensity: Float,
         fade: Float,
+        highlightRollOff: Float,
+        shadowRollOff: Float,
         shadowsTintR: Float,
         shadowsTintG: Float,
         shadowsTintB: Float,
@@ -328,6 +336,8 @@ class CameraGlRenderer(
             this.softness = softness
             this.chromaticAberrationIntensity = chromaticAberrationIntensity
             this.fade = fade
+            this.highlightRollOff = highlightRollOff
+            this.shadowRollOff = shadowRollOff
             this.shadowsTintR = shadowsTintR
             this.shadowsTintG = shadowsTintG
             this.shadowsTintB = shadowsTintB
@@ -361,6 +371,7 @@ class CameraGlRenderer(
                     "undertoneX=$undertoneX undertoneY=$undertoneY " +
                     "grainSize=$grainSize softness=$softness " +
                     "chromaticAberration=$chromaticAberrationIntensity fade=$fade " +
+                    "highlightRollOff=$highlightRollOff shadowRollOff=$shadowRollOff " +
                     "shadowsTint=[$shadowsTintR,$shadowsTintG,$shadowsTintB] " +
                     "highlightsTint=[$highlightsTintR,$highlightsTintG,$highlightsTintB]"
             )
@@ -577,6 +588,14 @@ class CameraGlRenderer(
                 "uChromaticAberrationIntensity"
             ),
             fadeLoc = GLES20.glGetUniformLocation(programId, "uFade"),
+            highlightRollOffLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uHighlightRollOff"
+            ),
+            shadowRollOffLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uShadowRollOff"
+            ),
             shadowsTintLoc = GLES20.glGetUniformLocation(programId, "uShadowsTint"),
             highlightsTintLoc = GLES20.glGetUniformLocation(programId, "uHighlightsTint")
         )
@@ -667,6 +686,14 @@ class CameraGlRenderer(
                         "uChromaticAberrationIntensity"
                     ),
                     fadeLoc = GLES20.glGetUniformLocation(programId, "uFade"),
+                    highlightRollOffLoc = GLES20.glGetUniformLocation(
+                        programId,
+                        "uHighlightRollOff"
+                    ),
+                    shadowRollOffLoc = GLES20.glGetUniformLocation(
+                        programId,
+                        "uShadowRollOff"
+                    ),
                     shadowsTintLoc = GLES20.glGetUniformLocation(
                         programId,
                         "uShadowsTint"
@@ -843,6 +870,8 @@ class CameraGlRenderer(
             chromaticAberrationIntensity
         )
         GLES20.glUniform1f(singlePassProgram.fadeLoc, fade)
+        GLES20.glUniform1f(singlePassProgram.highlightRollOffLoc, highlightRollOff)
+        GLES20.glUniform1f(singlePassProgram.shadowRollOffLoc, shadowRollOff)
         GLES20.glUniform3f(
             singlePassProgram.shadowsTintLoc,
             shadowsTintR,
@@ -978,6 +1007,8 @@ class CameraGlRenderer(
             chromaticAberrationIntensity
         )
         GLES20.glUniform1f(composite.fadeLoc, fade)
+        GLES20.glUniform1f(composite.highlightRollOffLoc, highlightRollOff)
+        GLES20.glUniform1f(composite.shadowRollOffLoc, shadowRollOff)
         GLES20.glUniform3f(
             composite.shadowsTintLoc,
             shadowsTintR,

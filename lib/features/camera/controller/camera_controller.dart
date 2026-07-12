@@ -471,6 +471,8 @@ class CameraController extends _$CameraController {
           activePreset?.effects.lensDistortion.strength ?? 0.0,
       'chromaticAberrationIntensity':
           activePreset?.effects.chromaticAberration?.intensity ?? 0.0,
+      'highlightRollOff': activePreset?.effects.highlightRollOff ?? 0.0,
+      'shadowRollOff': activePreset?.effects.shadowRollOff ?? 0.0,
       'dateStampEnable': activePreset?.effects.dateStamp?.enable ?? false,
       'shadowsTintR': shadowsTint[0],
       'shadowsTintG': shadowsTint[1],
@@ -672,6 +674,8 @@ class CameraController extends _$CameraController {
       'lensDistortionStrength': preset.effects.lensDistortion.strength,
       'chromaticAberrationIntensity':
           preset.effects.chromaticAberration?.intensity ?? 0.0,
+      'highlightRollOff': preset.effects.highlightRollOff,
+      'shadowRollOff': preset.effects.shadowRollOff,
       'dateStampEnable': preset.effects.dateStamp?.enable ?? false,
       'shadowsTintR': shadowsTint[0],
       'shadowsTintG': shadowsTint[1],

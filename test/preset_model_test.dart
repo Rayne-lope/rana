@@ -37,6 +37,8 @@ void main() {
       expect(model.effects.lensDistortion.strength, 0.0);
       expect(model.effects.chromaticAberration?.intensity, 0.0);
       expect(model.effects.softness, 0.0);
+      expect(model.effects.highlightRollOff, 0.0);
+      expect(model.effects.shadowRollOff, 0.0);
       expect(model.effects.dateStamp?.enable, isFalse);
       expect(model.effects.splitToning?.shadowsTint, <double>[0, 0, 0]);
       expect(model.effects.splitToning?.highlightsTint, <double>[0, 0, 0]);
@@ -130,6 +132,8 @@ void main() {
         'effects': <String, dynamic>{
           'chromaticAberration': <String, dynamic>{'intensity': 0.15},
           'softness': 0.25,
+          'highlightRollOff': 0.6,
+          'shadowRollOff': 0.4,
           'dateStamp': <String, dynamic>{'enable': true},
           'splitToning': <String, dynamic>{
             'shadowsTint': <dynamic>[0.1, 0.2],
@@ -143,6 +147,8 @@ void main() {
       expect(model.grain.size, 1.7);
       expect(model.effects.chromaticAberration?.intensity, 0.15);
       expect(model.effects.softness, 0.25);
+      expect(model.effects.highlightRollOff, 0.6);
+      expect(model.effects.shadowRollOff, 0.4);
       expect(model.effects.dateStamp?.enable, isTrue);
       expect(model.effects.splitToning?.shadowsTint, <double>[0.1, 0.2, 0]);
       expect(model.effects.splitToning?.highlightsTint, <double>[0.7, 0, 0.9]);
@@ -152,6 +158,8 @@ void main() {
       final serialized = model.toJson();
       final effects = serialized['effects'] as Map<String, dynamic>;
       expect(effects['softness'], 0.25);
+      expect(effects['highlightRollOff'], 0.6);
+      expect(effects['shadowRollOff'], 0.4);
       expect(effects['dateStamp'], <String, dynamic>{'enable': true});
       expect(effects['chromaticAberration'], <String, dynamic>{
         'intensity': 0.15,

@@ -836,6 +836,8 @@ class CameraPreviewView(
             chromaticAberrationIntensity =
                 processParams.chromaticAberrationIntensity,
             fade = processParams.fade,
+            highlightRollOff = processParams.highlightRollOff,
+            shadowRollOff = processParams.shadowRollOff,
             shadowsTintR = processParams.shadowsTintR,
             shadowsTintG = processParams.shadowsTintG,
             shadowsTintB = processParams.shadowsTintB,

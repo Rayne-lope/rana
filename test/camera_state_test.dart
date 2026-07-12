@@ -491,6 +491,8 @@ void main() {
       expect(params['lensDistortionStrength'], equals(0.0));
       expect(params['chromaticAberrationIntensity'], equals(0.0));
       expect(params['fade'], equals(0.0));
+      expect(params['highlightRollOff'], equals(0.0));
+      expect(params['shadowRollOff'], equals(0.0));
       expect(params['dateStampEnable'], isFalse);
       expect(params['shadowsTintR'], equals(0.0));
       expect(params['shadowsTintG'], equals(0.0));
@@ -525,6 +527,8 @@ void main() {
           dust: DustEffect(intensity: 0),
           chromaticAberration: PresetChromaticAberration(intensity: 0.12),
           softness: 0.2,
+          highlightRollOff: 0.6,
+          shadowRollOff: 0.4,
           dateStamp: PresetDateStamp(enable: true),
           splitToning: PresetSplitToning(
             shadowsTint: <double>[0.1, 0.2, 0.3],
@@ -551,6 +555,8 @@ void main() {
       for (final key in <String>[
         'chromaticAberrationIntensity',
         'fade',
+        'highlightRollOff',
+        'shadowRollOff',
         'dateStampEnable',
         'shadowsTintR',
         'shadowsTintG',
@@ -567,6 +573,8 @@ void main() {
       expect(previewParams['textureVal'], 50.0);
       expect(previewParams['grainSize'], closeTo(1.52, 0.0001));
       expect(previewParams['softness'], closeTo(0.275, 0.0001));
+      expect(previewParams['highlightRollOff'], 0.6);
+      expect(previewParams['shadowRollOff'], 0.4);
       expect(previewParams['dateStampEnable'], isTrue);
     });
 
@@ -1166,32 +1174,25 @@ void main() {
       controller.cycleSelfTimer();
       log.clear();
 
-      fakeAsync((async) {
-        controller.handleShutterPressed();
+      await controller.handleShutterPressed();
+      expect(
+        container.read(cameraControllerProvider).selfTimerRemainingSeconds,
+        equals(3),
+      );
 
-        expect(
-          container.read(cameraControllerProvider).selfTimerRemainingSeconds,
-          equals(3),
-        );
+      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      expect(
+        container.read(cameraControllerProvider).selfTimerRemainingSeconds,
+        equals(2),
+      );
 
-        async.elapse(const Duration(seconds: 1));
-        expect(
-          container.read(cameraControllerProvider).selfTimerRemainingSeconds,
-          equals(2),
-        );
+      await Future<void>.delayed(const Duration(milliseconds: 1000));
+      expect(
+        container.read(cameraControllerProvider).selfTimerRemainingSeconds,
+        equals(1),
+      );
 
-        async.elapse(const Duration(seconds: 1));
-        expect(
-          container.read(cameraControllerProvider).selfTimerRemainingSeconds,
-          equals(1),
-        );
-
-        async.elapse(const Duration(seconds: 1));
-        async.flushMicrotasks();
-        async.elapse(Duration.zero);
-        async.flushMicrotasks();
-      });
-
+      await Future<void>.delayed(const Duration(milliseconds: 1000));
       await drainCaptureEvents();
       expect(log.where((call) => call.method == 'beginCapture'), hasLength(1));
       expect(
@@ -1215,7 +1216,8 @@ void main() {
         controller.cycleSelfTimer();
         log.clear();
 
-        fakeAsync((async) {
+        final async = FakeAsync();
+        async.run((_) {
           controller.handleShutterPressed();
 
           expect(
@@ -1228,20 +1230,20 @@ void main() {
             container.read(cameraControllerProvider).selfTimerRemainingSeconds,
             equals(2),
           );
-
-          unawaited(controller.releaseCamera());
-          expect(
-            container.read(cameraControllerProvider).selfTimerRemainingSeconds,
-            equals(0),
-          );
-          expect(
-            container.read(cameraControllerProvider).selfTimerMode,
-            equals(SelfTimerMode.threeSeconds),
-          );
-
-          async.elapse(const Duration(seconds: 5));
-          async.flushMicrotasks();
         });
+
+        await controller.releaseCamera();
+        expect(
+          container.read(cameraControllerProvider).selfTimerRemainingSeconds,
+          equals(0),
+        );
+        expect(
+          container.read(cameraControllerProvider).selfTimerMode,
+          equals(SelfTimerMode.threeSeconds),
+        );
+
+        async.elapse(const Duration(seconds: 5));
+        async.flushMicrotasks();
 
         expect(log.where((call) => call.method == 'beginCapture'), isEmpty);
         expect(

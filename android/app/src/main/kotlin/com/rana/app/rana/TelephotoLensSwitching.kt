@@ -2,6 +2,7 @@ package com.rana.app.rana
 
 private const val TELEPHOTO_OPTICAL_RATIO_THRESHOLD = 1.8f
 private const val TELEPHOTO_SWITCH_BACK_RATIO = 0.9f
+private const val TELEPHOTO_SWITCH_EPSILON = 0.0001f
 
 internal enum class LensOutputTarget {
     LOGICAL_WIDE,
@@ -101,7 +102,8 @@ internal fun decideLensSwitch(
     val useTelephoto = when (currentOutputTarget) {
         LensOutputTarget.LOGICAL_WIDE -> requestedZoomRatio >= opticalRatio
         LensOutputTarget.PHYSICAL_TELE ->
-            requestedZoomRatio > opticalRatio * TELEPHOTO_SWITCH_BACK_RATIO
+            requestedZoomRatio >
+                opticalRatio * TELEPHOTO_SWITCH_BACK_RATIO + TELEPHOTO_SWITCH_EPSILON
     }
 
     return if (useTelephoto) {

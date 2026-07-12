@@ -1,6 +1,7 @@
 {
   "id": "placeholder",
   "name": "Placeholder",
+  "version": 1,
   "category": "Rana",
   "color": {
     "temperature": 0.0,

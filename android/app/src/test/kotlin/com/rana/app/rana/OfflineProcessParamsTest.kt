@@ -19,6 +19,8 @@ class OfflineProcessParamsTest {
         assertEquals(1f, params.grainSize)
         assertEquals(0f, params.chromaticAberrationIntensity)
         assertEquals(0f, params.fade)
+        assertEquals(0f, params.highlightRollOff)
+        assertEquals(0f, params.shadowRollOff)
         assertFalse(params.dateStampEnable)
         assertEquals(0f, params.shadowsTintR)
         assertEquals(0f, params.highlightsTintB)
@@ -32,6 +34,8 @@ class OfflineProcessParamsTest {
             mapOf(
                 "chromaticAberrationIntensity" to 0.15,
                 "fade" to 0.25,
+                "highlightRollOff" to 0.6,
+                "shadowRollOff" to 0.4,
                 "dateStampEnable" to true,
                 "shadowsTintR" to 0.1,
                 "shadowsTintG" to 0.2,
@@ -44,6 +48,8 @@ class OfflineProcessParamsTest {
 
         assertEquals(0.15f, params.chromaticAberrationIntensity)
         assertEquals(0.25f, params.fade)
+        assertEquals(0.6f, params.highlightRollOff)
+        assertEquals(0.4f, params.shadowRollOff)
         assertTrue(params.dateStampEnable)
         assertEquals(0.1f, params.shadowsTintR)
         assertEquals(0.2f, params.shadowsTintG)

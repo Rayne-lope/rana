@@ -55,6 +55,8 @@ class GlShaderConstantsTest {
 
         assertTrue(shader.contains("uniform float uChromaticAberrationIntensity;"))
         assertTrue(shader.contains("uniform float uFade;"))
+        assertTrue(shader.contains("uniform float uHighlightRollOff;"))
+        assertTrue(shader.contains("uniform float uShadowRollOff;"))
         assertTrue(shader.contains("uniform vec3 uShadowsTint;"))
         assertTrue(shader.contains("uniform vec3 uHighlightsTint;"))
         assertTrue(shader.contains("uChromaticAberrationIntensity * 0.015"))
@@ -64,6 +66,7 @@ class GlShaderConstantsTest {
         assertOrder(shader, "color = applyLightLeak(color, vTextureCoord);", "color = applyDust(color, vTextureCoord);")
         assertOrder(shader, "color = applyDust(color, vTextureCoord);", "color = applyFilmGrain(color);")
         assertOrder(shader, "color = applyFilmGrain(color);", "color = applyVignette(color);")
+        assertOrder(shader, "color = applyVignette(color);", "color = applyToneRollOff(color);")
     }
 
     @Test
@@ -75,6 +78,8 @@ class GlShaderConstantsTest {
         assertTrue(shader.contains("uniform float uStyleStrength;"))
         assertTrue(shader.contains("uniform float uChromaticAberrationIntensity;"))
         assertTrue(shader.contains("uniform float uFade;"))
+        assertTrue(shader.contains("uniform float uHighlightRollOff;"))
+        assertTrue(shader.contains("uniform float uShadowRollOff;"))
         assertTrue(shader.contains("uniform vec3 uShadowsTint;"))
         assertTrue(shader.contains("uniform vec3 uHighlightsTint;"))
         assertTrue(shader.contains("color += vec3(uTextureVal * 0.0);"))
@@ -83,6 +88,21 @@ class GlShaderConstantsTest {
         assertOrder(shader, "color = applyFade(color);", "color = applySplitToning(color);")
         assertOrder(shader, "color = applySplitToning(color);", "if (uBloomIntensity > 0.0)")
         assertOrder(shader, "color = applyRanaStyles(color);", "color = applyLightLeak(color, vTextureCoord);")
+        assertOrder(shader, "color = applyVignette(color);", "color = applyToneRollOff(color);")
+    }
+
+    @Test
+    fun `roll-off helper uses film shoulder and toe curves`() {
+        val shader = GlShaderConstants.FRAGMENT_SHADER_EXPORT
+
+        assertTrue(shader.contains("const float HIGHLIGHT_ROLL_OFF_START = 0.65;"))
+        assertTrue(shader.contains("const float SHADOW_ROLL_OFF_END = 0.35;"))
+        assertTrue(shader.contains("exp("))
+        assertTrue(shader.contains("normalized * normalized *"))
+        assertTrue(shader.contains("(2.0 - normalized)"))
+        assertTrue(shader.contains("float rolledLuma = applyRollOffToLuma(luma);"))
+        assertTrue(shader.contains("positiveColor * (rolledLuma / luma)"))
+        assertTrue(shader.contains("vec3 whiteLimited = rolledColor / maxChannel;"))
     }
 
     @Test

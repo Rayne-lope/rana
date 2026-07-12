@@ -215,8 +215,13 @@ object GlShaderConstants {
     private val ANALOG_COLOR_HELPERS = """
         uniform float uChromaticAberrationIntensity;
         uniform float uFade;
+        uniform float uHighlightRollOff;
+        uniform float uShadowRollOff;
         uniform vec3 uShadowsTint;
         uniform vec3 uHighlightsTint;
+
+        const float HIGHLIGHT_ROLL_OFF_START = 0.65;
+        const float SHADOW_ROLL_OFF_END = 0.35;
 
         vec2 chromaticAberrationOffset(vec2 uv) {
             vec2 dir = uv - vec2(0.5);
@@ -236,6 +241,69 @@ object GlShaderConstants {
             vec3 highlightColor = color +
                 uHighlightsTint * luma * 0.15;
             return mix(shadowColor, highlightColor, luma);
+        }
+
+        float applyRollOffToLuma(float luma) {
+            float rolled = luma;
+
+            if (luma > HIGHLIGHT_ROLL_OFF_START) {
+                float shoulder = HIGHLIGHT_ROLL_OFF_START +
+                    (1.0 - HIGHLIGHT_ROLL_OFF_START) *
+                    (1.0 - exp(
+                        -(luma - HIGHLIGHT_ROLL_OFF_START) /
+                        (1.0 - HIGHLIGHT_ROLL_OFF_START)
+                    ));
+                rolled = mix(
+                    rolled,
+                    shoulder,
+                    clamp(uHighlightRollOff, 0.0, 1.0)
+                );
+            }
+
+            if (luma < SHADOW_ROLL_OFF_END) {
+                float normalized = luma / SHADOW_ROLL_OFF_END;
+                float toe = SHADOW_ROLL_OFF_END * normalized * normalized *
+                    (2.0 - normalized);
+                rolled = mix(
+                    rolled,
+                    toe,
+                    clamp(uShadowRollOff, 0.0, 1.0)
+                );
+            }
+
+            return rolled;
+        }
+
+        vec3 applyToneRollOff(vec3 color) {
+            float highlightStrength = clamp(uHighlightRollOff, 0.0, 1.0);
+            float shadowStrength = clamp(uShadowRollOff, 0.0, 1.0);
+            if (highlightStrength <= 0.0 && shadowStrength <= 0.0) {
+                return color;
+            }
+
+            vec3 positiveColor = max(color, vec3(0.0));
+            float luma = dot(positiveColor, vec3(0.299, 0.587, 0.114));
+            if (luma <= 0.0001) {
+                return positiveColor;
+            }
+
+            float rolledLuma = applyRollOffToLuma(luma);
+            vec3 rolledColor = positiveColor * (rolledLuma / luma);
+
+            float maxChannel = max(
+                max(rolledColor.r, rolledColor.g),
+                rolledColor.b
+            );
+            if (maxChannel > 1.0 && highlightStrength > 0.0) {
+                vec3 whiteLimited = rolledColor / maxChannel;
+                rolledColor = mix(
+                    rolledColor,
+                    whiteLimited,
+                    highlightStrength
+                );
+            }
+
+            return rolledColor;
         }
     """.trimIndent()
 
@@ -298,6 +366,7 @@ object GlShaderConstants {
             color = applyDust(color, vTextureCoord);
             color = applyFilmGrain(color);
             color = applyVignette(color);
+            color = applyToneRollOff(color);
 
             gl_FragColor = vec4(clamp(color, 0.0, 1.0), texColor.a);
         }
@@ -417,6 +486,7 @@ object GlShaderConstants {
             color = applyDust(color, vTextureCoord);
             color = applyFilmGrain(color);
             color = applyVignette(color);
+            color = applyToneRollOff(color);
 
             gl_FragColor = vec4(clamp(color, 0.0, 1.0), baseColor.a);
         }
