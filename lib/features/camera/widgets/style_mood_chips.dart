@@ -58,30 +58,45 @@ class _StyleMoodChip extends StatelessWidget {
     final foreground = isSelected
         ? const Color(0xFF0F0F11)
         : Colors.white.withValues(alpha: 0.78);
-    final background = isSelected
-        ? const Color(0xFFF39C12)
-        : const Color(0xFF17171B);
-    final borderColor = isSelected
-        ? const Color(0xFFF39C12)
-        : Colors.white.withValues(alpha: 0.10);
 
     return Tooltip(
       message: mood.label,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(10),
           onTap: onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
+            duration: const Duration(milliseconds: 200),
             curve: Curves.easeOutCubic,
             height: 32,
             constraints: const BoxConstraints(minWidth: 68),
-            padding: const EdgeInsets.symmetric(horizontal: 11),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: background,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: borderColor),
+              borderRadius: BorderRadius.circular(10),
+              gradient: isSelected
+                  ? const LinearGradient(
+                      colors: [Color(0xFFF4C44F), Color(0xFFF39C12)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : null,
+              color: isSelected ? null : Colors.black.withValues(alpha: 0.36),
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xFFF4C44F).withValues(alpha: 0.5)
+                    : Colors.white.withValues(alpha: 0.08),
+                width: 0.8,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFFF39C12).withValues(alpha: 0.28),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1.5),
+                      )
+                    ]
+                  : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -93,8 +108,18 @@ class _StyleMoodChip extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: Color(mood.swatchColor),
                     border: Border.all(
-                      color: Colors.black.withValues(alpha: 0.18),
+                      color: isSelected
+                          ? Colors.black.withValues(alpha: 0.25)
+                          : Colors.white.withValues(alpha: 0.25),
+                      width: 0.8,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(mood.swatchColor).withValues(alpha: 0.4),
+                        blurRadius: 2,
+                        spreadRadius: 0.5,
+                      )
+                    ],
                   ),
                 ),
                 const SizedBox(width: 7),
@@ -105,9 +130,10 @@ class _StyleMoodChip extends StatelessWidget {
                   softWrap: false,
                   style: TextStyle(
                     color: foreground,
-                    fontSize: 10,
+                    fontSize: 9.5,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 0.8,
+                    letterSpacing: 1.2,
+                    fontFamily: 'monospace',
                   ),
                 ),
               ],
