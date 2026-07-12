@@ -6,7 +6,8 @@ import 'package:flutter/services.dart';
 /// Shutter status enum.
 enum ShutterStatus { ready, focusing, focusLock, captured }
 
-/// Premium camera shutter button with realistic analog animations and mechanical blades.
+/// Premium camera shutter button with realistic analog animations
+/// and mechanical blades.
 class PremiumShutterButton extends StatefulWidget {
   /// Main constructor.
   const PremiumShutterButton({
@@ -83,7 +84,7 @@ class _PremiumShutterButtonState extends State<PremiumShutterButton>
 
     // Squeeze the blades immediately
     _bladeController.animateTo(
-      1.0,
+      1,
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
     );
@@ -92,7 +93,7 @@ class _PremiumShutterButtonState extends State<PremiumShutterButton>
     _focusTimer = Timer(const Duration(milliseconds: 140), () {
       if (!_isPressing) return;
       _focusController.animateTo(
-        1.0,
+        1,
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
       );
@@ -108,18 +109,18 @@ class _PremiumShutterButtonState extends State<PremiumShutterButton>
     _focusTimer?.cancel();
 
     // Trigger capture wave animation
-    _waveController.forward(from: 0.0);
+    _waveController.forward(from: 0);
 
     // Fade out focus ring
     _focusController.animateTo(
-      0.0,
+      0,
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeInCubic,
     );
 
     // Open blades back up
     _bladeController.animateTo(
-      0.0,
+      0,
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutCubic,
     );
@@ -129,9 +130,9 @@ class _PremiumShutterButtonState extends State<PremiumShutterButton>
     widget.onStatusChanged(ShutterStatus.captured);
     widget.onCapture();
 
-    // Reset status to ready after capture animation completes
+    // Soft reset after capture delay to allow viewer to register the state
     _resetStatusTimer?.cancel();
-    _resetStatusTimer = Timer(const Duration(milliseconds: 650), () {
+    _resetStatusTimer = Timer(const Duration(milliseconds: 700), () {
       if (!_isPressing) {
         widget.onStatusChanged(ShutterStatus.ready);
       }
@@ -145,15 +146,15 @@ class _PremiumShutterButtonState extends State<PremiumShutterButton>
     _focusTimer?.cancel();
     _resetStatusTimer?.cancel();
 
-    _focusController.animateTo(0.0);
-    _bladeController.animateTo(0.0);
+    _focusController.animateTo(0);
+    _bladeController.animateTo(0);
     widget.onStatusChanged(ShutterStatus.ready);
   }
 
   @override
   Widget build(BuildContext context) {
-    final scale = _isPressing ? 0.965 : 1.0;
-    final translate = _isPressing ? 3.0 : 0.0;
+    final double scale = _isPressing ? 0.965 : 1;
+    final double translate = _isPressing ? 3 : 0;
     final wrapSize = widget.size * 1.38;
 
     return Listener(
@@ -162,8 +163,10 @@ class _PremiumShutterButtonState extends State<PremiumShutterButton>
         _handlePressStart();
       },
       onPointerUp: (event) {
-        _pressPointer = null;
-        _handlePressEnd();
+        if (_pressPointer != null) {
+          _pressPointer = null;
+          _handlePressEnd();
+        }
       },
       onPointerCancel: (event) {
         _pressPointer = null;
@@ -184,7 +187,8 @@ class _PremiumShutterButtonState extends State<PremiumShutterButton>
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         curve: Curves.easeOutCubic,
-        transform: Matrix4.translationValues(0, translate, 0)..scale(scale),
+        transform: Matrix4.translationValues(0, translate, 0)
+          ..scaleByDouble(scale, scale, 1, 1),
         child: CustomPaint(
           size: Size(wrapSize, wrapSize),
           painter: ShutterPainter(
@@ -201,7 +205,8 @@ class _PremiumShutterButtonState extends State<PremiumShutterButton>
 }
 
 /// CustomPainter that renders all elements of the premium shutter button:
-/// Ambient ring, Focus ring, Capture wave, Metal shell, Knurled border, Blades, and Glass gloss.
+/// Ambient ring, Focus ring, Capture wave, Metal shell, Knurled border,
+/// Blades, and Glass gloss.
 class ShutterPainter extends CustomPainter {
   /// Constructor.
   ShutterPainter({
@@ -250,14 +255,16 @@ class ShutterPainter extends CustomPainter {
       final focusPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.2
-        ..color = const Color(0xFFF4C44F).withValues(alpha: 0.65 * focusProgress);
+        ..color = const Color(0xFFF4C44F)
+            .withValues(alpha: 0.65 * focusProgress);
       canvas.drawCircle(center, currentFocusRadius, focusPaint);
 
       // Draw focus glow
       final glowPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 4.0
-        ..color = const Color(0xFFF4C44F).withValues(alpha: 0.28 * focusProgress)
+        ..color = const Color(0xFFF4C44F)
+            .withValues(alpha: 0.28 * focusProgress)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
       canvas.drawCircle(center, currentFocusRadius, glowPaint);
     }
@@ -325,8 +332,14 @@ class ShutterPainter extends CustomPainter {
       final cosVal = math.cos(rad);
       final sinVal = math.sin(rad);
       canvas.drawLine(
-        Offset(center.dx + knurlInner * cosVal, center.dy + knurlInner * sinVal),
-        Offset(center.dx + knurlOuter * cosVal, center.dy + knurlOuter * sinVal),
+        Offset(
+          center.dx + knurlInner * cosVal,
+          center.dy + knurlInner * sinVal,
+        ),
+        Offset(
+          center.dx + knurlOuter * cosVal,
+          center.dy + knurlOuter * sinVal,
+        ),
         knurlPaint,
       );
     }
@@ -336,11 +349,11 @@ class ShutterPainter extends CustomPainter {
     final bezelRect = Rect.fromCircle(center: center, radius: bezelRadius);
     final bezelPaint = Paint()
       ..shader = RadialGradient(
-        center: const Alignment(0.0, -0.2),
+        center: const Alignment(0, -0.2),
         colors: isEnabled
             ? const [Color(0xFF383A42), Color(0xFF111216), Color(0xFF090A0C)]
             : const [Color(0xFF28282B), Color(0xFF141416), Color(0xFF0A0A0C)],
-        stops: const [0.0, 0.62, 1.0],
+        stops: const [0, 0.62, 1],
       ).createShader(bezelRect);
 
     canvas.drawCircle(center, bezelRadius, bezelPaint);
@@ -360,14 +373,17 @@ class ShutterPainter extends CustomPainter {
     // Scales down slightly from 1.0 to 0.93 when pressed
     final currentButtonRadius = baseButtonRadius * (1.0 - 0.07 * bladeProgress);
 
-    final buttonRect = Rect.fromCircle(center: center, radius: currentButtonRadius);
+    final buttonRect = Rect.fromCircle(
+      center: center,
+      radius: currentButtonRadius,
+    );
     final buttonPaint = Paint()
       ..shader = RadialGradient(
         center: const Alignment(-0.15, -0.25),
         colors: isEnabled
             ? const [Color(0xFF4A4D54), Color(0xFF24262B), Color(0xFF101114)]
             : const [Color(0xFF2E3035), Color(0xFF1E2024), Color(0xFF0F1012)],
-        stops: const [0.0, 0.65, 1.0],
+        stops: const [0, 0.65, 1],
       ).createShader(buttonRect);
 
     // Draw the button body
@@ -380,7 +396,8 @@ class ShutterPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.6
-        ..color = const Color(0xFFF4C44F).withValues(alpha: 0.12), // Subtle gold accent ring
+        ..color = const Color(0xFFF4C44F)
+            .withValues(alpha: 0.12), // Subtle gold accent ring
     );
 
     // Fine inner highlight rim on the edge
@@ -414,8 +431,10 @@ class ShutterPainter extends CustomPainter {
           Colors.white.withValues(alpha: 0.08),
           Colors.transparent,
         ],
-        stops: const [0.0, 0.55, 1.0],
-      ).createShader(Rect.fromCircle(center: center, radius: glassRadius));
+        stops: const [0, 0.55, 1],
+      ).createShader(
+        Rect.fromCircle(center: center, radius: glassRadius),
+      );
 
     canvas.drawCircle(center, glassRadius, glassPaint);
 
@@ -426,7 +445,7 @@ class ShutterPainter extends CustomPainter {
         end: Alignment.bottomCenter,
         colors: [
           Colors.white.withValues(alpha: 0.16),
-          Colors.white.withValues(alpha: 0.0),
+          Colors.white.withValues(alpha: 0),
         ],
       ).createShader(Rect.fromLTWH(
         center.dx - glassRadius * 0.8,
@@ -448,7 +467,7 @@ class ShutterPainter extends CustomPainter {
     // 9. Center Mark/Pin
     canvas.drawCircle(
       center,
-      3.0,
+      3,
       Paint()
         ..color = Colors.white.withValues(alpha: 0.88)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.4),

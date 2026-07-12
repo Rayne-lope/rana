@@ -62,7 +62,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         (galleryState.status == GalleryStatus.loading &&
             galleryState.items.isEmpty);
 
-    return Container(
+    return DecoratedBox(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -95,7 +95,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               fontFamily: 'monospace',
               fontSize: 16,
               fontWeight: FontWeight.w900,
-              letterSpacing: 2.0,
+              letterSpacing: 2,
             ),
           ),
           centerTitle: true,
@@ -688,7 +688,7 @@ class _GalleryTileState extends State<_GalleryTile> {
     onLongPress: widget.onLongPress,
     child: ClipRRect(
       borderRadius: BorderRadius.circular(18),
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: const Color(0xFF16171B),
           border: Border.all(
@@ -924,7 +924,7 @@ class _GalleryFilterStrip extends StatelessWidget {
                   color: isSelected ? Colors.black : Colors.white70,
                   fontSize: 9.5,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
+                  letterSpacing: 1,
                   fontFamily: 'monospace',
                 ),
               ),
@@ -964,8 +964,16 @@ class _AppBarActionButton extends StatelessWidget {
               gradient: RadialGradient(
                 center: const Alignment(-0.15, -0.2),
                 colors: isEnabled
-                    ? const [Color(0xFF3E424B), Color(0xFF202227), Color(0xFF131416)]
-                    : const [Color(0xFF24262A), Color(0xFF181A1C), Color(0xFF0F1011)],
+                    ? const [
+                        Color(0xFF3E424B),
+                        Color(0xFF202227),
+                        Color(0xFF131416),
+                      ]
+                    : const [
+                        Color(0xFF24262A),
+                        Color(0xFF181A1C),
+                        Color(0xFF0F1011),
+                      ],
                 stops: const [0.0, 0.7, 1.0],
               ),
               border: Border.all(

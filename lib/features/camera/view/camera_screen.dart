@@ -14,8 +14,8 @@ import 'package:rana/features/camera/controller/camera_controller.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/camera/view/permission_screen.dart';
 import 'package:rana/features/camera/widgets/latest_capture_thumbnail.dart';
-import 'package:rana/features/camera/widgets/rana_styles_controls.dart';
 import 'package:rana/features/camera/widgets/premium_shutter_button.dart';
+import 'package:rana/features/camera/widgets/rana_styles_controls.dart';
 import 'package:rana/features/camera/widgets/style_mood_chips.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
@@ -246,7 +246,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final editingTitle = _isEditingUndertone ? 'Undertone' : 'Rana Styles';
     return Stack(
       children: [
-        Container(
+        DecoratedBox(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
@@ -265,7 +265,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               child: Column(
                 children: [
                   if (isEditing)
-                    _buildStylesEditingHeader(editingTitle, cameraState, controller)
+                    _buildStylesEditingHeader(
+                      editingTitle,
+                      cameraState,
+                      controller,
+                    )
                   else if (_isSelectingPreset)
                     _buildPresetSelectionHeader(cameraState, controller)
                   else
@@ -910,7 +914,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               shape: BoxShape.circle,
               gradient: const RadialGradient(
                 center: Alignment(-0.15, -0.2),
-                colors: [Color(0xFF3E424B), Color(0xFF202227), Color(0xFF131416)],
+                colors: [
+                  Color(0xFF3E424B),
+                  Color(0xFF202227),
+                  Color(0xFF131416),
+                ],
                 stops: [0.0, 0.7, 1.0],
               ),
               border: Border.all(
@@ -926,7 +934,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               ],
             ),
             child: ClipOval(
-              child: state.lastCapturedPath != null && state.lastCapturedPath!.isNotEmpty
+              child: state.lastCapturedPath != null &&
+                      state.lastCapturedPath!.isNotEmpty
                   ? LatestCaptureThumbnail(imageUri: state.lastCapturedPath)
                   : const Center(
                       child: Icon(
@@ -1052,12 +1061,13 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    (activePreset?.name ?? 'NORMAL').toUpperCase(),
+                                    (activePreset?.name ?? 'NORMAL')
+                                        .toUpperCase(),
                                     style: const TextStyle(
                                       color: Color(0xFFF39C12),
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w800,
-                                      letterSpacing: 1.0,
+                                      letterSpacing: 1,
                                     ),
                                   ),
                                   const SizedBox(width: 4),
@@ -1179,10 +1189,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   Widget _buildPreviewGate(CameraState state, CameraController controller) {
-    final presetsAsync = ref.watch(presetsProvider);
-    final presetsList = presetsAsync.valueOrNull ?? [];
-    final activePreset = _findActivePreset(state, presetsList);
-
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: LayoutBuilder(
@@ -1262,7 +1268,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                       ),
                     ),
                   ),
-                ),              // Native zoom indicator and reset affordance (placed cleanly above the floating preset selector overlay).
+                ),
+              // Native zoom indicator and reset affordance (placed cleanly
+              // above the floating preset selector overlay).
               if (state.isCameraInitialized)
                 Positioned(
                   bottom: 64,
@@ -1276,7 +1284,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                           !state.isSelfTimerRunning,
                       isLimited:
                           state.isZoomLimited &&
-                          state.zoomRatio >= state.effectiveMaxZoomRatio - 0.01,
+                          state.zoomRatio >=
+                              state.effectiveMaxZoomRatio - 0.01,
                       shouldWarnDigitalZoom: state.shouldWarnDigitalZoom,
                       onReset: () {
                         unawaited(controller.setZoomRatio(userMinZoomRatio));
@@ -1324,10 +1333,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                       ? null
                       : [
                           BoxShadow(
-                            color: const Color(0xFFF4C44F).withValues(alpha: 0.55),
+                            color: const Color(0xFFF4C44F)
+                                .withValues(alpha: 0.55),
                             blurRadius: 10,
                             spreadRadius: 1,
-                          )
+                          ),
                         ],
                 ),
               ),
@@ -1361,7 +1371,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               // Shutter capture button (center)
               PremiumShutterButton(
                 key: const ValueKey<String>('camera-shutter-button'),
-                size: 72,
                 isEnabled: isReady,
                 onStatusChanged: (status) {
                   setState(() {
@@ -1503,8 +1512,16 @@ class _BottomPanelActionButton extends StatelessWidget {
                 gradient: RadialGradient(
                   center: const Alignment(-0.15, -0.2),
                   colors: isEnabled
-                      ? const [Color(0xFF3E424B), Color(0xFF202227), Color(0xFF131416)]
-                      : const [Color(0xFF24262A), Color(0xFF181A1C), Color(0xFF0F1011)],
+                      ? const [
+                          Color(0xFF3E424B),
+                          Color(0xFF202227),
+                          Color(0xFF131416),
+                        ]
+                      : const [
+                          Color(0xFF24262A),
+                          Color(0xFF181A1C),
+                          Color(0xFF0F1011),
+                        ],
                   stops: const [0.0, 0.7, 1.0],
                 ),
                 border: Border.all(

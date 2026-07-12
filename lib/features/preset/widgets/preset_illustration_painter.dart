@@ -531,7 +531,7 @@ class PresetIllustrationPainter extends CustomPainter {
     canvas.drawCircle(
       sunCenter,
       sunRadius * 1.4,
-      Paint()..color = Colors.white.withOpacity(0.2),
+      Paint()..color = Colors.white.withValues(alpha: 0.2),
     );
     canvas.drawCircle(
       sunCenter,
