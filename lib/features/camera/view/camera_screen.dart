@@ -1262,12 +1262,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                       ),
                     ),
                   ),
-                ),
-
-              // Native zoom indicator and reset affordance.
+                ),              // Native zoom indicator and reset affordance (placed cleanly above the floating preset selector overlay).
               if (state.isCameraInitialized)
                 Positioned(
-                  bottom: 16,
+                  bottom: 64,
                   left: 0,
                   right: 0,
                   child: Center(
@@ -1283,34 +1281,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                       onReset: () {
                         unawaited(controller.setZoomRatio(userMinZoomRatio));
                       },
-                    ),
-                  ),
-                ),
-
-              // Minimalist active preset stamp (bottom-right)
-              if (activePreset != null)
-                Positioned(
-                  bottom: 16,
-                  right: 16,
-                  child: Opacity(
-                    opacity: 0.9,
-                    child: Text(
-                      activePreset.name.toUpperCase(),
-                      style: const TextStyle(
-                        fontFamily: 'Courier',
-                        // Vintage orange stamp color
-                        color: Color(0xFFF39C12),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.2,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black54,
-                            blurRadius: 2,
-                            offset: Offset(1, 1),
-                          ),
-                        ],
-                      ),
                     ),
                   ),
                 ),
