@@ -133,14 +133,17 @@ void main() {
     expect(find.byTooltip('Delete photo'), findsOneWidget);
   });
 
-  testWidgets('shows settings prompt when storage access is denied', (
+  testWidgets('shows lazy photo-access prompt when MediaStore denies access', (
     WidgetTester tester,
   ) async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(cameraChannel, (MethodCall methodCall) async {
           switch (methodCall.method) {
             case 'listGalleryMedia':
-              return const [];
+              throw PlatformException(
+                code: 'PERMISSION_DENIED',
+                message: 'Photos access is required',
+              );
             case 'loadGalleryThumbnailBytes':
               return testImageBytes;
             case 'loadCapturedImageBytes':
@@ -193,8 +196,54 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('PHOTOS ACCESS REQUIRED'), findsOneWidget);
-    expect(find.text('OPEN SETTINGS'), findsOneWidget);
+    expect(find.text('ALLOW PHOTO ACCESS'), findsOneWidget);
     expect(find.text('CHECK AGAIN'), findsOneWidget);
+  });
+
+  testWidgets('offers lazy restore action when owned Rana gallery is empty', (
+    WidgetTester tester,
+  ) async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(cameraChannel, (MethodCall methodCall) async {
+          switch (methodCall.method) {
+            case 'listGalleryMedia':
+              return const [];
+            case 'getPermissionCapabilities':
+              return const {
+                'requiresLegacyStorageForCapture': false,
+                'galleryReadPermission': 'photos',
+              };
+          }
+          return null;
+        });
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(permissionChannel, (
+          MethodCall methodCall,
+        ) async {
+          if (methodCall.method == 'checkPermissionStatus') return 0;
+          return <int, int>{};
+        });
+
+    final router = GoRouter(
+      initialLocation: '/',
+      routes: [
+        GoRoute(path: '/', builder: (context, state) => const GalleryScreen()),
+      ],
+    );
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('NO RANA PHOTOS YET'), findsOneWidget);
+    expect(find.text('FIND PHOTOS FROM PREVIOUS RANA INSTALL'), findsOneWidget);
   });
 }
 

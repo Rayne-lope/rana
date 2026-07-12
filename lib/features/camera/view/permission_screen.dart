@@ -3,14 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rana/core/providers/permission_provider.dart';
 
-/// Permission screen displayed when Camera or Storage permissions are missing.
-class PermissionScreen extends ConsumerWidget {
-  const PermissionScreen({super.key});
+/// Permission screen displayed when Camera access is missing.
+class CameraPermissionScreen extends ConsumerWidget {
+  const CameraPermissionScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final permissionState = ref.watch(permissionControllerProvider);
-    final controller = ref.read(permissionControllerProvider.notifier);
+    final permissionState = ref.watch(cameraPermissionControllerProvider);
+    final controller = ref.read(cameraPermissionControllerProvider.notifier);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F11), // Deep slate black
@@ -33,7 +33,7 @@ class PermissionScreen extends ConsumerWidget {
               const SizedBox(height: 24),
 
               const Text(
-                'PERMISSIONS REQUIRED',
+                'CAMERA ACCESS REQUIRED',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white,
@@ -44,8 +44,8 @@ class PermissionScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               const Text(
-                'Rana requires camera and storage access to take '
-                'analog photos and save them to your device library.',
+                'Rana needs camera access to show the viewfinder and take '
+                'your analog photos. Photo-library access stays optional.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white54,
@@ -55,17 +55,11 @@ class PermissionScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 48),
 
-              // Status cards showing Camera & Storage permission states
+              // Camera is the only permission that blocks the viewfinder.
               _buildPermissionStatusCard(
                 title: 'Camera Access',
                 icon: Icons.camera_alt_rounded,
-                isGranted: permissionState.hasCamera,
-              ),
-              const SizedBox(height: 16),
-              _buildPermissionStatusCard(
-                title: 'Storage & Photos Access',
-                icon: Icons.photo_library_rounded,
-                isGranted: permissionState.hasStorage,
+                isGranted: permissionState.isGranted,
               ),
 
               const Spacer(),
@@ -90,9 +84,9 @@ class PermissionScreen extends ConsumerWidget {
                 ),
               ] else
                 ElevatedButton(
-                  onPressed: controller.requestPermissions,
+                  onPressed: controller.requestCamera,
                   style: _buildButtonStyle(const Color(0xFFF39C12)),
-                  child: const Text('GRANT ACCESS'),
+                  child: const Text('ALLOW CAMERA'),
                 ),
             ],
           ),
@@ -145,17 +139,15 @@ class PermissionScreen extends ConsumerWidget {
   }
 
   ButtonStyle _buildButtonStyle(Color color) => ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: Colors.black,
-        elevation: 4,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        textStyle: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 1.5,
-        ),
-      );
+    backgroundColor: color,
+    foregroundColor: Colors.black,
+    elevation: 4,
+    padding: const EdgeInsets.symmetric(vertical: 16),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    textStyle: const TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 1.5,
+    ),
+  );
 }

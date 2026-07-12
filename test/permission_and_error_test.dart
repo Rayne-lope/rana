@@ -7,84 +7,159 @@ import 'package:rana/core/providers/permission_provider.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('PermissionController', () {
-    const channel = MethodChannel('flutter.baseflow.com/permissions/methods');
+  group('Separated permission controllers', () {
+    const permissionChannel = MethodChannel(
+      'flutter.baseflow.com/permissions/methods',
+    );
+    const cameraChannel = MethodChannel('com.rana.app/camera_control');
     final log = <MethodCall>[];
+    var cameraStatus = 1;
+    var galleryStatus = 0;
+    var galleryRequestStatus = 1;
+    var galleryPermission = 'photos';
 
     setUp(() {
       log.clear();
+      cameraStatus = 1;
+      galleryStatus = 0;
+      galleryRequestStatus = 1;
+      galleryPermission = 'photos';
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(
-        channel,
-        (MethodCall methodCall) async {
-          log.add(methodCall);
-          if (methodCall.method == 'checkPermissionStatus') {
-            // Mock permissions check
-            final permissionValue = methodCall.arguments as int;
-            // Camera (1) storage (22) photos (9)
-            if (permissionValue == 1) {
-              return 1; // Granted
+          .setMockMethodCallHandler(permissionChannel, (
+            MethodCall methodCall,
+          ) async {
+            log.add(methodCall);
+            if (methodCall.method == 'checkPermissionStatus') {
+              final permissionValue = methodCall.arguments as int;
+              if (permissionValue == 1) {
+                return cameraStatus;
+              }
+              return galleryStatus;
+            } else if (methodCall.method == 'requestPermissions') {
+              // Mock request returns
+              final args = methodCall.arguments as List<dynamic>;
+              final results = <int, int>{};
+              for (final p in args) {
+                results[p as int] = p == 1
+                    ? cameraStatus
+                    : galleryRequestStatus;
+              }
+              return results;
             }
-            return 0; // Denied
-          } else if (methodCall.method == 'requestPermissions') {
-            // Mock request returns
-            final args = methodCall.arguments as List<dynamic>;
-            final results = <int, int>{};
-            for (final p in args) {
-              results[p as int] = 1; // Grant all requested
+            return null;
+          });
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(cameraChannel, (
+            MethodCall methodCall,
+          ) async {
+            if (methodCall.method == 'getPermissionCapabilities') {
+              return {
+                'requiresLegacyStorageForCapture': false,
+                'galleryReadPermission': galleryPermission,
+              };
             }
-            return results;
-          }
-          return null;
-        },
-      );
+            return null;
+          });
     });
 
     tearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null);
+          .setMockMethodCallHandler(permissionChannel, null);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(cameraChannel, null);
     });
 
-    test('initial state has checking true and hasCamera/hasStorage false', () {
+    test('camera and gallery begin as independent pending states', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      final state = container.read(permissionControllerProvider);
-      expect(state.isChecking, isTrue);
-      expect(state.hasCamera, isFalse);
-      expect(state.hasStorage, isFalse);
-      expect(state.isAllGranted, isFalse);
+      expect(
+        container.read(cameraPermissionControllerProvider).isChecking,
+        isTrue,
+      );
+      expect(
+        container.read(galleryPermissionControllerProvider).isChecking,
+        isTrue,
+      );
     });
 
-    test('checkPermissions queries platform and updates state', () async {
+    test('camera grant is unaffected when gallery access is denied', () async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
-      final controller = container.read(permissionControllerProvider.notifier);
-      await controller.checkPermissions();
+      await container
+          .read(cameraPermissionControllerProvider.notifier)
+          .refresh();
+      await container
+          .read(galleryPermissionControllerProvider.notifier)
+          .refresh();
 
-      final state = container.read(permissionControllerProvider);
-      expect(state.isChecking, isFalse);
-      expect(state.hasCamera, isTrue); // Mock check camera returns 1 (granted)
-      expect(state.hasStorage, isFalse); // Storage returns 0 (denied)
-      expect(state.isAllGranted, isFalse);
+      expect(
+        container.read(cameraPermissionControllerProvider).isGranted,
+        isTrue,
+      );
+      expect(
+        container.read(galleryPermissionControllerProvider).canRead,
+        isFalse,
+      );
+      expect(
+        log.where((call) => call.method == 'checkPermissionStatus').length,
+        2,
+      );
     });
 
     test(
-      'requestPermissions requests via platform and updates state',
+      'gallery accepts limited access without changing camera state',
       () async {
+        galleryStatus = 3; // PermissionStatus.limited.
         final container = ProviderContainer();
         addTearDown(container.dispose);
 
-        final controller =
-            container.read(permissionControllerProvider.notifier);
-        await controller.requestPermissions();
+        await container
+            .read(cameraPermissionControllerProvider.notifier)
+            .refresh();
+        await container
+            .read(galleryPermissionControllerProvider.notifier)
+            .refresh();
 
-        final state = container.read(permissionControllerProvider);
-        expect(state.isChecking, isFalse);
-        expect(state.hasCamera, isTrue); // Mock requests returns granted
-        expect(state.hasStorage, isTrue);
-        expect(state.isAllGranted, isTrue);
+        expect(
+          container.read(galleryPermissionControllerProvider).isLimited,
+          isTrue,
+        );
+        expect(
+          container.read(galleryPermissionControllerProvider).canRead,
+          isTrue,
+        );
+        expect(
+          container.read(cameraPermissionControllerProvider).isGranted,
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'gallery request is lazy and uses the platform-selected permission',
+      () async {
+        galleryPermission = 'storage';
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        await container
+            .read(galleryPermissionControllerProvider.notifier)
+            .requestGalleryAccess();
+
+        expect(
+          container.read(galleryPermissionControllerProvider).isGranted,
+          isTrue,
+        );
+        expect(
+          log.where((call) => call.method == 'requestPermissions').length,
+          1,
+        );
+        expect(
+          container.read(cameraPermissionControllerProvider).isChecking,
+          isTrue,
+        );
       },
     );
   });

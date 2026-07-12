@@ -111,8 +111,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
     // Verify permissions first, then initialize platform connection if granted
     Future.microtask(() async {
-      await ref.read(permissionControllerProvider.notifier).checkPermissions();
-      if (ref.read(permissionControllerProvider).isAllGranted) {
+      await ref.read(cameraPermissionControllerProvider.notifier).refresh();
+      if (ref.read(cameraPermissionControllerProvider).isGranted) {
         await ref.read(cameraControllerProvider.notifier).initialize();
       }
     });
@@ -204,6 +204,55 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     );
   }
 
+  Future<void> _handleCapture(CameraController controller) async {
+    final capabilities = await ref.read(permissionCapabilitiesProvider.future);
+    if (capabilities.requiresLegacyStorageForCapture) {
+      final galleryPermissions = ref.read(
+        galleryPermissionControllerProvider.notifier,
+      );
+      await galleryPermissions.refresh();
+      final galleryAccess = ref.read(galleryPermissionControllerProvider);
+      if (!galleryAccess.canRead) {
+        if (!mounted) return;
+        final shouldRequest = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: const Color(0xFF1B1C20),
+            title: const Text(
+              'SAVE PHOTOS',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            content: const Text(
+              'Android 9 and older need photo storage access to save each '
+              'Rana capture.',
+              style: TextStyle(color: Colors.white70, height: 1.4),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('NOT NOW'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('CONTINUE'),
+              ),
+            ],
+          ),
+        );
+        if (shouldRequest != true || !mounted) return;
+        await galleryPermissions.requestGalleryAccess();
+        if (!ref.read(galleryPermissionControllerProvider).canRead) return;
+      }
+    }
+
+    if (!mounted) return;
+    _triggerCaptureEffects();
+    await controller.handleShutterPressed();
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     AppLogger.i('CameraScreen', 'App lifecycle changed to: $state');
@@ -211,10 +260,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         state == AppLifecycleState.inactive) {
       ref.read(cameraControllerProvider.notifier).releaseCamera();
     } else if (state == AppLifecycleState.resumed) {
-      ref.read(permissionControllerProvider.notifier).checkPermissions().then((
-        _,
-      ) {
-        if (ref.read(permissionControllerProvider).isAllGranted) {
+      ref.read(cameraPermissionControllerProvider.notifier).refresh().then((_) {
+        if (ref.read(cameraPermissionControllerProvider).isGranted) {
           ref.read(cameraControllerProvider.notifier).initialize();
         }
       });
@@ -223,7 +270,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   @override
   Widget build(BuildContext context) {
-    final permissionState = ref.watch(permissionControllerProvider);
+    final permissionState = ref.watch(cameraPermissionControllerProvider);
     final cameraState = ref.watch(cameraControllerProvider);
     final controller = ref.read(cameraControllerProvider.notifier);
 
@@ -238,8 +285,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       );
     }
 
-    if (!permissionState.isAllGranted) {
-      return const PermissionScreen();
+    if (!permissionState.isGranted) {
+      return const CameraPermissionScreen();
     }
 
     final isEditing = _isEditingStyle || _isEditingUndertone;
@@ -275,8 +322,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                   else
                     const SizedBox.shrink(),
 
-
-
                   Expanded(
                     child: _buildViewfinder(
                       cameraState,
@@ -286,8 +331,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                           : _ViewfinderLayoutMode.capture,
                     ),
                   ),
-
-
 
                   if (isEditing)
                     _buildStylesEditingContent(cameraState, controller)
@@ -302,11 +345,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         ),
         if (_showFlash)
           Positioned.fill(
-            child: IgnorePointer(
-              child: Container(
-                color: Colors.white,
-              ),
-            ),
+            child: IgnorePointer(child: Container(color: Colors.white)),
           ),
         if (_showToast)
           Positioned(
@@ -703,7 +742,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                     color: const Color(0xFFF39C12).withValues(alpha: 0.28),
                     blurRadius: 4,
                     offset: const Offset(0, 1.5),
-                  )
+                  ),
                 ]
               : null,
         ),
@@ -789,7 +828,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                         color: Colors.black.withValues(alpha: 0.28),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
-                      )
+                      ),
                     ]
                   : null,
             ),
@@ -1000,11 +1039,12 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                   color: Colors.black.withValues(alpha: 0.28),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
-                )
+                ),
               ],
             ),
             child: ClipOval(
-              child: state.lastCapturedPath != null &&
+              child:
+                  state.lastCapturedPath != null &&
                       state.lastCapturedPath!.isNotEmpty
                   ? LatestCaptureThumbnail(imageUri: state.lastCapturedPath)
                   : const Center(
@@ -1030,14 +1070,16 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         ),
       ),
     ],
-  );  Widget _buildViewfinder(
+  );
+  Widget _buildViewfinder(
     CameraState state,
     CameraController controller, {
     required _ViewfinderLayoutMode layoutMode,
   }) {
     final presetsList = ref.watch(presetsProvider).valueOrNull ?? [];
     final activePreset = _findActivePreset(state, presetsList);
-    final isReady = state.isCameraInitialized &&
+    final isReady =
+        state.isCameraInitialized &&
         state.captureStatus == CaptureStatus.idle &&
         !state.isSelfTimerRunning;
 
@@ -1079,180 +1121,180 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                     ),
                   ),
 
-                // Top controls stay anchored to the fixed camera stage.
-                if (layoutMode == _ViewfinderLayoutMode.capture)
-                  Positioned(
-                    top: 16,
-                    left: 16,
-                    right: 16,
-                    child: _buildTopOverlayControls(state, controller),
-                  ),
-
-                // Floating Preset selector overlay at the bottom center of the viewfinder
-                if (layoutMode == _ViewfinderLayoutMode.capture)
-                  Positioned(
-                    bottom: 16,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: GestureDetector(
-                        onTap: isReady
-                            ? () {
-                                setState(() {
-                                  _originalPresetId = state.activePresetId;
-                                  _isSelectingPreset = true;
-                                });
-                              }
-                            : null,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 7,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            gradient: const RadialGradient(
-                              center: Alignment(-0.15, -0.2),
-                              colors: [
-                                Color(0xFF3E424B),
-                                Color(0xFF202227),
-                                Color(0xFF131416),
-                              ],
-                              stops: [0, 0.7, 1],
-                            ),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.09),
-                              width: 0.8,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.35),
-                                blurRadius: 6,
-                                offset: const Offset(0, 3),
-                              )
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.photo_camera_back_rounded,
-                                size: 12,
-                                color: Color(0xFFF39C12),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                (activePreset?.name ?? 'NORMAL')
-                                    .toUpperCase(),
-                                style: const TextStyle(
-                                  color: Color(0xFFF39C12),
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1.5,
-                                  fontFamily: 'monospace',
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              const Icon(
-                                Icons.keyboard_arrow_up_rounded,
-                                size: 13,
-                                color: Colors.white60,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                  // Top controls stay anchored to the fixed camera stage.
+                  if (layoutMode == _ViewfinderLayoutMode.capture)
+                    Positioned(
+                      top: 16,
+                      left: 16,
+                      right: 16,
+                      child: _buildTopOverlayControls(state, controller),
                     ),
-                  ),
 
-                // Self timer countdown overlay
-                if (state.isSelfTimerRunning)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: ColoredBox(
-                        color: Colors.black.withValues(alpha: 0.18),
-                        child: Center(
-                          child: AnimatedSwitcher(
+                  // Floating Preset selector overlay at the bottom center of the viewfinder
+                  if (layoutMode == _ViewfinderLayoutMode.capture)
+                    Positioned(
+                      bottom: 16,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: GestureDetector(
+                          onTap: isReady
+                              ? () {
+                                  setState(() {
+                                    _originalPresetId = state.activePresetId;
+                                    _isSelectingPreset = true;
+                                  });
+                                }
+                              : null,
+                          child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
-                            transitionBuilder: (child, animation) {
-                              final fade = CurvedAnimation(
-                                parent: animation,
-                                curve: Curves.easeOut,
-                              );
-                              return FadeTransition(
-                                opacity: fade,
-                                child: ScaleTransition(
-                                  scale: Tween<double>(begin: 0.92, end: 1)
-                                      .animate(
-                                        CurvedAnimation(
-                                          parent: animation,
-                                          curve: Curves.easeOutBack,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              gradient: const RadialGradient(
+                                center: Alignment(-0.15, -0.2),
+                                colors: [
+                                  Color(0xFF3E424B),
+                                  Color(0xFF202227),
+                                  Color(0xFF131416),
+                                ],
+                                stops: [0, 0.7, 1],
+                              ),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.09),
+                                width: 0.8,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.35),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.photo_camera_back_rounded,
+                                  size: 12,
+                                  color: Color(0xFFF39C12),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  (activePreset?.name ?? 'NORMAL')
+                                      .toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Color(0xFFF39C12),
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1.5,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.keyboard_arrow_up_rounded,
+                                  size: 13,
+                                  color: Colors.white60,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // Self timer countdown overlay
+                  if (state.isSelfTimerRunning)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: ColoredBox(
+                          color: Colors.black.withValues(alpha: 0.18),
+                          child: Center(
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              transitionBuilder: (child, animation) {
+                                final fade = CurvedAnimation(
+                                  parent: animation,
+                                  curve: Curves.easeOut,
+                                );
+                                return FadeTransition(
+                                  opacity: fade,
+                                  child: ScaleTransition(
+                                    scale: Tween<double>(begin: 0.92, end: 1)
+                                        .animate(
+                                          CurvedAnimation(
+                                            parent: animation,
+                                            curve: Curves.easeOutBack,
+                                          ),
                                         ),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                key: ValueKey<int>(
+                                  state.selfTimerRemainingSeconds,
+                                ),
+                                width: 132,
+                                height: 132,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.black.withValues(alpha: 0.56),
+                                  border: Border.all(
+                                    color: const Color(0xFFF39C12),
+                                    width: 2.5,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Colors.black54,
+                                      blurRadius: 24,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      '${state.selfTimerRemainingSeconds}',
+                                      style: const TextStyle(
+                                        color: Color(0xFFF39C12),
+                                        fontSize: 42,
+                                        fontWeight: FontWeight.w900,
+                                        height: 1,
                                       ),
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: Container(
-                              key: ValueKey<int>(
-                                state.selfTimerRemainingSeconds,
-                              ),
-                              width: 132,
-                              height: 132,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.black.withValues(alpha: 0.56),
-                                border: Border.all(
-                                  color: const Color(0xFFF39C12),
-                                  width: 2.5,
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.black54,
-                                    blurRadius: 24,
-                                    spreadRadius: 2,
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    '${state.selfTimerRemainingSeconds}',
-                                    style: const TextStyle(
-                                      color: Color(0xFFF39C12),
-                                      fontSize: 42,
-                                      fontWeight: FontWeight.w900,
-                                      height: 1,
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  const Text(
-                                    'SELF TIMER',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 2.5,
+                                    const SizedBox(height: 4),
+                                    const Text(
+                                      'SELF TIMER',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 2.5,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Size _previewGateSize(BoxConstraints constraints, double aspectRatio) {
     final maxWidth = constraints.maxWidth;
@@ -1365,8 +1407,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                           !state.isSelfTimerRunning,
                       isLimited:
                           state.isZoomLimited &&
-                          state.zoomRatio >=
-                              state.effectiveMaxZoomRatio - 0.01,
+                          state.zoomRatio >= state.effectiveMaxZoomRatio - 0.01,
                       shouldWarnDigitalZoom: state.shouldWarnDigitalZoom,
                       onReset: () {
                         unawaited(controller.setZoomRatio(userMinZoomRatio));
@@ -1414,8 +1455,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                       ? null
                       : [
                           BoxShadow(
-                            color: const Color(0xFFF4C44F)
-                                .withValues(alpha: 0.55),
+                            color: const Color(
+                              0xFFF4C44F,
+                            ).withValues(alpha: 0.55),
                             blurRadius: 10,
                             spreadRadius: 1,
                           ),
@@ -1458,10 +1500,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                     _shutterStatus = status;
                   });
                 },
-                onCapture: () {
-                  _triggerCaptureEffects();
-                  controller.handleShutterPressed();
-                },
+                onCapture: () => _handleCapture(controller),
               ),
 
               // Style and Reset Button (right)
@@ -1617,7 +1656,7 @@ class _BottomPanelActionButton extends StatelessWidget {
                           color: Colors.black.withValues(alpha: 0.28),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
-                        )
+                        ),
                       ]
                     : null,
               ),

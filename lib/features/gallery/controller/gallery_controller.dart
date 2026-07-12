@@ -1,4 +1,4 @@
-import 'package:rana/core/providers/permission_provider.dart';
+import 'package:flutter/services.dart';
 import 'package:rana/core/services/media_store_service.dart';
 import 'package:rana/features/gallery/model/gallery_media_item.dart';
 import 'package:rana/features/gallery/state/gallery_state.dart';
@@ -24,19 +24,6 @@ class GalleryController extends _$GalleryController {
   Future<void> loadGallery() async {
     await _ensureFavoritesLoaded();
 
-    final permissionState = ref.read(permissionControllerProvider);
-    if (!permissionState.hasStorage) {
-      state = GalleryState(
-        status: GalleryStatus.permissionDenied,
-        items: state.items,
-        errorMessage: null,
-        favoriteIds: state.favoriteIds,
-        showFavoritesOnly: state.showFavoritesOnly,
-        timeFilter: state.timeFilter,
-      );
-      return;
-    }
-
     state = GalleryState(
       status: GalleryStatus.loading,
       items: state.items,
@@ -59,6 +46,22 @@ class GalleryController extends _$GalleryController {
         favoriteIds: state.favoriteIds,
         showFavoritesOnly: state.showFavoritesOnly,
         timeFilter: state.timeFilter,
+      );
+    } on PlatformException catch (e) {
+      if (e.code == 'PERMISSION_DENIED') {
+        state = GalleryState(
+          status: GalleryStatus.permissionDenied,
+          items: state.items,
+          errorMessage: null,
+          favoriteIds: state.favoriteIds,
+          showFavoritesOnly: state.showFavoritesOnly,
+          timeFilter: state.timeFilter,
+        );
+        return;
+      }
+      state = state.copyWith(
+        status: GalleryStatus.error,
+        errorMessage: e.toString(),
       );
     } on Object catch (e) {
       state = state.copyWith(

@@ -28,7 +28,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     Future.microtask(() async {
-      await ref.read(permissionControllerProvider.notifier).checkPermissions();
+      await ref.read(galleryPermissionControllerProvider.notifier).refresh();
       await ref.read(galleryControllerProvider.notifier).loadGallery();
     });
   }
@@ -42,7 +42,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      ref.read(permissionControllerProvider.notifier).checkPermissions().then((
+      ref.read(galleryPermissionControllerProvider.notifier).refresh().then((
         _,
       ) {
         ref.read(galleryControllerProvider.notifier).loadGallery();
@@ -52,15 +52,14 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
 
   @override
   Widget build(BuildContext context) {
-    final permissionState = ref.watch(permissionControllerProvider);
+    final permissionState = ref.watch(galleryPermissionControllerProvider);
     final galleryState = ref.watch(galleryControllerProvider);
     final controller = ref.read(galleryControllerProvider.notifier);
     final visibleItems = galleryState.visibleItems;
 
     final showLoader =
-        permissionState.isChecking ||
-        (galleryState.status == GalleryStatus.loading &&
-            galleryState.items.isEmpty);
+        galleryState.status == GalleryStatus.loading &&
+        galleryState.items.isEmpty;
 
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -123,7 +122,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                   child: _GallerySummaryCard(
                     itemCount: galleryState.items.length,
                     favoriteCount: galleryState.favoriteIds.length,
-                    hasPermission: permissionState.hasStorage,
+                    hasPermission: !galleryState.isPermissionDenied,
                     isLoading: showLoader,
                     showFavoritesOnly: galleryState.showFavoritesOnly,
                     onFavoritesOnlyChanged: (value) =>
@@ -131,7 +130,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                   ),
                 ),
               ),
-              if (permissionState.hasStorage && !showLoader)
+              if (!galleryState.isPermissionDenied && !showLoader)
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                   sliver: SliverToBoxAdapter(
@@ -144,21 +143,34 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                     ),
                   ),
                 ),
+              if (permissionState.isLimited && !showLoader)
+                const SliverPadding(
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  sliver: SliverToBoxAdapter(
+                    child: _GalleryLimitedAccessBanner(),
+                  ),
+                ),
               if (showLoader)
                 const SliverFillRemaining(
                   hasScrollBody: false,
                   child: _GalleryLoadingState(),
                 )
-              else if (!permissionState.hasStorage)
+              else if (galleryState.isPermissionDenied)
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: _GalleryPermissionState(
                     isPermanentlyDenied: permissionState.isPermanentlyDenied,
                     onOpenSettings: openAppSettings,
+                    onRequestAccess: () async {
+                      await ref
+                          .read(galleryPermissionControllerProvider.notifier)
+                          .requestGalleryAccess();
+                      await controller.loadGallery();
+                    },
                     onRetryCheck: () async {
                       await ref
-                          .read(permissionControllerProvider.notifier)
-                          .checkPermissions();
+                          .read(galleryPermissionControllerProvider.notifier)
+                          .refresh();
                       await controller.loadGallery();
                     },
                   ),
@@ -178,6 +190,16 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
                   child: _GalleryEmptyState(
                     showFavoritesOnly: galleryState.showFavoritesOnly,
                     onTakePhoto: () => context.go(AppRoutes.camera),
+                    onFindPreviousInstallPhotos: permissionState.canRead
+                        ? null
+                        : () async {
+                            await ref
+                                .read(
+                                  galleryPermissionControllerProvider.notifier,
+                                )
+                                .requestGalleryAccess();
+                            await controller.loadGallery();
+                          },
                   ),
                 )
               else
@@ -349,16 +371,22 @@ class _FavoriteFilterButtonState extends State<_FavoriteFilterButton> {
 
   @override
   Widget build(BuildContext context) {
-    final activeGrad = const LinearGradient(
+    const activeGrad = LinearGradient(
       colors: [Color(0xFFF4C44F), Color(0xFFF39C12)],
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
     );
 
     return GestureDetector(
-      onTapDown: widget.onTap != null ? (_) => setState(() => _isPressed = true) : null,
-      onTapUp: widget.onTap != null ? (_) => setState(() => _isPressed = false) : null,
-      onTapCancel: widget.onTap != null ? () => setState(() => _isPressed = false) : null,
+      onTapDown: widget.onTap != null
+          ? (_) => setState(() => _isPressed = true)
+          : null,
+      onTapUp: widget.onTap != null
+          ? (_) => setState(() => _isPressed = false)
+          : null,
+      onTapCancel: widget.onTap != null
+          ? () => setState(() => _isPressed = false)
+          : null,
       onTap: widget.onTap,
       child: AnimatedScale(
         scale: _isPressed ? 0.94 : 1.0,
@@ -369,7 +397,9 @@ class _FavoriteFilterButtonState extends State<_FavoriteFilterButton> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             gradient: widget.isSelected ? activeGrad : null,
-            color: widget.isSelected ? null : Colors.black.withValues(alpha: 0.42),
+            color: widget.isSelected
+                ? null
+                : Colors.black.withValues(alpha: 0.42),
             border: Border.all(
               color: widget.isSelected
                   ? const Color(0xFFD4840C)
@@ -390,7 +420,9 @@ class _FavoriteFilterButtonState extends State<_FavoriteFilterButton> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                widget.isSelected ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                widget.isSelected
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
                 size: 14,
                 color: widget.isSelected ? Colors.black : Colors.white70,
               ),
@@ -465,10 +497,7 @@ class _GallerySummaryCard extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: const RadialGradient(
-                colors: [
-                  Color(0xFF131416),
-                  Color(0xFF24272D),
-                ],
+                colors: [Color(0xFF131416), Color(0xFF24272D)],
                 center: Alignment(-0.1, -0.1),
                 radius: 0.6,
               ),
@@ -497,9 +526,9 @@ class _GallerySummaryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'RANA LIBRARY',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Color(0xFFF39C12),
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
@@ -568,11 +597,13 @@ class _GalleryPermissionState extends StatelessWidget {
   const _GalleryPermissionState({
     required this.isPermanentlyDenied,
     required this.onOpenSettings,
+    required this.onRequestAccess,
     required this.onRetryCheck,
   });
 
   final bool isPermanentlyDenied;
   final VoidCallback onOpenSettings;
+  final Future<void> Function() onRequestAccess;
   final Future<void> Function() onRetryCheck;
 
   @override
@@ -603,8 +634,8 @@ class _GalleryPermissionState extends StatelessWidget {
             isPermanentlyDenied
                 ? 'Photos access was permanently denied. Open system '
                       'settings to enable it, then come back here.'
-                : 'Rana needs READ_MEDIA_IMAGES access to show saved '
-                      'captures from your device library.',
+                : 'Rana can show photos from its current install without '
+                      'access. Allow photo access to find older Rana captures.',
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: Colors.white54,
@@ -614,7 +645,7 @@ class _GalleryPermissionState extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           FilledButton(
-            onPressed: onOpenSettings,
+            onPressed: isPermanentlyDenied ? onOpenSettings : onRequestAccess,
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFF39C12),
               foregroundColor: Colors.black,
@@ -624,7 +655,7 @@ class _GalleryPermissionState extends StatelessWidget {
               ),
             ),
             child: Text(
-              isPermanentlyDenied ? 'OPEN SETTINGS' : 'OPEN SETTINGS',
+              isPermanentlyDenied ? 'OPEN SETTINGS' : 'ALLOW PHOTO ACCESS',
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
@@ -636,6 +667,35 @@ class _GalleryPermissionState extends StatelessWidget {
           TextButton(onPressed: onRetryCheck, child: const Text('CHECK AGAIN')),
         ],
       ),
+    ),
+  );
+}
+
+class _GalleryLimitedAccessBanner extends StatelessWidget {
+  const _GalleryLimitedAccessBanner();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF39C12).withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: const Color(0xFFF39C12).withValues(alpha: 0.35),
+      ),
+    ),
+    child: const Row(
+      children: [
+        Icon(Icons.info_outline_rounded, color: Color(0xFFF39C12), size: 18),
+        SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'Photo access is limited. Only images allowed by Android may '
+            'appear.',
+            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.35),
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -694,10 +754,12 @@ class _GalleryEmptyState extends StatelessWidget {
   const _GalleryEmptyState({
     required this.showFavoritesOnly,
     required this.onTakePhoto,
+    required this.onFindPreviousInstallPhotos,
   });
 
   final bool showFavoritesOnly;
   final VoidCallback onTakePhoto;
+  final Future<void> Function()? onFindPreviousInstallPhotos;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -749,6 +811,13 @@ class _GalleryEmptyState extends StatelessWidget {
             ),
             child: const Text('OPEN CAMERA'),
           ),
+          if (!showFavoritesOnly && onFindPreviousInstallPhotos != null) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: onFindPreviousInstallPhotos,
+              child: const Text('FIND PHOTOS FROM PREVIOUS RANA INSTALL'),
+            ),
+          ],
         ],
       ),
     ),
@@ -849,7 +918,7 @@ class _GalleryTileState extends State<_GalleryTile> {
                       color: Colors.black45,
                       blurRadius: 4,
                       offset: Offset(0, 1),
-                    )
+                    ),
                   ],
                 ),
               ),
@@ -923,54 +992,54 @@ class _GalleryFilterStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-        height: 38,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          children: [
-            _buildFilterChip(
-              label: 'ALL TIME',
-              isSelected: activeFilter == GalleryTimeFilter.all &&
-                  !showFavoritesOnly,
-              onSelected: (_) {
-                onFilterChanged(GalleryTimeFilter.all);
-                onFavoritesOnlyChanged(false);
-              },
-            ),
-            const SizedBox(width: 8),
-            _buildFilterChip(
-              label: 'TODAY',
-              isSelected: activeFilter == GalleryTimeFilter.today &&
-                  !showFavoritesOnly,
-              onSelected: (_) {
-                onFilterChanged(GalleryTimeFilter.today);
-                onFavoritesOnlyChanged(false);
-              },
-            ),
-            const SizedBox(width: 8),
-            _buildFilterChip(
-              label: 'THIS WEEK',
-              isSelected: activeFilter == GalleryTimeFilter.thisWeek &&
-                  !showFavoritesOnly,
-              onSelected: (_) {
-                onFilterChanged(GalleryTimeFilter.thisWeek);
-                onFavoritesOnlyChanged(false);
-              },
-            ),
-            const SizedBox(width: 8),
-            _buildFilterChip(
-              label: 'FAVORITES',
-              isSelected: showFavoritesOnly,
-              onSelected: (selected) {
-                onFavoritesOnlyChanged(selected);
-                if (selected) {
-                  onFilterChanged(GalleryTimeFilter.all);
-                }
-              },
-              icon: Icons.favorite_rounded,
-            ),
-          ],
+    height: 38,
+    child: ListView(
+      scrollDirection: Axis.horizontal,
+      children: [
+        _buildFilterChip(
+          label: 'ALL TIME',
+          isSelected:
+              activeFilter == GalleryTimeFilter.all && !showFavoritesOnly,
+          onSelected: (_) {
+            onFilterChanged(GalleryTimeFilter.all);
+            onFavoritesOnlyChanged(false);
+          },
         ),
-      );
+        const SizedBox(width: 8),
+        _buildFilterChip(
+          label: 'TODAY',
+          isSelected:
+              activeFilter == GalleryTimeFilter.today && !showFavoritesOnly,
+          onSelected: (_) {
+            onFilterChanged(GalleryTimeFilter.today);
+            onFavoritesOnlyChanged(false);
+          },
+        ),
+        const SizedBox(width: 8),
+        _buildFilterChip(
+          label: 'THIS WEEK',
+          isSelected:
+              activeFilter == GalleryTimeFilter.thisWeek && !showFavoritesOnly,
+          onSelected: (_) {
+            onFilterChanged(GalleryTimeFilter.thisWeek);
+            onFavoritesOnlyChanged(false);
+          },
+        ),
+        const SizedBox(width: 8),
+        _buildFilterChip(
+          label: 'FAVORITES',
+          isSelected: showFavoritesOnly,
+          onSelected: (selected) {
+            onFavoritesOnlyChanged(selected);
+            if (selected) {
+              onFilterChanged(GalleryTimeFilter.all);
+            }
+          },
+          icon: Icons.favorite_rounded,
+        ),
+      ],
+    ),
+  );
 
   Widget _buildFilterChip({
     required String label,
@@ -978,61 +1047,61 @@ class _GalleryFilterStrip extends StatelessWidget {
     required ValueChanged<bool> onSelected,
     IconData? icon,
   }) => GestureDetector(
-        onTap: () => onSelected(!isSelected),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: isSelected
-                ? const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFF4C44F), Color(0xFFF39C12)],
-                  )
-                : null,
-            color: isSelected ? null : Colors.black.withValues(alpha: 0.36),
-            border: Border.all(
-              color: isSelected
-                  ? const Color(0xFFF39C12)
-                  : Colors.white.withValues(alpha: 0.08),
-              width: 0.8,
-            ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFFF39C12).withValues(alpha: 0.24),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    )
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(
-                  icon,
-                  size: 12,
-                  color: isSelected ? Colors.black : const Color(0xFFF39C12),
-                ),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  color: isSelected ? Colors.black : Colors.white70,
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ],
-          ),
+    onTap: () => onSelected(!isSelected),
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: isSelected
+            ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFF4C44F), Color(0xFFF39C12)],
+              )
+            : null,
+        color: isSelected ? null : Colors.black.withValues(alpha: 0.36),
+        border: Border.all(
+          color: isSelected
+              ? const Color(0xFFF39C12)
+              : Colors.white.withValues(alpha: 0.08),
+          width: 0.8,
         ),
-      );
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: const Color(0xFFF39C12).withValues(alpha: 0.24),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(
+              icon,
+              size: 12,
+              color: isSelected ? Colors.black : const Color(0xFFF39C12),
+            ),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.black : Colors.white70,
+              fontSize: 9.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _AppBarActionButton extends StatelessWidget {
@@ -1089,7 +1158,7 @@ class _AppBarActionButton extends StatelessWidget {
                         color: Colors.black.withValues(alpha: 0.28),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
-                      )
+                      ),
                     ]
                   : null,
             ),

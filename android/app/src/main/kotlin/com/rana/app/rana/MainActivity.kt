@@ -56,6 +56,21 @@ class MainActivity : FlutterActivity() {
                 "getOutputCapabilities" -> {
                     result.success(outputCapabilities().asChannelMap())
                 }
+                "getPermissionCapabilities" -> {
+                    result.success(
+                        mapOf(
+                            "requiresLegacyStorageForCapture" to
+                                (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P),
+                            "galleryReadPermission" to if (
+                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                            ) {
+                                "photos"
+                            } else {
+                                "storage"
+                            }
+                        )
+                    )
+                }
                 "initializeCamera" -> {
                     val preview = activePreviewView
                     if (preview != null) {

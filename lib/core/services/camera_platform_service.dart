@@ -47,6 +47,24 @@ class CameraPlatformService {
     }
   }
 
+  /// Returns Android-version-specific requirements for Rana's media flow.
+  Future<Map<String, dynamic>> getPermissionCapabilities() async {
+    try {
+      final result = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>(
+        'getPermissionCapabilities',
+      );
+      return Map<String, dynamic>.from(result ?? {});
+    } on PlatformException catch (e, stack) {
+      AppLogger.e(
+        'CameraPlatformService',
+        'Failed to query permission capabilities on platform side',
+        e,
+        stack,
+      );
+      rethrow;
+    }
+  }
+
   /// Sets the active film/analog preset on the native rendering pipeline.
   Future<Map<String, dynamic>> selectPreset(
     String presetId,
