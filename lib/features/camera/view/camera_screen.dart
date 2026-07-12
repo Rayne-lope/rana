@@ -246,35 +246,78 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final editingTitle = _isEditingUndertone ? 'Undertone' : 'Rana Styles';
     return Stack(
       children: [
-        Scaffold(
-          backgroundColor: const Color(0xFF242424), // Premium matte charcoal
-          body: SafeArea(
-            child: Column(
-              children: [
-                if (isEditing)
-                  _buildStylesEditingHeader(editingTitle, cameraState, controller)
-                else if (_isSelectingPreset)
-                  _buildPresetSelectionHeader(cameraState, controller)
-                else
-                  const SizedBox.shrink(),
-
-                Expanded(
-                  child: _buildViewfinder(
-                    cameraState,
-                    controller,
-                    layoutMode: (isEditing || _isSelectingPreset)
-                        ? _ViewfinderLayoutMode.styleEditor
-                        : _ViewfinderLayoutMode.capture,
-                  ),
-                ),
-
-                if (isEditing)
-                  _buildStylesEditingContent(cameraState, controller)
-                else if (_isSelectingPreset)
-                  _buildPresetSelectionContent(cameraState, controller)
-                else
-                  _buildBottomPanel(cameraState, controller),
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF2D3037), // Top sheet titanium
+                Color(0xFF1E2025), // Mid sheet gunmetal
+                Color(0xFF121316), // Bottom sheet deep charcoal metal
               ],
+              stops: [0.0, 0.5, 1.0],
+            ),
+          ),
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: SafeArea(
+              child: Column(
+                children: [
+                  if (isEditing)
+                    _buildStylesEditingHeader(editingTitle, cameraState, controller)
+                  else if (_isSelectingPreset)
+                    _buildPresetSelectionHeader(cameraState, controller)
+                  else
+                    const SizedBox.shrink(),
+
+                  // Header-to-Viewfinder Divider
+                  if (isEditing || _isSelectingPreset)
+                    Container(
+                      height: 1,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        border: const Border(
+                          bottom: BorderSide(
+                            color: Colors.white10,
+                            width: 0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  Expanded(
+                    child: _buildViewfinder(
+                      cameraState,
+                      controller,
+                      layoutMode: (isEditing || _isSelectingPreset)
+                          ? _ViewfinderLayoutMode.styleEditor
+                          : _ViewfinderLayoutMode.capture,
+                    ),
+                  ),
+
+                  // Viewfinder-to-Panel Divider
+                  Container(
+                    height: 1,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      border: const Border(
+                        bottom: BorderSide(
+                          color: Colors.white10,
+                          width: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  if (isEditing)
+                    _buildStylesEditingContent(cameraState, controller)
+                  else if (_isSelectingPreset)
+                    _buildPresetSelectionContent(cameraState, controller)
+                  else
+                    _buildBottomPanel(cameraState, controller),
+                ],
+              ),
             ),
           ),
         ),
@@ -1458,31 +1501,63 @@ class _BottomPanelActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Tooltip(
     message: tooltip ?? label,
-    child: TextButton(
-      onPressed: isEnabled ? onPressed : null,
-      style: TextButton.styleFrom(
-        foregroundColor: isEnabled ? const Color(0xFFF39C12) : Colors.white24,
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 22),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            maxLines: 1,
-            style: const TextStyle(
-              fontSize: 9.5,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: isEnabled ? onPressed : null,
+            borderRadius: BorderRadius.circular(20),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  center: const Alignment(-0.15, -0.2),
+                  colors: isEnabled
+                      ? const [Color(0xFF3E424B), Color(0xFF202227), Color(0xFF131416)]
+                      : const [Color(0xFF24262A), Color(0xFF181A1C), Color(0xFF0F1011)],
+                  stops: const [0.0, 0.7, 1.0],
+                ),
+                border: Border.all(
+                  color: isEnabled
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.white.withValues(alpha: 0.03),
+                  width: 0.8,
+                ),
+                boxShadow: isEnabled
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.28),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        )
+                      ]
+                    : null,
+              ),
+              child: Icon(
+                icon,
+                size: 18,
+                color: isEnabled ? const Color(0xFFF39C12) : Colors.white24,
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          maxLines: 1,
+          style: TextStyle(
+            color: isEnabled ? Colors.white70 : Colors.white24,
+            fontSize: 9.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+          ),
+        ),
+      ],
     ),
   );
 }
