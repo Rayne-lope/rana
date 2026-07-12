@@ -355,12 +355,56 @@ class ShutterPainter extends CustomPainter {
         ..color = Colors.black.withValues(alpha: 0.75),
     );
 
-    // 7. Aperture Blades
-    final apertureRadius = bezelRadius - 11.0;
-    _drawApertureBlades(canvas, center, apertureRadius);
+    // 7. Premium Center Button (snaps down when pressed)
+    final baseButtonRadius = bezelRadius - 3.0;
+    // Scales down slightly from 1.0 to 0.93 when pressed
+    final currentButtonRadius = baseButtonRadius * (1.0 - 0.07 * bladeProgress);
+
+    final buttonRect = Rect.fromCircle(center: center, radius: currentButtonRadius);
+    final buttonPaint = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-0.15, -0.25),
+        colors: isEnabled
+            ? const [Color(0xFF4A4D54), Color(0xFF24262B), Color(0xFF101114)]
+            : const [Color(0xFF2E3035), Color(0xFF1E2024), Color(0xFF0F1012)],
+        stops: const [0.0, 0.65, 1.0],
+      ).createShader(buttonRect);
+
+    // Draw the button body
+    canvas.drawCircle(center, currentButtonRadius, buttonPaint);
+
+    // Inner gold/silver concentric highlight rim for camera premium aesthetic
+    canvas.drawCircle(
+      center,
+      currentButtonRadius * 0.72,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.6
+        ..color = const Color(0xFFF4C44F).withValues(alpha: 0.12), // Subtle gold accent ring
+    );
+
+    // Fine inner highlight rim on the edge
+    canvas.drawCircle(
+      center,
+      currentButtonRadius - 1.0,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.8
+        ..color = Colors.white.withValues(alpha: 0.15),
+    );
+
+    // Squeeze shadow overlay when pressed
+    if (bladeProgress > 0) {
+      canvas.drawCircle(
+        center,
+        currentButtonRadius,
+        Paint()
+          ..color = Colors.black.withValues(alpha: 0.32 * bladeProgress),
+      );
+    }
 
     // 8. Glass Cap Overlay with reflection
-    final glassRadius = apertureRadius - 6.0;
+    final glassRadius = currentButtonRadius - 1.0;
     final glassPaint = Paint()
       ..shader = RadialGradient(
         center: const Alignment(-0.25, -0.35),
@@ -409,54 +453,6 @@ class ShutterPainter extends CustomPainter {
         ..color = Colors.white.withValues(alpha: 0.88)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.4),
     );
-  }
-
-  void _drawApertureBlades(Canvas canvas, Offset center, double radius) {
-    canvas.save();
-    canvas.translate(center.dx, center.dy);
-
-    final bladePaint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF2E3138), Color(0xFF0F1012)],
-      ).createShader(Rect.fromCircle(center: Offset.zero, radius: radius))
-      ..style = PaintingStyle.fill;
-
-    final strokePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.5
-      ..color = Colors.white.withValues(alpha: 0.08);
-
-    // Draw 6 blades
-    for (var i = 0; i < 6; i++) {
-      canvas.save();
-      // Pivot around the circle
-      canvas.rotate(i * 60 * math.pi / 180);
-
-      // Translate inward when squeezing the button
-      final squeezeTranslation = radius * 0.12 * bladeProgress;
-      canvas.translate(0, squeezeTranslation);
-
-      // Rotate blade slightly inward when pressing
-      final rotationAngle = (18.0 * bladeProgress) * math.pi / 180;
-      canvas.rotate(rotationAngle);
-
-      // Draw blade leaf path
-      final path = Path()
-        ..moveTo(0, -radius)
-        ..quadraticBezierTo(radius * 0.7, -radius * 0.7, radius * 0.76, 0)
-        ..quadraticBezierTo(radius * 0.4, radius * 0.4, 0, radius * 0.28)
-        ..quadraticBezierTo(-radius * 0.4, -radius * 0.4, 0, -radius)
-        ..close();
-
-      canvas.drawPath(path, bladePaint);
-      canvas.drawPath(path, strokePaint);
-
-      canvas.restore();
-    }
-
-    canvas.restore();
   }
 
   @override

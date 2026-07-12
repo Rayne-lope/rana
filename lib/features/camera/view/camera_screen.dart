@@ -1257,6 +1257,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               ),
             ),
           ),
+          const SizedBox(height: 10),
           // Shutter status label
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
