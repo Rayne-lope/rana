@@ -1149,7 +1149,7 @@ class CameraPreviewView(
                     val savedOutput = saveProcessedBitmap(
                         processedBitmap,
                         captureZoomRatio,
-                        params.outputQuality
+                        params
                     )
                     savedUri = savedOutput?.uri
                     qualityMetadata = qualityMetadata?.copy(
@@ -1338,12 +1338,19 @@ class CameraPreviewView(
     private fun saveProcessedBitmap(
         bitmap: Bitmap,
         zoomRatio: Float,
-        requestedProfile: OutputQualityProfile
+        params: OfflineProcessParams
     ): SavedOutput? {
-        val resolved = resolveOutputQuality(requestedProfile)
+        val filenameStem = captureFilenameStem(
+            presetId = params.presetId,
+            isStyleModified = params.isStyleModified,
+            timestamp = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
+                .format(System.currentTimeMillis())
+        )
+        val resolved = resolveOutputQuality(params.outputQuality)
         val primary = saveBitmapWithProfile(
             bitmap,
             zoomRatio,
+            filenameStem,
             resolved.actual,
             resolved.fallbackReason
         )
@@ -1355,6 +1362,7 @@ class CameraPreviewView(
             return saveBitmapWithProfile(
                 bitmap,
                 zoomRatio,
+                filenameStem,
                 OutputQualityProfile.HIGH_JPEG,
                 "heic_encode_failed"
             )
@@ -1365,12 +1373,11 @@ class CameraPreviewView(
     private fun saveBitmapWithProfile(
         bitmap: Bitmap,
         zoomRatio: Float,
+        filenameStem: String,
         profile: OutputQualityProfile,
         fallbackReason: String?
     ): SavedOutput? {
-        val name = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
-            .format(System.currentTimeMillis())
-        val displayName = "Rana_$name.${profile.extension}"
+        val displayName = "$filenameStem.${profile.extension}"
         val resolver = context.contentResolver
         val contentValues = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)

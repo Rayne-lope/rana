@@ -1079,6 +1079,8 @@ void main() {
       expect(args['styleStrength'], equals(80.0));
       expect(args['undertoneX'], equals(0.5));
       expect(args['undertoneY'], equals(-0.25));
+      expect(args['presetId'], equals('rana_warm'));
+      expect(args['isStyleModified'], isTrue);
     });
 
     test('cycleSelfTimer rotates through all available modes', () async {
@@ -1430,6 +1432,8 @@ void main() {
       expect(args['lutPath'], equals('assets/luts/rana_warm_v1.png'));
       expect(args['lutStrength'], equals(1.0));
       expect(args['outputQuality'], equals('high_jpeg'));
+      expect(args['presetId'], equals('rana_warm'));
+      expect(args['isStyleModified'], isFalse);
       expect(args['lightLeakIntensity'], equals(0.22));
       expect(args['lightLeakVariant'], equals(previewVariant));
       expect(args['dustIntensity'], equals(0.06));
@@ -1467,6 +1471,8 @@ void main() {
       expect(args['vignette'], equals(0.0));
       expect(args['lutPath'], isNull);
       expect(args['lutStrength'], equals(0.0));
+      expect(args['presetId'], equals('normal'));
+      expect(args['isStyleModified'], isFalse);
       expect(args['lightLeakIntensity'], equals(0.0));
       expect(args['lightLeakVariant'], equals(-1));
       expect(args['dustIntensity'], equals(0.0));

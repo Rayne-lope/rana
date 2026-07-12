@@ -22,6 +22,8 @@ class OfflineProcessParamsTest {
         assertFalse(params.dateStampEnable)
         assertEquals(0f, params.shadowsTintR)
         assertEquals(0f, params.highlightsTintB)
+        assertEquals("normal", params.presetId)
+        assertFalse(params.isStyleModified)
     }
 
     @Test
@@ -59,5 +61,15 @@ class OfflineProcessParamsTest {
             "70 01 01",
             formatDateStamp(Date(0), TimeZone.getTimeZone("UTC"))
         )
+    }
+
+    @Test
+    fun `capture filename metadata is parsed`() {
+        val params = offlineProcessParamsFromArguments(
+            mapOf("presetId" to "rana_chroma", "isStyleModified" to true)
+        )
+
+        assertEquals("rana_chroma", params.presetId)
+        assertTrue(params.isStyleModified)
     }
 }

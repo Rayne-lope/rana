@@ -432,6 +432,8 @@ class CameraController extends _$CameraController {
         const <double>[0, 0, 0];
     final outputQuality =
         ref.read(outputQualityProvider).valueOrNull ?? OutputQuality.highJpeg;
+    final baseStyle = activePreset?.style ?? const RanaStyle();
+    final isStyleModified = activePreset != null && style != baseStyle;
 
     final mapped = RanaTextureMapper.mapTexture(
       textureVal,
@@ -485,6 +487,8 @@ class CameraController extends _$CameraController {
       'grainSize': finalGrainSize,
       'softness': finalSoftness,
       'outputQuality': outputQuality.storageValue,
+      'presetId': activePreset?.id ?? 'normal',
+      'isStyleModified': isStyleModified,
     };
   }
 
