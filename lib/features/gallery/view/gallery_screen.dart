@@ -329,6 +329,89 @@ Future<bool?> _confirmGalleryDelete(
 
 enum _GalleryAction { favorite, share, delete }
 
+class _FavoriteFilterButton extends StatefulWidget {
+  const _FavoriteFilterButton({
+    required this.isSelected,
+    required this.count,
+    required this.onTap,
+  });
+
+  final bool isSelected;
+  final int count;
+  final VoidCallback? onTap;
+
+  @override
+  State<_FavoriteFilterButton> createState() => _FavoriteFilterButtonState();
+}
+
+class _FavoriteFilterButtonState extends State<_FavoriteFilterButton> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeGrad = const LinearGradient(
+      colors: [Color(0xFFF4C44F), Color(0xFFF39C12)],
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+    );
+
+    return GestureDetector(
+      onTapDown: widget.onTap != null ? (_) => setState(() => _isPressed = true) : null,
+      onTapUp: widget.onTap != null ? (_) => setState(() => _isPressed = false) : null,
+      onTapCancel: widget.onTap != null ? () => setState(() => _isPressed = false) : null,
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _isPressed ? 0.94 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: widget.isSelected ? activeGrad : null,
+            color: widget.isSelected ? null : Colors.black.withValues(alpha: 0.42),
+            border: Border.all(
+              color: widget.isSelected
+                  ? const Color(0xFFD4840C)
+                  : Colors.white.withValues(alpha: 0.08),
+              width: 0.8,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: widget.isSelected
+                    ? const Color(0xFFF39C12).withValues(alpha: 0.15)
+                    : Colors.black.withValues(alpha: 0.15),
+                blurRadius: 4,
+                offset: const Offset(0, 1.5),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                widget.isSelected ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                size: 14,
+                color: widget.isSelected ? Colors.black : Colors.white70,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                '${widget.count}',
+                style: TextStyle(
+                  color: widget.isSelected ? Colors.black : Colors.white70,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w900,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _GallerySummaryCard extends StatelessWidget {
   const _GallerySummaryCard({
     required this.itemCount,
@@ -350,15 +433,27 @@ class _GallerySummaryCard extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(20),
-      gradient: LinearGradient(
+      gradient: const LinearGradient(
         colors: [
-          const Color(0xFFF39C12).withValues(alpha: 0.16),
-          Colors.white.withValues(alpha: 0.03),
+          Color(0xFF2C2F36), // Brushed titanium
+          Color(0xFF1E2025),
+          Color(0xFF15161A),
         ],
+        stops: [0.0, 0.5, 1.0],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      border: Border.all(
+        color: Colors.white.withValues(alpha: 0.08),
+        width: 0.8,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.4),
+          blurRadius: 10,
+          offset: const Offset(0, 5),
+        ),
+      ],
     ),
     child: Padding(
       padding: const EdgeInsets.all(16),
@@ -369,14 +464,32 @@ class _GallerySummaryCard extends StatelessWidget {
             height: 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.black.withValues(alpha: 0.34),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+              gradient: const RadialGradient(
+                colors: [
+                  Color(0xFF131416),
+                  Color(0xFF24272D),
+                ],
+                center: Alignment(-0.1, -0.1),
+                radius: 0.6,
+              ),
+              border: Border.all(
+                color: Colors.black.withValues(alpha: 0.5),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  blurRadius: 1,
+                  offset: const Offset(0, 1),
+                ),
+              ],
             ),
             child: Icon(
               hasPermission
                   ? Icons.photo_library_rounded
                   : Icons.lock_outline_rounded,
               color: const Color(0xFFF39C12),
+              size: 20,
             ),
           ),
           const SizedBox(width: 14),
@@ -386,19 +499,20 @@ class _GallerySummaryCard extends StatelessWidget {
               children: [
                 Text(
                   'RANA LIBRARY',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.62),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.3,
+                  style: const TextStyle(
+                    color: Color(0xFFF39C12),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                    fontFamily: 'monospace',
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 5),
                 Text(
                   isLoading ? 'Loading recent captures' : _photoCountLabel,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
+                    fontSize: 15.5,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -406,25 +520,12 @@ class _GallerySummaryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          FilterChip(
-            selected: showFavoritesOnly,
-            onSelected: hasPermission && !isLoading
-                ? onFavoritesOnlyChanged
+          _FavoriteFilterButton(
+            isSelected: showFavoritesOnly,
+            count: favoriteCount,
+            onTap: hasPermission && !isLoading
+                ? () => onFavoritesOnlyChanged(!showFavoritesOnly)
                 : null,
-            avatar: Icon(
-              showFavoritesOnly
-                  ? Icons.favorite_rounded
-                  : Icons.favorite_border_rounded,
-              size: 16,
-            ),
-            label: Text('$favoriteCount'),
-            selectedColor: const Color(0xFFF39C12),
-            backgroundColor: Colors.black.withValues(alpha: 0.26),
-            checkmarkColor: Colors.black,
-            labelStyle: TextStyle(
-              color: showFavoritesOnly ? Colors.black : Colors.white70,
-              fontWeight: FontWeight.w800,
-            ),
           ),
         ],
       ),
