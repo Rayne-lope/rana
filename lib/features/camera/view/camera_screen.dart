@@ -271,20 +271,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                   else
                     const SizedBox.shrink(),
 
-                  // Header-to-Viewfinder Divider
-                  if (isEditing || _isSelectingPreset)
-                    Container(
-                      height: 1,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        border: const Border(
-                          bottom: BorderSide(
-                            color: Colors.white10,
-                            width: 0.5,
-                          ),
-                        ),
-                      ),
-                    ),
+
 
                   Expanded(
                     child: _buildViewfinder(
@@ -296,19 +283,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                     ),
                   ),
 
-                  // Viewfinder-to-Panel Divider
-                  Container(
-                    height: 1,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      border: const Border(
-                        bottom: BorderSide(
-                          color: Colors.white10,
-                          width: 0.5,
-                        ),
-                      ),
-                    ),
-                  ),
+
 
                   if (isEditing)
                     _buildStylesEditingContent(cameraState, controller)
@@ -920,22 +895,62 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     );
   }
 
-  Widget _buildThumbnailButton(CameraState state) => GestureDetector(
-    onTap: () => context.go(AppRoutes.gallery),
-    child: Container(
-      width: 54,
-      height: 54,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white24, width: 2),
-        boxShadow: const [
-          BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 2)),
-        ],
+  Widget _buildThumbnailButton(CameraState state) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => context.go(AppRoutes.gallery),
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const RadialGradient(
+                center: Alignment(-0.15, -0.2),
+                colors: [Color(0xFF3E424B), Color(0xFF202227), Color(0xFF131416)],
+                stops: [0.0, 0.7, 1.0],
+              ),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.08),
+                width: 0.8,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.28),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                )
+              ],
+            ),
+            child: ClipOval(
+              child: state.lastCapturedPath != null && state.lastCapturedPath!.isNotEmpty
+                  ? LatestCaptureThumbnail(imageUri: state.lastCapturedPath)
+                  : const Center(
+                      child: Icon(
+                        Icons.photo_library_outlined,
+                        size: 18,
+                        color: Colors.white70,
+                      ),
+                    ),
+            ),
+          ),
+        ),
       ),
-      child: ClipOval(
-        child: LatestCaptureThumbnail(imageUri: state.lastCapturedPath),
+      const SizedBox(height: 6),
+      const Text(
+        'GALLERY',
+        maxLines: 1,
+        style: TextStyle(
+          color: Colors.white70,
+          fontSize: 9.5,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.8,
+        ),
       ),
-    ),
+    ],
   );  Widget _buildViewfinder(
     CameraState state,
     CameraController controller, {
