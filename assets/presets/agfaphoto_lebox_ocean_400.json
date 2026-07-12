@@ -1,0 +1,45 @@
+{
+  "id": "agfaphoto_lebox_ocean_400",
+  "name": "AgfaPhoto LeBox Ocean 400",
+  "category": "Disposable",
+  "color": {
+    "temperature": -0.12,
+    "contrast": 0.12,
+    "saturation": 0.10
+  },
+  "grain": {
+    "intensity": 0.23
+  },
+  "vignette": {
+    "intensity": 0.10
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.10,
+      "variant": 3
+    },
+    "dust": {
+      "intensity": 0.01
+    },
+    "bloom": {
+      "threshold": 0.89,
+      "intensity": 0.03
+    },
+    "halation": {
+      "intensity": 0.01
+    },
+    "lensDistortion": {
+      "strength": 0.07
+    }
+  },
+  "style": {
+    "tone": 4.0,
+    "color": 5.0,
+    "styleStrength": 80.0,
+    "undertoneX": -0.10,
+    "undertoneY": -0.12
+  }
+}

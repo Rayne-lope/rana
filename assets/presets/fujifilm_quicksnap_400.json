@@ -1,0 +1,45 @@
+{
+  "id": "fujifilm_quicksnap_400",
+  "name": "Fujifilm QuickSnap 400",
+  "category": "Disposable",
+  "color": {
+    "temperature": -0.04,
+    "contrast": 0.18,
+    "saturation": 0.16
+  },
+  "grain": {
+    "intensity": 0.22
+  },
+  "vignette": {
+    "intensity": 0.09
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.12,
+      "variant": 1
+    },
+    "dust": {
+      "intensity": 0.01
+    },
+    "bloom": {
+      "threshold": 0.88,
+      "intensity": 0.04
+    },
+    "halation": {
+      "intensity": 0.02
+    },
+    "lensDistortion": {
+      "strength": 0.04
+    }
+  },
+  "style": {
+    "tone": 10.0,
+    "color": 8.0,
+    "styleStrength": 82.0,
+    "undertoneX": -0.04,
+    "undertoneY": -0.10
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "id": "kodak_kodacolor_100",
+  "name": "Kodak KODACOLOR 100",
+  "category": "Vintage",
+  "color": {
+    "temperature": 0.10,
+    "contrast": 0.05,
+    "saturation": 0.14
+  },
+  "grain": {
+    "intensity": 0.10
+  },
+  "vignette": {
+    "intensity": 0.05
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.00,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.01
+    },
+    "bloom": {
+      "threshold": 0.89,
+      "intensity": 0.02
+    },
+    "halation": {
+      "intensity": 0.01
+    },
+    "lensDistortion": {
+      "strength": 0.00
+    }
+  },
+  "style": {
+    "tone": -8.0,
+    "color": 10.0,
+    "styleStrength": 76.0,
+    "undertoneX": 0.10,
+    "undertoneY": 0.00
+  }
+}

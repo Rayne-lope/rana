@@ -1,0 +1,45 @@
+{
+  "id": "fujifilm_instax_mini_white",
+  "name": "Fujifilm instax mini White",
+  "category": "Instant",
+  "color": {
+    "temperature": -0.02,
+    "contrast": 0.04,
+    "saturation": 0.12
+  },
+  "grain": {
+    "intensity": 0.08
+  },
+  "vignette": {
+    "intensity": 0.18
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.00,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.00
+    },
+    "bloom": {
+      "threshold": 0.86,
+      "intensity": 0.06
+    },
+    "halation": {
+      "intensity": 0.03
+    },
+    "lensDistortion": {
+      "strength": 0.01
+    }
+  },
+  "style": {
+    "tone": -4.0,
+    "color": 6.0,
+    "styleStrength": 78.0,
+    "undertoneX": -0.05,
+    "undertoneY": -0.08
+  }
+}

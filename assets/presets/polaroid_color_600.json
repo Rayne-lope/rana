@@ -1,0 +1,45 @@
+{
+  "id": "polaroid_color_600",
+  "name": "Polaroid Color 600",
+  "category": "Instant",
+  "color": {
+    "temperature": 0.10,
+    "contrast": 0.02,
+    "saturation": 0.04
+  },
+  "grain": {
+    "intensity": 0.12
+  },
+  "vignette": {
+    "intensity": 0.22
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.00,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.01
+    },
+    "bloom": {
+      "threshold": 0.84,
+      "intensity": 0.08
+    },
+    "halation": {
+      "intensity": 0.05
+    },
+    "lensDistortion": {
+      "strength": 0.02
+    }
+  },
+  "style": {
+    "tone": -10.0,
+    "color": -2.0,
+    "styleStrength": 80.0,
+    "undertoneX": 0.12,
+    "undertoneY": -0.06
+  }
+}

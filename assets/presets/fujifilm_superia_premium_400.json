@@ -1,0 +1,45 @@
+{
+  "id": "fujifilm_superia_premium_400",
+  "name": "Fujifilm Superia Premium 400",
+  "category": "Vintage",
+  "color": {
+    "temperature": 0.05,
+    "contrast": 0.08,
+    "saturation": 0.12
+  },
+  "grain": {
+    "intensity": 0.14
+  },
+  "vignette": {
+    "intensity": 0.06
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.00,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.01
+    },
+    "bloom": {
+      "threshold": 0.88,
+      "intensity": 0.03
+    },
+    "halation": {
+      "intensity": 0.02
+    },
+    "lensDistortion": {
+      "strength": 0.00
+    }
+  },
+  "style": {
+    "tone": -4.0,
+    "color": 8.0,
+    "styleStrength": 82.0,
+    "undertoneX": 0.02,
+    "undertoneY": -0.07
+  }
+}

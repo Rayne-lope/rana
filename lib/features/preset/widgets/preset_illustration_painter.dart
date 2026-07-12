@@ -14,6 +14,7 @@ class PresetIllustrationPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     final idLower = preset.id.toLowerCase();
+    final categoryLower = preset.category.toLowerCase();
 
     // Classification logic for preset categories
     final isMonochrome = idLower.contains('bw') ||
@@ -25,6 +26,15 @@ class PresetIllustrationPainter extends CustomPainter {
     final isLomo = idLower.contains('lomo') ||
         idLower.contains('toy') ||
         idLower.contains('metropolis');
+
+    final isDisposable = categoryLower == 'disposable' ||
+        idLower.contains('quicksnap') ||
+        idLower.contains('lebox') ||
+        idLower.contains('disposable');
+
+    final isInstant = categoryLower == 'instant' ||
+        idLower.contains('instax') ||
+        idLower.contains('polaroid');
 
     final isCool = idLower.contains('aurora') ||
         idLower.contains('cool') ||
@@ -48,6 +58,10 @@ class PresetIllustrationPainter extends CustomPainter {
       _paintLomo(canvas, size, rect);
     } else if (isMonochrome) {
       _paintMonochrome(canvas, size, rect);
+    } else if (isDisposable) {
+      _paintDisposable(canvas, size, rect);
+    } else if (isInstant) {
+      _paintInstant(canvas, size, rect);
     } else if (isForest) {
       _paintForest(canvas, size, rect);
     } else if (isCool) {
@@ -569,6 +583,155 @@ class PresetIllustrationPainter extends CustomPainter {
 
     canvas.drawPath(hill1, hillPaint1);
     canvas.drawPath(hill2, hillPaint2);
+  }
+
+  void _paintDisposable(Canvas canvas, Size size, Rect rect) {
+    // 1. Retro plastic green/blue/yellow neon gradient background
+    final bgPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF00B4DB), Color(0xFF0083B0)],
+      ).createShader(rect);
+    canvas.drawRect(rect, bgPaint);
+
+    // 2. Yellow accent wave (frequent in disposable camera packages)
+    final yellowPaint = Paint()..color = const Color(0xFFF1C40F);
+    final wavePath = Path()
+      ..moveTo(0, size.height * 0.7)
+      ..quadraticBezierTo(
+        size.width * 0.5,
+        size.height * 0.5,
+        size.width,
+        size.height * 0.8,
+      )
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(wavePath, yellowPaint);
+
+    // 3. Minimalist Disposable Camera lens in center
+    final centerX = size.width * 0.5;
+    final centerY = size.height * 0.45;
+
+    // Outer black lens ring
+    canvas.drawCircle(
+      Offset(centerX, centerY),
+      size.width * 0.22,
+      Paint()..color = const Color(0xFF1C2833),
+    );
+
+    // Inner lens glass (blue glow)
+    canvas.drawCircle(
+      Offset(centerX, centerY),
+      size.width * 0.12,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            const Color(0xFF5DADE2),
+            const Color(0xFF2E4053),
+          ],
+        ).createShader(Rect.fromCircle(
+          center: Offset(centerX, centerY),
+          radius: size.width * 0.12,
+        )),
+    );
+
+    // 4. Glowing flash element in top-right
+    final flashX = size.width * 0.8;
+    final flashY = size.height * 0.2;
+    final flashRadius = size.width * 0.1;
+
+    final flashGlow = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          Colors.white,
+          const Color(0xFFF1C40F).withValues(alpha: 0.6),
+          Colors.transparent,
+        ],
+      ).createShader(Rect.fromCircle(
+        center: Offset(flashX, flashY),
+        radius: flashRadius * 2,
+      ));
+    canvas.drawCircle(Offset(flashX, flashY), flashRadius * 2, flashGlow);
+    canvas.drawCircle(
+      Offset(flashX, flashY),
+      flashRadius * 0.6,
+      Paint()..color = Colors.white,
+    );
+  }
+
+  void _paintInstant(Canvas canvas, Size size, Rect rect) {
+    // 1. Slate dark vintage background
+    final bgPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF2C3E50), Color(0xFF1A252F)],
+      ).createShader(rect);
+    canvas.drawRect(rect, bgPaint);
+
+    // 2. Polaroid-style diagonal rainbow spectrum stripe
+    final rainbowColors = [
+      const Color(0xFFE74C3C), // Red
+      const Color(0xFFE67E22), // Orange
+      const Color(0xFFF1C40F), // Yellow
+      const Color(0xFF2ECC71), // Green
+      const Color(0xFF3498DB), // Blue
+    ];
+
+    final stripeWidth = size.width * 0.08;
+    final stripePaint = Paint()..style = PaintingStyle.fill;
+
+    for (var i = 0; i < rainbowColors.length; i++) {
+      stripePaint.color = rainbowColors[i];
+      final path = Path()
+        ..moveTo(size.width * 0.2 + i * stripeWidth, 0)
+        ..lineTo(size.width * 0.2 + (i + 1) * stripeWidth, 0)
+        ..lineTo(0, size.height * 0.3 + (i + 1) * stripeWidth)
+        ..lineTo(0, size.height * 0.3 + i * stripeWidth)
+        ..close();
+      canvas.drawPath(path, stripePaint);
+    }
+
+    // 3. Mini white instant frame inset representing the film format
+    final frameWidth = size.width * 0.55;
+    final frameHeight = size.height * 0.65;
+    final frameLeft = size.width * 0.225;
+    final frameTop = size.height * 0.18;
+
+    final frameRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(frameLeft, frameTop, frameWidth, frameHeight),
+      Radius.circular(size.width * 0.04),
+    );
+
+    // Draw the white paper border of the instant photo
+    canvas.drawRRect(
+      frameRect,
+      Paint()..color = const Color(0xFFF4F6F7),
+    );
+
+    // Draw the dark inner image area inside the instant photo
+    final photoWidth = frameWidth * 0.8;
+    final photoHeight = frameHeight * 0.72;
+    final photoLeft = frameLeft + (frameWidth - photoWidth) / 2;
+    final photoTop = frameTop + (frameWidth - photoWidth) / 2;
+
+    final photoRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(photoLeft, photoTop, photoWidth, photoHeight),
+      Radius.circular(size.width * 0.02),
+    );
+
+    // Draw photo background (soft blue sky/sunset inside)
+    canvas.drawRRect(
+      photoRect,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF85C1E9), Color(0xFFF5B041)],
+        ).createShader(photoRect.outerRect),
+    );
   }
 
   @override

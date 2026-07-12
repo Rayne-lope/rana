@@ -1,0 +1,45 @@
+{
+  "id": "polaroid_color_sx70",
+  "name": "Polaroid Color SX-70",
+  "category": "Instant",
+  "color": {
+    "temperature": 0.08,
+    "contrast": -0.04,
+    "saturation": 0.02
+  },
+  "grain": {
+    "intensity": 0.10
+  },
+  "vignette": {
+    "intensity": 0.20
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.00,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.01
+    },
+    "bloom": {
+      "threshold": 0.83,
+      "intensity": 0.07
+    },
+    "halation": {
+      "intensity": 0.04
+    },
+    "lensDistortion": {
+      "strength": 0.02
+    }
+  },
+  "style": {
+    "tone": -14.0,
+    "color": -4.0,
+    "styleStrength": 76.0,
+    "undertoneX": 0.10,
+    "undertoneY": -0.02
+  }
+}

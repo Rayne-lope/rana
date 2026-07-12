@@ -1,0 +1,45 @@
+{
+  "id": "lomography_simple_use_color_400",
+  "name": "Lomography Simple Use Color 400",
+  "category": "Disposable",
+  "color": {
+    "temperature": 0.08,
+    "contrast": 0.24,
+    "saturation": 0.28
+  },
+  "grain": {
+    "intensity": 0.25
+  },
+  "vignette": {
+    "intensity": 0.12
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.18,
+      "variant": 4
+    },
+    "dust": {
+      "intensity": 0.02
+    },
+    "bloom": {
+      "threshold": 0.86,
+      "intensity": 0.05
+    },
+    "halation": {
+      "intensity": 0.03
+    },
+    "lensDistortion": {
+      "strength": 0.06
+    }
+  },
+  "style": {
+    "tone": 14.0,
+    "color": 20.0,
+    "styleStrength": 88.0,
+    "undertoneX": 0.06,
+    "undertoneY": -0.04
+  }
+}
