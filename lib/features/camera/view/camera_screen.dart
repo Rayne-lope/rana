@@ -1104,51 +1104,62 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                                 });
                               }
                             : null,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: BackdropFilter(
-                            filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 7,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            gradient: const RadialGradient(
+                              center: Alignment(-0.15, -0.2),
+                              colors: [
+                                Color(0xFF3E424B),
+                                Color(0xFF202227),
+                                Color(0xFF131416),
+                              ],
+                              stops: [0, 0.7, 1],
+                            ),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.09),
+                              width: 0.8,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.35),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              )
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.photo_camera_back_rounded,
+                                size: 12,
+                                color: Color(0xFFF39C12),
                               ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.42),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.08),
-                                  width: 0.8,
+                              const SizedBox(width: 6),
+                              Text(
+                                (activePreset?.name ?? 'NORMAL')
+                                    .toUpperCase(),
+                                style: const TextStyle(
+                                  color: Color(0xFFF39C12),
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.5,
+                                  fontFamily: 'monospace',
                                 ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.photo_camera_back_outlined,
-                                    size: 13,
-                                    color: Color(0xFFF39C12),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    (activePreset?.name ?? 'NORMAL')
-                                        .toUpperCase(),
-                                    style: const TextStyle(
-                                      color: Color(0xFFF39C12),
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 1,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(
-                                    Icons.keyboard_arrow_up_rounded,
-                                    size: 13,
-                                    color: Colors.white54,
-                                  ),
-                                ],
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.keyboard_arrow_up_rounded,
+                                size: 13,
+                                color: Colors.white60,
                               ),
-                            ),
+                            ],
                           ),
                         ),
                       ),

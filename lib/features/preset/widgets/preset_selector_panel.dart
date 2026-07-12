@@ -410,29 +410,10 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
                                           milliseconds: 200,
                                         ),
                                         curve: Curves.easeOutBack,
-                                        child: AnimatedContainer(
-                                          duration: const Duration(
-                                            milliseconds: 200,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            borderRadius:
-                                                BorderRadius.circular(4),
-                                            boxShadow: isSelected
-                                                ? [
-                                                    BoxShadow(
-                                                      color: const Color(
-                                                        0xFFF39C12,
-                                                      ).withValues(alpha: 0.24),
-                                                      blurRadius: 12,
-                                                      spreadRadius: 0.5,
-                                                    ),
-                                                  ]
-                                                : null,
-                                          ),
-                                          child: PresetThumbnailWidget(
-                                            preset: preset,
-                                            size: 32,
-                                          ),
+                                        child: PresetThumbnailWidget(
+                                          preset: preset,
+                                          size: 32,
+                                          isSelected: isSelected,
                                         ),
                                       ),
                                       if (isSavedStyle &&

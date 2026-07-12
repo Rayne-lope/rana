@@ -8,6 +8,7 @@ class PresetThumbnailWidget extends StatelessWidget {
   const PresetThumbnailWidget({
     required this.preset,
     this.size = 28.0,
+    this.isSelected = false,
     super.key,
   });
 
@@ -16,6 +17,9 @@ class PresetThumbnailWidget extends StatelessWidget {
 
   /// The width of the Instax paper card.
   final double size;
+
+  /// Whether this thumbnail is selected.
+  final bool isSelected;
 
   String _shortenName(String name) {
     var clean = name.toUpperCase();
@@ -57,14 +61,18 @@ class PresetThumbnailWidget extends StatelessWidget {
           color: const Color(0xFFFBFBFC), // Premium off-white paper color
           borderRadius: BorderRadius.circular(width * 0.08),
           border: Border.all(
-            color: Colors.black.withValues(alpha: 0.06),
-            width: 0.5,
+            color: isSelected
+                ? const Color(0xFFF39C12)
+                : Colors.black.withValues(alpha: 0.06),
+            width: isSelected ? 1.5 : 0.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.22),
-              blurRadius: 3.5,
-              offset: const Offset(0, 1.2),
+              color: isSelected
+                  ? const Color(0xFFF39C12).withValues(alpha: 0.36)
+                  : Colors.black.withValues(alpha: 0.22),
+              blurRadius: isSelected ? 5 : 3.5,
+              offset: isSelected ? const Offset(0, 1.8) : const Offset(0, 1.2),
             ),
           ],
         ),
