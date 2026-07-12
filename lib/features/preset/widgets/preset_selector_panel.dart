@@ -279,36 +279,53 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
                       child: GestureDetector(
                         onTap: () => _onTabTapped(index),
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
+                          duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
+                            horizontal: 14,
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            gradient: isSelected
+                                ? const LinearGradient(
+                                    colors: [
+                                      Color(0xFFF4C44F),
+                                      Color(0xFFF39C12),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  )
+                                : null,
                             color: isSelected
-                                ? const Color(
-                                    0xFFF39C12,
-                                  ).withValues(alpha: 0.12)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(20),
+                                ? null
+                                : Colors.black.withValues(alpha: 0.36),
                             border: Border.all(
                               color: isSelected
-                                  ? const Color(
-                                      0xFFF39C12,
-                                    ).withValues(alpha: 0.3)
-                                  : Colors.white.withValues(alpha: 0.05),
+                                  ? const Color(0xFFF4C44F)
+                                      .withValues(alpha: 0.5)
+                                  : Colors.white.withValues(alpha: 0.08),
+                              width: 0.8,
                             ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFFF39C12)
+                                          .withValues(alpha: 0.28),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 1.5),
+                                    )
+                                  ]
+                                : null,
                           ),
                           child: Center(
                             child: Text(
                               group.name,
                               style: TextStyle(
-                                color: isSelected
-                                    ? const Color(0xFFF39C12)
-                                    : Colors.white60,
-                                fontSize: 10,
+                                color: isSelected ? Colors.black : Colors.white70,
+                                fontSize: 9.5,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 1.2,
+                                fontFamily: 'monospace',
                               ),
                             ),
                           ),
@@ -387,40 +404,35 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
                                   Stack(
                                     clipBehavior: Clip.none,
                                     children: [
-                                      Container(
-                                        width: 48,
-                                        height: 48,
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? const Color(
-                                                  0xFFF39C12,
-                                                ).withValues(alpha: 0.12)
-                                              : const Color(0xFF16161A),
-                                          borderRadius: BorderRadius.circular(
-                                            14,
-                                          ),
-                                          border: Border.all(
-                                            color: isSelected
-                                                ? const Color(0xFFF39C12)
-                                                : Colors.white.withValues(
-                                                    alpha: 0.05,
-                                                  ),
-                                            width: isSelected ? 2 : 1,
-                                          ),
-                                          boxShadow: isSelected
-                                              ? [
-                                                  BoxShadow(
-                                                    color: const Color(
-                                                      0xFFF39C12,
-                                                    ).withValues(alpha: 0.15),
-                                                    blurRadius: 8,
-                                                    offset: const Offset(0, 2),
-                                                  ),
-                                                ]
-                                              : null,
+                                      AnimatedScale(
+                                        scale: isSelected ? 1.15 : 0.95,
+                                        duration: const Duration(
+                                          milliseconds: 200,
                                         ),
-                                        child: PresetThumbnailWidget(
-                                          preset: preset,
+                                        curve: Curves.easeOutBack,
+                                        child: AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 200,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                            boxShadow: isSelected
+                                                ? [
+                                                    BoxShadow(
+                                                      color: const Color(
+                                                        0xFFF39C12,
+                                                      ).withValues(alpha: 0.24),
+                                                      blurRadius: 12,
+                                                      spreadRadius: 0.5,
+                                                    ),
+                                                  ]
+                                                : null,
+                                          ),
+                                          child: PresetThumbnailWidget(
+                                            preset: preset,
+                                            size: 32,
+                                          ),
                                         ),
                                       ),
                                       if (isSavedStyle &&
@@ -457,12 +469,11 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
                                     style: TextStyle(
                                       color: isSelected
                                           ? const Color(0xFFF39C12)
-                                          : Colors.white70,
+                                          : Colors.white60,
                                       fontSize: 8.5,
-                                      fontWeight: isSelected
-                                          ? FontWeight.w900
-                                          : FontWeight.w700,
-                                      letterSpacing: 0.5,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.0,
+                                      fontFamily: 'monospace',
                                       height: 1.1,
                                     ),
                                   ),
