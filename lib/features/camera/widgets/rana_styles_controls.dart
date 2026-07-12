@@ -824,32 +824,60 @@ class _PremiumSliderPainter extends CustomPainter {
         knob,
         thumbRadius * (1.35 + pulseValue * 0.22),
         Paint()
-          ..color = Colors.white.withValues(alpha: 0.20 + pulseValue * 0.12)
+          ..color = const Color(0xFFF4C44F)
+              .withValues(alpha: 0.18 + pulseValue * 0.08)
           ..maskFilter = ui.MaskFilter.blur(
             ui.BlurStyle.normal,
-            9 + pulseValue * 5,
+            6 + pulseValue * 3,
           ),
       );
     }
+
+    final knobRect = Rect.fromCircle(center: knob, radius: thumbRadius);
+
+    // Convex metallic radial dial
     canvas.drawCircle(
       knob,
       thumbRadius,
       Paint()
-        ..color = const Color(0xFFFDFCFB)
-        ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 1.2),
+        ..shader = const RadialGradient(
+          center: Alignment(-0.18, -0.22),
+          colors: [
+            Color(0xFF4C4F56),
+            Color(0xFF282A2F),
+            Color(0xFF121316),
+          ],
+          stops: [0, 0.68, 1],
+        ).createShader(knobRect),
     );
+
+    // Fine inner highlight rim on the edge to simulate metal reflection
+    canvas.drawCircle(
+      knob,
+      thumbRadius - 0.6,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.6
+        ..color = Colors.white.withValues(alpha: 0.16),
+    );
+
+    // Outer border of the knob
     canvas.drawCircle(
       knob,
       thumbRadius,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = Colors.white.withValues(alpha: 0.95),
+        ..strokeWidth = 0.8
+        ..color = const Color(0xFF0F1012),
     );
+
+    // Gold center indicator pin
     canvas.drawCircle(
-      knob.translate(-thumbRadius * 0.22, -thumbRadius * 0.28),
-      thumbRadius * 0.26,
-      Paint()..color = Colors.white.withValues(alpha: 0.68),
+      knob,
+      2.8,
+      Paint()
+        ..color = const Color(0xFFF4C44F)
+        ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 0.3),
     );
   }
 
@@ -899,13 +927,13 @@ class _ReadoutItem extends StatelessWidget {
     height: 42,
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(13),
-      color: Colors.white.withValues(alpha: 0.035),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      color: const Color(0xFF0A0B0E),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.10),
-          blurRadius: 8,
-          offset: const Offset(0, 3),
+          color: Colors.black.withValues(alpha: 0.35),
+          blurRadius: 5,
+          offset: const Offset(0, 2),
         ),
       ],
     ),
@@ -919,15 +947,16 @@ class _ReadoutItem extends StatelessWidget {
             fontSize: 9,
             fontWeight: FontWeight.w800,
             letterSpacing: 1.1,
+            fontFamily: 'monospace',
           ),
         ),
-        const SizedBox(width: 5),
+        const SizedBox(width: 6),
         Text(
           value,
           style: const TextStyle(
-            color: Colors.white,
+            color: Color(0xFFF39C12),
             fontSize: 12,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w900,
             fontFamily: 'monospace',
           ),
         ),

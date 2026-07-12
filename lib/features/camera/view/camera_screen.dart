@@ -396,7 +396,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        IconButton(
+        _buildHeaderKnob(
+          icon: Icons.arrow_back_rounded,
+          tooltip: 'Back',
           onPressed: () {
             final presetsList = ref.read(presetsProvider).valueOrNull ?? [];
             if (_originalPresetId != null) {
@@ -410,36 +412,25 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               _isSelectingPreset = false;
             });
           },
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: Colors.white,
-            size: 20,
-          ),
         ),
         const Text(
           'SELECT PRESET',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.5,
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 2,
+            fontFamily: 'monospace',
           ),
         ),
-        TextButton(
+        _buildHeaderKnob(
+          icon: Icons.check_rounded,
+          tooltip: 'Done',
           onPressed: () {
             setState(() {
               _isSelectingPreset = false;
             });
           },
-          child: const Text(
-            'DONE',
-            style: TextStyle(
-              color: Color(0xFFF39C12),
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1,
-            ),
-          ),
         ),
       ],
     ),
@@ -514,7 +505,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         // Cancel / Back Button (<-)
-        IconButton(
+        _buildHeaderKnob(
+          icon: Icons.arrow_back_rounded,
+          tooltip: 'Back',
           onPressed: () {
             if (_isEditingUndertone) {
               setState(() {
@@ -531,11 +524,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               });
             }
           },
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: Colors.white,
-            size: 20,
-          ),
         ),
 
         // Title text
@@ -543,14 +531,17 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           title.toUpperCase(),
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.5,
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 2,
+            fontFamily: 'monospace',
           ),
         ),
 
         // Done Button
-        TextButton(
+        _buildHeaderKnob(
+          icon: Icons.check_rounded,
+          tooltip: 'Done',
           onPressed: () {
             if (_isEditingUndertone) {
               setState(() {
@@ -564,15 +555,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               });
             }
           },
-          child: const Text(
-            'DONE',
-            style: TextStyle(
-              color: Color(0xFFF39C12),
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1,
-            ),
-          ),
         ),
       ],
     ),
@@ -682,7 +664,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final isSelected = index == 3
         ? _isEditingUndertone
         : (_activeStyleTab == index && !_isEditingUndertone);
-    final color = isSelected ? const Color(0xFFF39C12) : Colors.white54;
 
     return GestureDetector(
       onTap: () {
@@ -697,15 +678,43 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           }
         });
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          gradient: isSelected
+              ? const LinearGradient(
+                  colors: [Color(0xFFF4C44F), Color(0xFFF39C12)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isSelected ? null : Colors.black.withValues(alpha: 0.36),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFFF4C44F).withValues(alpha: 0.5)
+                : Colors.white.withValues(alpha: 0.08),
+            width: 0.8,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFF39C12).withValues(alpha: 0.28),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1.5),
+                  )
+                ]
+              : null,
+        ),
         child: Text(
           label.toUpperCase(),
           style: TextStyle(
-            color: color,
-            fontSize: 10,
+            color: isSelected ? Colors.black : Colors.white70,
+            fontSize: 9.5,
             fontWeight: FontWeight.w900,
-            letterSpacing: 1,
+            letterSpacing: 1.2,
+            fontFamily: 'monospace',
           ),
         ),
       ),
@@ -733,6 +742,67 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       ),
     ),
   );
+
+  Widget _buildHeaderKnob({
+    required IconData icon,
+    required VoidCallback? onPressed,
+    String? tooltip,
+  }) {
+    final isEnabled = onPressed != null;
+    return Tooltip(
+      message: tooltip ?? '',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(18),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                center: const Alignment(-0.15, -0.2),
+                colors: isEnabled
+                    ? const [
+                        Color(0xFF3E424B),
+                        Color(0xFF202227),
+                        Color(0xFF131416),
+                      ]
+                    : const [
+                        Color(0xFF24262A),
+                        Color(0xFF181A1C),
+                        Color(0xFF0F1011),
+                      ],
+                stops: const [0.0, 0.7, 1.0],
+              ),
+              border: Border.all(
+                color: isEnabled
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.white.withValues(alpha: 0.03),
+                width: 0.8,
+              ),
+              boxShadow: isEnabled
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.28),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      )
+                    ]
+                  : null,
+            ),
+            child: Icon(
+              icon,
+              size: 16,
+              color: isEnabled ? const Color(0xFFF39C12) : Colors.white24,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildGlassTextButton({
     required String text,
