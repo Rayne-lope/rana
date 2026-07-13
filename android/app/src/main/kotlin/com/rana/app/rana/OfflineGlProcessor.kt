@@ -46,6 +46,7 @@ object OfflineGlProcessor {
         val temperatureLoc: Int,
         val saturationLoc: Int,
         val contrastLoc: Int,
+        val colorMatrixLoc: Int,
         val grainLoc: Int,
         val vignetteLoc: Int,
         val lutTextureLoc: Int,
@@ -86,6 +87,7 @@ object OfflineGlProcessor {
         val temperatureLoc: Int,
         val saturationLoc: Int,
         val contrastLoc: Int,
+        val colorMatrixLoc: Int,
         val lutTextureLoc: Int,
         val lutStrengthLoc: Int,
         val textureLoc: Int,
@@ -663,6 +665,13 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.temperatureLoc, params.temperature)
         GLES20.glUniform1f(program.saturationLoc, params.saturation)
         GLES20.glUniform1f(program.contrastLoc, params.contrast)
+        GLES20.glUniformMatrix3fv(
+            program.colorMatrixLoc,
+            1,
+            false,
+            colorMatrixForGl(params.colorMatrix),
+            0
+        )
         GLES20.glUniform1f(program.grainLoc, effectScale.grainIntensity)
         GLES20.glUniform1f(program.vignetteLoc, params.vignette)
         GLES20.glUniform1f(program.lutStrengthLoc, params.lutStrength)
@@ -763,6 +772,13 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.temperatureLoc, params.temperature)
         GLES20.glUniform1f(program.saturationLoc, params.saturation)
         GLES20.glUniform1f(program.contrastLoc, params.contrast)
+        GLES20.glUniformMatrix3fv(
+            program.colorMatrixLoc,
+            1,
+            false,
+            colorMatrixForGl(params.colorMatrix),
+            0
+        )
         GLES20.glUniform1f(program.lutStrengthLoc, params.lutStrength)
         GLES20.glUniform1f(program.toneLoc, params.tone)
         GLES20.glUniform1f(program.colorLoc, params.color)
@@ -1043,6 +1059,7 @@ object OfflineGlProcessor {
             temperatureLoc = GLES20.glGetUniformLocation(programId, "uTemperature"),
             saturationLoc = GLES20.glGetUniformLocation(programId, "uSaturation"),
             contrastLoc = GLES20.glGetUniformLocation(programId, "uContrast"),
+            colorMatrixLoc = GLES20.glGetUniformLocation(programId, "uColorMatrix"),
             grainLoc = GLES20.glGetUniformLocation(programId, "uGrain"),
             vignetteLoc = GLES20.glGetUniformLocation(programId, "uVignette"),
             lutTextureLoc = GLES20.glGetUniformLocation(programId, "uLutTexture"),
@@ -1105,6 +1122,7 @@ object OfflineGlProcessor {
             temperatureLoc = GLES20.glGetUniformLocation(programId, "uTemperature"),
             saturationLoc = GLES20.glGetUniformLocation(programId, "uSaturation"),
             contrastLoc = GLES20.glGetUniformLocation(programId, "uContrast"),
+            colorMatrixLoc = GLES20.glGetUniformLocation(programId, "uColorMatrix"),
             lutTextureLoc = GLES20.glGetUniformLocation(programId, "uLutTexture"),
             lutStrengthLoc = GLES20.glGetUniformLocation(programId, "uLutStrength"),
             textureLoc = GLES20.glGetUniformLocation(programId, "sTexture"),

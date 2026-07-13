@@ -27,6 +27,7 @@ object GlShaderConstants {
         uniform float uTemperature;
         uniform float uSaturation;
         uniform float uContrast;
+        uniform mat3 uColorMatrix;
         uniform float uLensDistortionStrength;
 
         vec2 applyLensDistortion(vec2 uv) {
@@ -87,6 +88,8 @@ object GlShaderConstants {
                 color.g += uTemperature * 0.05;
                 color.b -= uTemperature * 0.15;
             }
+
+            color = uColorMatrix * color;
 
             float luma = dot(color, vec3(0.299, 0.587, 0.114));
             color = mix(vec3(luma), color, 1.0 + uSaturation);

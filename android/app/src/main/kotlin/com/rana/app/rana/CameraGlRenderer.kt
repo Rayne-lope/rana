@@ -40,6 +40,7 @@ class CameraGlRenderer(
         val temperatureLoc: Int,
         val saturationLoc: Int,
         val contrastLoc: Int,
+        val colorMatrixLoc: Int,
         val grainLoc: Int,
         val vignetteLoc: Int,
         val lutTextureLoc: Int,
@@ -80,6 +81,7 @@ class CameraGlRenderer(
         val temperatureLoc: Int,
         val saturationLoc: Int,
         val contrastLoc: Int,
+        val colorMatrixLoc: Int,
         val lutTextureLoc: Int,
         val lutStrengthLoc: Int,
         val textureLoc: Int,
@@ -149,6 +151,7 @@ class CameraGlRenderer(
     private var temperature = 0f
     private var saturation = 0f
     private var contrast = 0f
+    private var colorMatrix = colorMatrixForGl(IDENTITY_COLOR_MATRIX)
     private var grain = 0f
     private var vignette = 0f
     private var lutStrength = 0f
@@ -282,6 +285,7 @@ class CameraGlRenderer(
         temperature: Float,
         saturation: Float,
         contrast: Float,
+        colorMatrix: FloatArray,
         grain: Float,
         vignette: Float,
         lutPath: String?,
@@ -316,6 +320,7 @@ class CameraGlRenderer(
             this.temperature = temperature
             this.saturation = saturation
             this.contrast = contrast
+            this.colorMatrix = colorMatrixForGl(colorMatrix)
             this.grain = grain
             this.vignette = vignette
             this.lutStrength = lutStrength
@@ -560,6 +565,7 @@ class CameraGlRenderer(
             temperatureLoc = GLES20.glGetUniformLocation(programId, "uTemperature"),
             saturationLoc = GLES20.glGetUniformLocation(programId, "uSaturation"),
             contrastLoc = GLES20.glGetUniformLocation(programId, "uContrast"),
+            colorMatrixLoc = GLES20.glGetUniformLocation(programId, "uColorMatrix"),
             grainLoc = GLES20.glGetUniformLocation(programId, "uGrain"),
             vignetteLoc = GLES20.glGetUniformLocation(programId, "uVignette"),
             lutTextureLoc = GLES20.glGetUniformLocation(programId, "uLutTexture"),
@@ -627,6 +633,10 @@ class CameraGlRenderer(
                     temperatureLoc = GLES20.glGetUniformLocation(programId, "uTemperature"),
                     saturationLoc = GLES20.glGetUniformLocation(programId, "uSaturation"),
                     contrastLoc = GLES20.glGetUniformLocation(programId, "uContrast"),
+                    colorMatrixLoc = GLES20.glGetUniformLocation(
+                        programId,
+                        "uColorMatrix"
+                    ),
                     lutTextureLoc = GLES20.glGetUniformLocation(programId, "uLutTexture"),
                     lutStrengthLoc = GLES20.glGetUniformLocation(programId, "uLutStrength"),
                     textureLoc = GLES20.glGetUniformLocation(programId, "sTexture"),
@@ -844,6 +854,13 @@ class CameraGlRenderer(
         GLES20.glUniform1f(singlePassProgram.temperatureLoc, temperature)
         GLES20.glUniform1f(singlePassProgram.saturationLoc, saturation)
         GLES20.glUniform1f(singlePassProgram.contrastLoc, contrast)
+        GLES20.glUniformMatrix3fv(
+            singlePassProgram.colorMatrixLoc,
+            1,
+            false,
+            colorMatrix,
+            0
+        )
         GLES20.glUniform1f(singlePassProgram.grainLoc, grain)
         GLES20.glUniform1f(singlePassProgram.vignetteLoc, vignette)
         GLES20.glUniform1f(singlePassProgram.lutStrengthLoc, lutStrength)
@@ -944,6 +961,13 @@ class CameraGlRenderer(
         GLES20.glUniform1f(baseProgram.temperatureLoc, temperature)
         GLES20.glUniform1f(baseProgram.saturationLoc, saturation)
         GLES20.glUniform1f(baseProgram.contrastLoc, contrast)
+        GLES20.glUniformMatrix3fv(
+            baseProgram.colorMatrixLoc,
+            1,
+            false,
+            colorMatrix,
+            0
+        )
         GLES20.glUniform1f(baseProgram.lutStrengthLoc, lutStrength)
         GLES20.glUniform1f(baseProgram.toneLoc, tone)
         GLES20.glUniform1f(baseProgram.colorLoc, color)

@@ -22,6 +22,7 @@ void main() {
       expect(model.color.contrast, 0.0);
       expect(model.color.saturation, 0.0);
       expect(model.color.fade, 0.0);
+      expect(model.color.matrix, PresetColor.identityMatrix);
       expect(model.grain.intensity, 0.0);
       expect(model.grain.size, 1.0);
       expect(model.vignette.intensity, 0.0);
@@ -126,6 +127,7 @@ void main() {
           'contrast': 0.2,
           'saturation': -0.1,
           'fade': 0.3,
+          'matrix': <dynamic>[1.1, 0.1, 0, 0, 0.9, 0.1, 0, 0.2, 0.8],
         },
         'grain': <String, dynamic>{'intensity': 0.4, 'size': 1.7},
         'vignette': <String, dynamic>{'intensity': 0.2},
@@ -144,6 +146,17 @@ void main() {
       });
 
       expect(model.color.fade, 0.3);
+      expect(model.color.matrix, <double>[
+        1.1,
+        0.1,
+        0,
+        0,
+        0.9,
+        0.1,
+        0,
+        0.2,
+        0.8,
+      ]);
       expect(model.grain.size, 1.7);
       expect(model.effects.chromaticAberration?.intensity, 0.15);
       expect(model.effects.softness, 0.25);
@@ -157,6 +170,8 @@ void main() {
 
       final serialized = model.toJson();
       final effects = serialized['effects'] as Map<String, dynamic>;
+      final color = serialized['color'] as Map<String, dynamic>;
+      expect(color['matrix'], <double>[1.1, 0.1, 0, 0, 0.9, 0.1, 0, 0.2, 0.8]);
       expect(effects['softness'], 0.25);
       expect(effects['highlightRollOff'], 0.6);
       expect(effects['shadowRollOff'], 0.4);
@@ -168,6 +183,33 @@ void main() {
         'shadowsTint': <double>[0.1, 0.2, 0],
         'highlightsTint': <double>[0.7, 0, 0.9],
       });
+    });
+
+    test('invalid color matrix resolves to identity', () {
+      final base = <String, dynamic>{
+        'id': 'bad_matrix',
+        'name': 'Bad Matrix',
+        'category': 'Custom',
+        'grain': <String, dynamic>{'intensity': 0.0},
+        'vignette': <String, dynamic>{'intensity': 0.0},
+      };
+
+      for (final matrix in <dynamic>[
+        <dynamic>[1, 0, 0],
+        <dynamic>[1, 0, 0, 0, 1, 0, 0, 'bad', 1],
+      ]) {
+        final model = PresetModel.fromJson(<String, dynamic>{
+          ...base,
+          'color': <String, dynamic>{
+            'temperature': 0.0,
+            'contrast': 0.0,
+            'saturation': 0.0,
+            'matrix': matrix,
+          },
+        });
+
+        expect(model.color.matrix, PresetColor.identityMatrix);
+      }
     });
   });
 }

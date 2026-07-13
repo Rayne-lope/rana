@@ -29,9 +29,10 @@ class GlShaderConstantsTest {
     }
 
     @Test
-    fun `color grade applies lut before temperature saturation and contrast`() {
+    fun `color grade applies lut temperature matrix saturation and contrast`() {
         val shader = GlShaderConstants.FRAGMENT_SHADER_EXPORT
 
+        assertTrue(shader.contains("uniform mat3 uColorMatrix;"))
         assertOrder(
             shader,
             "color = applyLut(color);",
@@ -40,6 +41,11 @@ class GlShaderConstantsTest {
         assertOrder(
             shader,
             "if (uTemperature > 0.0)",
+            "color = uColorMatrix * color;"
+        )
+        assertOrder(
+            shader,
+            "color = uColorMatrix * color;",
             "float luma = dot(color, vec3(0.299, 0.587, 0.114));"
         )
         assertOrder(
@@ -47,6 +53,18 @@ class GlShaderConstantsTest {
             "float luma = dot(color, vec3(0.299, 0.587, 0.114));",
             "color = (color - 0.5) * (1.0 + uContrast) + 0.5;"
         )
+    }
+
+    @Test
+    fun `color matrix is shared by single and bloom base paths`() {
+        val singlePass = GlShaderConstants.FRAGMENT_SHADER_EXPORT
+        val previewBase = GlShaderConstants.FRAGMENT_SHADER_BASE_COLOR_PREVIEW
+        val exportBase = GlShaderConstants.FRAGMENT_SHADER_BASE_COLOR_EXPORT
+
+        for (shader in listOf(singlePass, previewBase, exportBase)) {
+            assertTrue(shader.contains("uniform mat3 uColorMatrix;"))
+            assertTrue(shader.contains("color = uColorMatrix * color;"))
+        }
     }
 
     @Test

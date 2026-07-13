@@ -10,15 +10,42 @@ class PresetColor {
     required this.contrast,
     required this.saturation,
     this.fade,
+    this.matrix = identityMatrix,
   });
 
   /// Factory to parse from a JSON map.
-  factory PresetColor.fromJson(Map<String, dynamic> json) => PresetColor(
-    temperature: (json['temperature'] as num).toDouble(),
-    contrast: (json['contrast'] as num).toDouble(),
-    saturation: (json['saturation'] as num).toDouble(),
-    fade: (json['fade'] as num?)?.toDouble() ?? 0.0,
-  );
+  factory PresetColor.fromJson(Map<String, dynamic> json) {
+    final rawMatrix = json['matrix'];
+    final matrix =
+        rawMatrix is List<dynamic> &&
+            rawMatrix.length == identityMatrix.length &&
+            rawMatrix.every((value) => value is num && value.isFinite)
+        ? List<double>.unmodifiable(
+            rawMatrix.cast<num>().map((value) => value.toDouble()),
+          )
+        : identityMatrix;
+
+    return PresetColor(
+      temperature: (json['temperature'] as num).toDouble(),
+      contrast: (json['contrast'] as num).toDouble(),
+      saturation: (json['saturation'] as num).toDouble(),
+      fade: (json['fade'] as num?)?.toDouble() ?? 0.0,
+      matrix: matrix,
+    );
+  }
+
+  /// Neutral row-major RGB channel matrix.
+  static const List<double> identityMatrix = <double>[
+    1,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    1,
+  ];
 
   /// The temperature parameter.
   final double temperature;
@@ -32,12 +59,16 @@ class PresetColor {
   /// Matte shadow lift amount.
   final double? fade;
 
+  /// Row-major 3x3 RGB channel transform.
+  final List<double> matrix;
+
   /// Converts this instance to a JSON map.
   Map<String, dynamic> toJson() => <String, dynamic>{
     'temperature': temperature,
     'contrast': contrast,
     'saturation': saturation,
     'fade': fade ?? 0.0,
+    'matrix': matrix,
   };
 
   @override
@@ -47,16 +78,24 @@ class PresetColor {
         other.temperature == temperature &&
         other.contrast == contrast &&
         other.saturation == saturation &&
-        other.fade == fade;
+        other.fade == fade &&
+        listEquals(other.matrix, matrix);
   }
 
   @override
-  int get hashCode => Object.hash(temperature, contrast, saturation, fade);
+  int get hashCode => Object.hash(
+    temperature,
+    contrast,
+    saturation,
+    fade,
+    Object.hashAll(matrix),
+  );
 
   @override
   String toString() =>
       'PresetColor(temperature: $temperature, '
-      'contrast: $contrast, saturation: $saturation, fade: $fade)';
+      'contrast: $contrast, saturation: $saturation, fade: $fade, '
+      'matrix: $matrix)';
 }
 
 /// Preset grain parameters.

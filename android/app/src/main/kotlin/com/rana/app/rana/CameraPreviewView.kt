@@ -814,6 +814,7 @@ class CameraPreviewView(
             temperature = processParams.temperature,
             saturation = processParams.saturation,
             contrast = processParams.contrast,
+            colorMatrix = processParams.colorMatrix,
             grain = processParams.grain,
             vignette = processParams.vignette,
             lutPath = processParams.lutAssetPath,

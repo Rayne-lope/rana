@@ -19,7 +19,12 @@ Here is a complete JSON layout showing all available parameters, including color
     "temperature": 0.15,
     "contrast": 0.05,
     "saturation": -0.1,
-    "fade": 0.15
+    "fade": 0.15,
+    "matrix": [
+      1.0, 0.0, 0.0,
+      0.0, 1.0, 0.0,
+      0.0, 0.0, 1.0
+    ]
   },
   "grain": {
     "intensity": 0.25,
@@ -85,6 +90,7 @@ Color grading properties processed inside the color grading shader pass:
 * **`contrast`** *(Float, Range: -1.0 to 1.0)*: Contrast factor.
 * **`saturation`** *(Float, Range: -1.0 to 1.0)*: Color saturation factor.
 * **`fade`** *(Float, Range: 0.0 to 1.0, **Optional**)*: Shadows fade or matte look. Lifts the black floor of the image to produce faded, vintage film shadows. Default: `0.0`.
+* **`matrix`** *(Array of 9 Floats, **Optional**)*: Row-major 3×3 RGB channel matrix applied after LUT and temperature, before saturation and contrast. Rows produce output red, green, and blue respectively, allowing film-specific channel scaling and crosstalk. Default: identity `[1, 0, 0, 0, 1, 0, 0, 0, 1]`. Invalid or non-finite matrices fall back to identity.
 
 ---
 

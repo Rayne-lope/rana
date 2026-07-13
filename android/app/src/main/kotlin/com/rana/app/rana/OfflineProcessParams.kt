@@ -1,5 +1,11 @@
 package com.rana.app.rana
 
+internal val IDENTITY_COLOR_MATRIX = floatArrayOf(
+    1f, 0f, 0f,
+    0f, 1f, 0f,
+    0f, 0f, 1f
+)
+
 /**
  * Parameters for offline image processing.
  */
@@ -7,6 +13,7 @@ data class OfflineProcessParams(
     val temperature: Float = 0f,
     val saturation: Float = 0f,
     val contrast: Float = 0f,
+    val colorMatrix: FloatArray = IDENTITY_COLOR_MATRIX.copyOf(),
     val grain: Float = 0f,
     val vignette: Float = 0f,
     val lutAssetPath: String? = null,
@@ -50,11 +57,27 @@ internal fun offlineProcessParamsFromArguments(
     fun numberArg(key: String, default: Float = 0f): Float {
         return (args?.get(key) as? Number)?.toFloat() ?: default
     }
+    fun colorMatrixArg(): FloatArray {
+        val values = args?.get("colorMatrix") as? List<*>
+            ?: return IDENTITY_COLOR_MATRIX.copyOf()
+        if (values.size != 9 || values.any { it !is Number }) {
+            return IDENTITY_COLOR_MATRIX.copyOf()
+        }
+        val parsed = FloatArray(9) { index ->
+            (values[index] as Number).toFloat()
+        }
+        return if (parsed.all(Float::isFinite)) {
+            parsed
+        } else {
+            IDENTITY_COLOR_MATRIX.copyOf()
+        }
+    }
 
     return OfflineProcessParams(
         temperature = numberArg("temperature"),
         saturation = numberArg("saturation"),
         contrast = numberArg("contrast"),
+        colorMatrix = colorMatrixArg(),
         grain = numberArg("grain"),
         vignette = numberArg("vignette"),
         lutAssetPath = args?.get("lutPath") as? String,
@@ -90,5 +113,15 @@ internal fun offlineProcessParamsFromArguments(
         ),
         presetId = args?.get("presetId") as? String ?: "normal",
         isStyleModified = args?.get("isStyleModified") as? Boolean ?: false
+    )
+}
+
+/** Converts a human-readable row-major RGB matrix for OpenGL ES upload. */
+internal fun colorMatrixForGl(rowMajor: FloatArray): FloatArray {
+    val matrix = if (rowMajor.size == 9) rowMajor else IDENTITY_COLOR_MATRIX
+    return floatArrayOf(
+        matrix[0], matrix[3], matrix[6],
+        matrix[1], matrix[4], matrix[7],
+        matrix[2], matrix[5], matrix[8]
     )
 }
