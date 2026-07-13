@@ -139,3 +139,4 @@
 {"id":"int-7fead062","kind":"field_change","created_at":"2026-07-13T03:50:48.628518Z","actor":"Rayne-lope","issue_id":"Rana-209","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}
 {"id":"int-9ed03061","kind":"field_change","created_at":"2026-07-13T05:21:24.534699Z","actor":"Rayne-lope","issue_id":"Rana-3qp","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}
 {"id":"int-8a83c792","kind":"field_change","created_at":"2026-07-13T11:13:26.159547Z","actor":"Rayne-lope","issue_id":"Rana-h5g","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}
+{"id":"int-69464dc2","kind":"field_change","created_at":"2026-07-13T17:30:12.146051Z","actor":"Rayne-lope","issue_id":"Rana-url","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Capture feedback now follows native image_captured and capture_completed events, with regression coverage for success timing and failure suppression."}}
