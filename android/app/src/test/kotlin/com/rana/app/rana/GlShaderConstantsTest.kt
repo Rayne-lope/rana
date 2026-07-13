@@ -127,6 +127,27 @@ class GlShaderConstantsTest {
     }
 
     @Test
+    fun `film grain is smoothly masked out of tonal extremes`() {
+        val shader = GlShaderConstants.FRAGMENT_SHADER_EXPORT
+
+        assertTrue(shader.contains("const float GRAIN_SHADOW_CUTOFF = 0.04;"))
+        assertTrue(shader.contains("const float GRAIN_SHADOW_FULL = 0.22;"))
+        assertTrue(shader.contains("const float GRAIN_HIGHLIGHT_FULL = 0.78;"))
+        assertTrue(shader.contains("const float GRAIN_HIGHLIGHT_CUTOFF = 0.93;"))
+        assertTrue(shader.contains("float grainLuminanceMask(vec3 color)"))
+        assertTrue(shader.contains("clamp(color, 0.0, 1.0)"))
+        assertTrue(shader.contains("return shadowRamp * highlightRamp;"))
+        assertTrue(
+            shader.contains("filmGrain * uGrain * luminanceMask * 0.25")
+        )
+        assertOrder(
+            shader,
+            "float luminanceMask = grainLuminanceMask(color);",
+            "filmGrain * uGrain * luminanceMask * 0.25"
+        )
+    }
+
+    @Test
     fun `roll-off helper uses film shoulder and toe curves`() {
         val shader = GlShaderConstants.FRAGMENT_SHADER_EXPORT
 

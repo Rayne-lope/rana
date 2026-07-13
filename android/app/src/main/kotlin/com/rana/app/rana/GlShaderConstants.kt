@@ -175,6 +175,11 @@ object GlShaderConstants {
         uniform float uTime;
         uniform float uGrainSize;
 
+        const float GRAIN_SHADOW_CUTOFF = 0.04;
+        const float GRAIN_SHADOW_FULL = 0.22;
+        const float GRAIN_HIGHLIGHT_FULL = 0.78;
+        const float GRAIN_HIGHLIGHT_CUTOFF = 0.93;
+
         float rand(vec2 co) {
             return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
         }
@@ -193,6 +198,24 @@ object GlShaderConstants {
             return baseColor * (1.0 - dustAlpha * uDustIntensity * 0.35);
         }
 
+        float grainLuminanceMask(vec3 color) {
+            float luma = dot(
+                clamp(color, 0.0, 1.0),
+                vec3(0.299, 0.587, 0.114)
+            );
+            float shadowRamp = smoothstep(
+                GRAIN_SHADOW_CUTOFF,
+                GRAIN_SHADOW_FULL,
+                luma
+            );
+            float highlightRamp = 1.0 - smoothstep(
+                GRAIN_HIGHLIGHT_FULL,
+                GRAIN_HIGHLIGHT_CUTOFF,
+                luma
+            );
+            return shadowRamp * highlightRamp;
+        }
+
         vec3 applyFilmGrain(vec3 color) {
             if (uGrain <= 0.0) return color;
             vec2 grainUv = vTextureCoord / max(uGrainSize, 0.1);
@@ -203,7 +226,10 @@ object GlShaderConstants {
                 grainUv * 1.5 + vec2(uTime * 0.13)
             ) - 0.5;
             float filmGrain = mix(noise, noise2, 0.4);
-            return color + vec3(filmGrain * uGrain * 0.25);
+            float luminanceMask = grainLuminanceMask(color);
+            return color + vec3(
+                filmGrain * uGrain * luminanceMask * 0.25
+            );
         }
 
         vec3 applyVignette(vec3 color) {

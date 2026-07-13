@@ -97,7 +97,7 @@ Color grading properties processed inside the color grading shader pass:
 ---
 
 ### 2.3 Grain Parameters (`grain`)
-* **`intensity`** *(Float, Range: 0.0 to 1.0)*: Overall intensity of procedural film grain noise.
+* **`intensity`** *(Float, Range: 0.0 to 1.0)*: Overall intensity of procedural film grain noise. Grain amplitude is luminance-adaptive: strongest across midtones and smoothly suppressed in deep shadows and near-white highlights.
 * **`size`** *(Float, Range: 0.1 to 5.0, **Optional**)*: The size multiplier of individual grain noise flakes. Default: `1.0`.
 
 ---
