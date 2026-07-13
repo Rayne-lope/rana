@@ -821,6 +821,7 @@ class CameraPreviewView(
             fade = processParams.fade,
             highlightRollOff = processParams.highlightRollOff,
             shadowRollOff = processParams.shadowRollOff,
+            filmBorderStyle = processParams.filmBorderStyle,
             shadowsTintR = processParams.shadowsTintR,
             shadowsTintG = processParams.shadowsTintG,
             shadowsTintB = processParams.shadowsTintB,

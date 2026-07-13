@@ -60,6 +60,9 @@ Here is a complete JSON layout showing all available parameters, including color
       "intensity": 0.12
     },
     "softness": 0.25,
+    "filmBorder": {
+      "style": "instant"
+    },
     "dateStamp": {
       "enable": true
     }
@@ -128,6 +131,8 @@ Low-level shader operations applied in the final compositing step:
 * **`softness`** *(Float, Range: 0.0 to 1.0, **Optional**)*: Soft-focus factor. Blurs the image slightly using box-blur sampling to emulate vintage soft-focus lenses. Default: `0.0`.
 * **`highlightRollOff`** *(Float, Range: 0.0 to 1.0, **Optional**)*: Shoulder strength that progressively compresses bright values to preserve highlight detail. Default: `0.0`.
 * **`shadowRollOff`** *(Float, Range: 0.0 to 1.0, **Optional**)*: Toe strength that gently rolls deep shadows toward black. Default: `0.0`.
+* **`filmBorder`** *(Object, **Optional**)*:
+  * `style` *(String)*: Final analog frame rendered after grading, vignette, and tone roll-off. Supported values are `"none"` (legacy output), `"instant"` (warm instant-film paper with a thicker bottom margin), and `"35mm"` (black long-edge film bands with eight sprocket perforations per edge). The 35 mm bands rotate with portrait output. Default: `"none"`.
 * **`dateStamp`** *(Object, **Optional**)*:
   * `enable` *(Boolean)*: When enabled, burns a classic monospace orange digital-clock date stamp (e.g. `'26 07 10`) at the bottom-right corner of the saved photo. Default: `false`.
 

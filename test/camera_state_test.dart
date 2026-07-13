@@ -493,6 +493,7 @@ void main() {
       expect(params['fade'], equals(0.0));
       expect(params['highlightRollOff'], equals(0.0));
       expect(params['shadowRollOff'], equals(0.0));
+      expect(params['filmBorderStyle'], equals(0));
       expect(params['dateStampEnable'], isFalse);
       expect(params['shadowsTintR'], equals(0.0));
       expect(params['shadowsTintG'], equals(0.0));
@@ -529,6 +530,7 @@ void main() {
           softness: 0.2,
           highlightRollOff: 0.6,
           shadowRollOff: 0.4,
+          filmBorder: PresetFilmBorder(style: FilmBorderStyle.thirtyFiveMm),
           dateStamp: PresetDateStamp(enable: true),
           splitToning: PresetSplitToning(
             shadowsTint: <double>[0.1, 0.2, 0.3],
@@ -557,6 +559,7 @@ void main() {
         'fade',
         'highlightRollOff',
         'shadowRollOff',
+        'filmBorderStyle',
         'dateStampEnable',
         'shadowsTintR',
         'shadowsTintG',
@@ -575,6 +578,7 @@ void main() {
       expect(previewParams['softness'], closeTo(0.275, 0.0001));
       expect(previewParams['highlightRollOff'], 0.6);
       expect(previewParams['shadowRollOff'], 0.4);
+      expect(previewParams['filmBorderStyle'], 2);
       expect(previewParams['dateStampEnable'], isTrue);
     });
 

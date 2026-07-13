@@ -74,6 +74,9 @@ object OfflineGlProcessor {
         val fadeLoc: Int,
         val highlightRollOffLoc: Int,
         val shadowRollOffLoc: Int,
+        val filmBorderStyleLoc: Int,
+        val outputAspectRatioLoc: Int,
+        val outputYFlipLoc: Int,
         val shadowsTintLoc: Int,
         val highlightsTintLoc: Int
     )
@@ -131,6 +134,9 @@ object OfflineGlProcessor {
         val fadeLoc: Int,
         val highlightRollOffLoc: Int,
         val shadowRollOffLoc: Int,
+        val filmBorderStyleLoc: Int,
+        val outputAspectRatioLoc: Int,
+        val outputYFlipLoc: Int,
         val shadowsTintLoc: Int,
         val highlightsTintLoc: Int
     )
@@ -728,6 +734,15 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.fadeLoc, params.fade)
         GLES20.glUniform1f(program.highlightRollOffLoc, params.highlightRollOff)
         GLES20.glUniform1f(program.shadowRollOffLoc, params.shadowRollOff)
+        GLES20.glUniform1f(
+            program.filmBorderStyleLoc,
+            params.filmBorderStyle.toFloat()
+        )
+        GLES20.glUniform1f(
+            program.outputAspectRatioLoc,
+            renderWidth.toFloat() / renderHeight.coerceAtLeast(1)
+        )
+        GLES20.glUniform1f(program.outputYFlipLoc, 0f)
         GLES20.glUniform3f(
             program.shadowsTintLoc,
             params.shadowsTintR,
@@ -887,6 +902,15 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.fadeLoc, params.fade)
         GLES20.glUniform1f(program.highlightRollOffLoc, params.highlightRollOff)
         GLES20.glUniform1f(program.shadowRollOffLoc, params.shadowRollOff)
+        GLES20.glUniform1f(
+            program.filmBorderStyleLoc,
+            params.filmBorderStyle.toFloat()
+        )
+        GLES20.glUniform1f(
+            program.outputAspectRatioLoc,
+            renderWidth.toFloat() / renderHeight.coerceAtLeast(1)
+        )
+        GLES20.glUniform1f(program.outputYFlipLoc, 0f)
         GLES20.glUniform3f(
             program.shadowsTintLoc,
             params.shadowsTintR,
@@ -1138,6 +1162,18 @@ object OfflineGlProcessor {
                 programId,
                 "uShadowRollOff"
             ),
+            filmBorderStyleLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uFilmBorderStyle"
+            ),
+            outputAspectRatioLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uOutputAspectRatio"
+            ),
+            outputYFlipLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uOutputYFlip"
+            ),
             shadowsTintLoc = GLES20.glGetUniformLocation(programId, "uShadowsTint"),
             highlightsTintLoc = GLES20.glGetUniformLocation(programId, "uHighlightsTint")
         )
@@ -1232,6 +1268,18 @@ object OfflineGlProcessor {
             shadowRollOffLoc = GLES20.glGetUniformLocation(
                 programId,
                 "uShadowRollOff"
+            ),
+            filmBorderStyleLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uFilmBorderStyle"
+            ),
+            outputAspectRatioLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uOutputAspectRatio"
+            ),
+            outputYFlipLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uOutputYFlip"
             ),
             shadowsTintLoc = GLES20.glGetUniformLocation(programId, "uShadowsTint"),
             highlightsTintLoc = GLES20.glGetUniformLocation(programId, "uHighlightsTint")

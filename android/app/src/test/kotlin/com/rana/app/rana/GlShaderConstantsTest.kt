@@ -85,6 +85,8 @@ class GlShaderConstantsTest {
         assertOrder(shader, "color = applyDust(color, vTextureCoord);", "color = applyFilmGrain(color);")
         assertOrder(shader, "color = applyFilmGrain(color);", "color = applyVignette(color);")
         assertOrder(shader, "color = applyVignette(color);", "color = applyToneRollOff(color);")
+        assertOrder(shader, "color = applyToneRollOff(color);", "color = applyFilmBorder(color);")
+        assertOrder(shader, "color = applyFilmBorder(color);", "gl_FragColor = vec4(clamp(color, 0.0, 1.0)")
     }
 
     @Test
@@ -109,6 +111,7 @@ class GlShaderConstantsTest {
         assertOrder(shader, "color = applySplitToning(color);", "if (uBloomIntensity > 0.0)")
         assertOrder(shader, "color = applyRanaStyles(color);", "color = applyLightLeak(color, vTextureCoord);")
         assertOrder(shader, "color = applyVignette(color);", "color = applyToneRollOff(color);")
+        assertOrder(shader, "color = applyToneRollOff(color);", "color = applyFilmBorder(color);")
     }
 
     @Test
@@ -159,6 +162,23 @@ class GlShaderConstantsTest {
         assertTrue(shader.contains("float rolledLuma = applyRollOffToLuma(luma);"))
         assertTrue(shader.contains("positiveColor * (rolledLuma / luma)"))
         assertTrue(shader.contains("vec3 whiteLimited = rolledColor / maxChannel;"))
+    }
+
+    @Test
+    fun `film border helper supports instant paper and 35mm sprockets`() {
+        for (shader in listOf(
+            GlShaderConstants.FRAGMENT_SHADER_EXPORT,
+            GlShaderConstants.FRAGMENT_SHADER_BLOOM_COMPOSITE
+        )) {
+            assertTrue(shader.contains("uniform float uFilmBorderStyle;"))
+            assertTrue(shader.contains("uniform float uOutputAspectRatio;"))
+            assertTrue(shader.contains("uniform float uOutputYFlip;"))
+            assertTrue(shader.contains("vec3 applyFilmBorder(vec3 color)"))
+            assertTrue(shader.contains("Instax mini proportions: 86x54 mm media, 62x46 mm image."))
+            assertTrue(shader.contains("fract(filmUv.x * 8.0)"))
+            assertTrue(shader.contains("vec2 filmUv = uOutputAspectRatio >= 1.0"))
+            assertTrue(shader.contains("if (uFilmBorderStyle < 0.5) return color;"))
+        }
     }
 
     @Test

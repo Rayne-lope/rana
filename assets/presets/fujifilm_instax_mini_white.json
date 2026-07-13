@@ -33,6 +33,9 @@
     },
     "lensDistortion": {
       "strength": 0.01
+    },
+    "filmBorder": {
+      "style": "instant"
     }
   },
   "style": {

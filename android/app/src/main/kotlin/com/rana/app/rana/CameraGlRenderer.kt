@@ -68,6 +68,9 @@ class CameraGlRenderer(
         val fadeLoc: Int,
         val highlightRollOffLoc: Int,
         val shadowRollOffLoc: Int,
+        val filmBorderStyleLoc: Int,
+        val outputAspectRatioLoc: Int,
+        val outputYFlipLoc: Int,
         val shadowsTintLoc: Int,
         val highlightsTintLoc: Int
     )
@@ -125,6 +128,9 @@ class CameraGlRenderer(
         val fadeLoc: Int,
         val highlightRollOffLoc: Int,
         val shadowRollOffLoc: Int,
+        val filmBorderStyleLoc: Int,
+        val outputAspectRatioLoc: Int,
+        val outputYFlipLoc: Int,
         val shadowsTintLoc: Int,
         val highlightsTintLoc: Int
     )
@@ -183,6 +189,7 @@ class CameraGlRenderer(
     private var fade = 0f
     private var highlightRollOff = 0f
     private var shadowRollOff = 0f
+    private var filmBorderStyle = 0
     private var shadowsTintR = 0f
     private var shadowsTintG = 0f
     private var shadowsTintB = 0f
@@ -320,6 +327,7 @@ class CameraGlRenderer(
         fade: Float,
         highlightRollOff: Float,
         shadowRollOff: Float,
+        filmBorderStyle: Int,
         shadowsTintR: Float,
         shadowsTintG: Float,
         shadowsTintB: Float,
@@ -358,6 +366,7 @@ class CameraGlRenderer(
             this.fade = fade
             this.highlightRollOff = highlightRollOff
             this.shadowRollOff = shadowRollOff
+            this.filmBorderStyle = normalizedFilmBorderStyle(filmBorderStyle)
             this.shadowsTintR = shadowsTintR
             this.shadowsTintG = shadowsTintG
             this.shadowsTintB = shadowsTintB
@@ -617,6 +626,18 @@ class CameraGlRenderer(
                 programId,
                 "uShadowRollOff"
             ),
+            filmBorderStyleLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uFilmBorderStyle"
+            ),
+            outputAspectRatioLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uOutputAspectRatio"
+            ),
+            outputYFlipLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uOutputYFlip"
+            ),
             shadowsTintLoc = GLES20.glGetUniformLocation(programId, "uShadowsTint"),
             highlightsTintLoc = GLES20.glGetUniformLocation(programId, "uHighlightsTint")
         )
@@ -726,6 +747,18 @@ class CameraGlRenderer(
                     shadowRollOffLoc = GLES20.glGetUniformLocation(
                         programId,
                         "uShadowRollOff"
+                    ),
+                    filmBorderStyleLoc = GLES20.glGetUniformLocation(
+                        programId,
+                        "uFilmBorderStyle"
+                    ),
+                    outputAspectRatioLoc = GLES20.glGetUniformLocation(
+                        programId,
+                        "uOutputAspectRatio"
+                    ),
+                    outputYFlipLoc = GLES20.glGetUniformLocation(
+                        programId,
+                        "uOutputYFlip"
                     ),
                     shadowsTintLoc = GLES20.glGetUniformLocation(
                         programId,
@@ -912,6 +945,15 @@ class CameraGlRenderer(
         GLES20.glUniform1f(singlePassProgram.fadeLoc, fade)
         GLES20.glUniform1f(singlePassProgram.highlightRollOffLoc, highlightRollOff)
         GLES20.glUniform1f(singlePassProgram.shadowRollOffLoc, shadowRollOff)
+        GLES20.glUniform1f(
+            singlePassProgram.filmBorderStyleLoc,
+            filmBorderStyle.toFloat()
+        )
+        GLES20.glUniform1f(
+            singlePassProgram.outputAspectRatioLoc,
+            viewportWidth.toFloat() / viewportHeight.coerceAtLeast(1)
+        )
+        GLES20.glUniform1f(singlePassProgram.outputYFlipLoc, 1f)
         GLES20.glUniform3f(
             singlePassProgram.shadowsTintLoc,
             shadowsTintR,
@@ -1082,6 +1124,15 @@ class CameraGlRenderer(
         GLES20.glUniform1f(composite.fadeLoc, fade)
         GLES20.glUniform1f(composite.highlightRollOffLoc, highlightRollOff)
         GLES20.glUniform1f(composite.shadowRollOffLoc, shadowRollOff)
+        GLES20.glUniform1f(
+            composite.filmBorderStyleLoc,
+            filmBorderStyle.toFloat()
+        )
+        GLES20.glUniform1f(
+            composite.outputAspectRatioLoc,
+            viewportWidth.toFloat() / viewportHeight.coerceAtLeast(1)
+        )
+        GLES20.glUniform1f(composite.outputYFlipLoc, 1f)
         GLES20.glUniform3f(
             composite.shadowsTintLoc,
             shadowsTintR,

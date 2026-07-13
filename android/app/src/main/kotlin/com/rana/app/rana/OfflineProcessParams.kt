@@ -43,6 +43,7 @@ data class OfflineProcessParams(
     val fade: Float = 0f,
     val highlightRollOff: Float = 0f,
     val shadowRollOff: Float = 0f,
+    val filmBorderStyle: Int = 0,
     val dateStampEnable: Boolean = false,
     val shadowsTintR: Float = 0f,
     val shadowsTintG: Float = 0f,
@@ -90,6 +91,7 @@ internal fun OfflineProcessParams.asMetadataParams(): Map<String, Any?> = mapOf(
     "fade" to fade,
     "highlightRollOff" to highlightRollOff,
     "shadowRollOff" to shadowRollOff,
+    "filmBorderStyle" to filmBorderStyle,
     "dateStampEnable" to dateStampEnable,
     "shadowsTintR" to shadowsTintR,
     "shadowsTintG" to shadowsTintG,
@@ -169,6 +171,9 @@ internal fun offlineProcessParamsFromArguments(
         fade = numberArg("fade"),
         highlightRollOff = numberArg("highlightRollOff"),
         shadowRollOff = numberArg("shadowRollOff"),
+        filmBorderStyle = normalizedFilmBorderStyle(
+            (args?.get("filmBorderStyle") as? Number)?.toInt() ?: 0
+        ),
         dateStampEnable = args?.get("dateStampEnable") as? Boolean ?: false,
         shadowsTintR = numberArg("shadowsTintR"),
         shadowsTintG = numberArg("shadowsTintG"),
@@ -199,6 +204,9 @@ internal fun normalizedHalationRadius(radius: Float): Float =
 
 internal fun normalizedHalationColor(component: Float, fallback: Float): Float =
     if (component.isFinite()) component.coerceIn(0f, 1f) else fallback
+
+internal fun normalizedFilmBorderStyle(style: Int): Int =
+    if (style in 0..2) style else 0
 
 internal fun canShareHalationBlur(
     bloomIntensity: Float,

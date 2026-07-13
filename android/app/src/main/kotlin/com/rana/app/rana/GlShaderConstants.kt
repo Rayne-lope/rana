@@ -6,8 +6,10 @@ object GlShaderConstants {
         attribute vec4 aPosition;
         attribute vec4 aTextureCoord;
         varying vec2 vTextureCoord;
+        varying vec2 vOutputCoord;
         void main() {
             gl_Position = aPosition;
+            vOutputCoord = aTextureCoord.xy;
             vTextureCoord = (uTexMatrix * aTextureCoord).xy;
         }
     """.trimIndent()
@@ -164,6 +166,7 @@ object GlShaderConstants {
     """.trimIndent()
 
     private val FINAL_EFFECT_HELPERS = """
+        varying vec2 vOutputCoord;
         uniform sampler2D uLightLeakTexture;
         uniform float uLightLeakIntensity;
         uniform sampler2D uDustTexture;
@@ -174,6 +177,9 @@ object GlShaderConstants {
         uniform float uVignette;
         uniform float uTime;
         uniform float uGrainSize;
+        uniform float uFilmBorderStyle;
+        uniform float uOutputAspectRatio;
+        uniform float uOutputYFlip;
 
         const float GRAIN_SHADOW_CUTOFF = 0.04;
         const float GRAIN_SHADOW_FULL = 0.22;
@@ -238,6 +244,69 @@ object GlShaderConstants {
             float dist = length(uv);
             float vignette = smoothstep(0.8, 0.8 - uVignette * 0.6, dist);
             return color * vignette;
+        }
+
+        float roundedBoxMask(
+            vec2 point,
+            vec2 center,
+            vec2 halfSize,
+            float radius
+        ) {
+            vec2 distanceToEdge = abs(point - center) -
+                halfSize + vec2(radius);
+            float signedDistance = length(max(distanceToEdge, 0.0)) +
+                min(max(distanceToEdge.x, distanceToEdge.y), 0.0) -
+                radius;
+            return 1.0 - smoothstep(-0.003, 0.003, signedDistance);
+        }
+
+        vec3 applyFilmBorder(vec3 color) {
+            if (uFilmBorderStyle < 0.5) return color;
+
+            vec2 outputUv = vec2(
+                vOutputCoord.x,
+                mix(vOutputCoord.y, 1.0 - vOutputCoord.y, uOutputYFlip)
+            );
+
+            if (uFilmBorderStyle < 1.5) {
+                // Instax mini proportions: 86x54 mm media, 62x46 mm image.
+                float leftPaper = 1.0 - smoothstep(0.071, 0.077, outputUv.x);
+                float rightPaper = smoothstep(0.923, 0.929, outputUv.x);
+                float topPaper = 1.0 - smoothstep(0.044, 0.050, outputUv.y);
+                float bottomPaper = smoothstep(0.765, 0.771, outputUv.y);
+                float paperMask = max(
+                    max(leftPaper, rightPaper),
+                    max(topPaper, bottomPaper)
+                );
+                return mix(color, vec3(0.965, 0.950, 0.905), paperMask);
+            }
+
+            // Keep sprockets on the long edges after device rotation.
+            vec2 filmUv = uOutputAspectRatio >= 1.0
+                ? outputUv
+                : outputUv.yx;
+            float edgeDistance = min(filmUv.y, 1.0 - filmUv.y);
+            float filmMask = 1.0 - smoothstep(0.135, 0.145, edgeDistance);
+            vec2 perforationUv = vec2(fract(filmUv.x * 8.0), filmUv.y);
+            float topHole = roundedBoxMask(
+                perforationUv,
+                vec2(0.5, 0.067),
+                vec2(0.27, 0.035),
+                0.012
+            );
+            float bottomHole = roundedBoxMask(
+                perforationUv,
+                vec2(0.5, 0.933),
+                vec2(0.27, 0.035),
+                0.012
+            );
+            float perforationMask = max(topHole, bottomHole) * filmMask;
+            vec3 framed = mix(color, vec3(0.012, 0.011, 0.010), filmMask);
+            return mix(
+                framed,
+                vec3(0.900, 0.850, 0.700),
+                perforationMask
+            );
         }
     """.trimIndent()
 
@@ -396,6 +465,7 @@ object GlShaderConstants {
             color = applyFilmGrain(color);
             color = applyVignette(color);
             color = applyToneRollOff(color);
+            color = applyFilmBorder(color);
 
             gl_FragColor = vec4(clamp(color, 0.0, 1.0), texColor.a);
         }
@@ -524,6 +594,7 @@ object GlShaderConstants {
             color = applyFilmGrain(color);
             color = applyVignette(color);
             color = applyToneRollOff(color);
+            color = applyFilmBorder(color);
 
             gl_FragColor = vec4(clamp(color, 0.0, 1.0), baseColor.a);
         }

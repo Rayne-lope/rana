@@ -484,6 +484,8 @@ class CameraController extends _$CameraController {
           activePreset?.effects.chromaticAberration?.intensity ?? 0.0,
       'highlightRollOff': activePreset?.effects.highlightRollOff ?? 0.0,
       'shadowRollOff': activePreset?.effects.shadowRollOff ?? 0.0,
+      'filmBorderStyle':
+          activePreset?.effects.filmBorder.style.channelValue ?? 0,
       'dateStampEnable': activePreset?.effects.dateStamp?.enable ?? false,
       'shadowsTintR': shadowsTint[0],
       'shadowsTintG': shadowsTint[1],
@@ -692,6 +694,7 @@ class CameraController extends _$CameraController {
           preset.effects.chromaticAberration?.intensity ?? 0.0,
       'highlightRollOff': preset.effects.highlightRollOff,
       'shadowRollOff': preset.effects.shadowRollOff,
+      'filmBorderStyle': preset.effects.filmBorder.style.channelValue,
       'dateStampEnable': preset.effects.dateStamp?.enable ?? false,
       'shadowsTintR': shadowsTint[0],
       'shadowsTintG': shadowsTint[1],

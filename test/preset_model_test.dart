@@ -42,6 +42,7 @@ void main() {
       expect(model.effects.softness, 0.0);
       expect(model.effects.highlightRollOff, 0.0);
       expect(model.effects.shadowRollOff, 0.0);
+      expect(model.effects.filmBorder.style, FilmBorderStyle.none);
       expect(model.effects.dateStamp?.enable, isFalse);
       expect(model.effects.splitToning?.shadowsTint, <double>[0, 0, 0]);
       expect(model.effects.splitToning?.highlightsTint, <double>[0, 0, 0]);
@@ -52,6 +53,23 @@ void main() {
       expect(model.style!.undertoneX, 0.0);
       expect(model.style!.undertoneY, 0.0);
       expect(model.style!.textureVal, 0.0);
+    });
+
+    test('instant presets opt into instant film border', () {
+      for (final path in <String>[
+        'assets/presets/fujifilm_instax_mini_white.json',
+        'assets/presets/polaroid_color_600.json',
+        'assets/presets/polaroid_color_sx70.json',
+      ]) {
+        final decoded = json.decode(File(path).readAsStringSync());
+        final model = PresetModel.fromJson(decoded as Map<String, dynamic>);
+
+        expect(
+          model.effects.filmBorder.style,
+          FilmBorderStyle.instant,
+          reason: path,
+        );
+      }
     });
 
     test('successfully parses Kodak Gold photographic style defaults', () {
@@ -143,6 +161,7 @@ void main() {
           'softness': 0.25,
           'highlightRollOff': 0.6,
           'shadowRollOff': 0.4,
+          'filmBorder': <String, dynamic>{'style': '35mm'},
           'dateStamp': <String, dynamic>{'enable': true},
           'splitToning': <String, dynamic>{
             'shadowsTint': <dynamic>[0.1, 0.2],
@@ -172,6 +191,7 @@ void main() {
       expect(model.effects.softness, 0.25);
       expect(model.effects.highlightRollOff, 0.6);
       expect(model.effects.shadowRollOff, 0.4);
+      expect(model.effects.filmBorder.style, FilmBorderStyle.thirtyFiveMm);
       expect(model.effects.dateStamp?.enable, isTrue);
       expect(model.effects.splitToning?.shadowsTint, <double>[0.1, 0.2, 0]);
       expect(model.effects.splitToning?.highlightsTint, <double>[0.7, 0, 0.9]);
@@ -185,6 +205,7 @@ void main() {
       expect(effects['softness'], 0.25);
       expect(effects['highlightRollOff'], 0.6);
       expect(effects['shadowRollOff'], 0.4);
+      expect(effects['filmBorder'], <String, dynamic>{'style': '35mm'});
       expect(effects['dateStamp'], <String, dynamic>{'enable': true});
       expect(effects['chromaticAberration'], <String, dynamic>{
         'intensity': 0.15,
@@ -198,6 +219,15 @@ void main() {
         'shadowsTint': <double>[0.1, 0.2, 0],
         'highlightsTint': <double>[0.7, 0, 0.9],
       });
+    });
+
+    test('invalid film border style resolves to none', () {
+      final border = PresetFilmBorder.fromJson(const <String, dynamic>{
+        'style': 'unknown',
+      });
+
+      expect(border.style, FilmBorderStyle.none);
+      expect(border.toJson(), <String, dynamic>{'style': 'none'});
     });
 
     test('invalid color matrix resolves to identity', () {

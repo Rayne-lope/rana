@@ -430,6 +430,60 @@ class PresetDateStamp {
   String toString() => 'PresetDateStamp(enable: $enable)';
 }
 
+/// Final analog border style rendered over the photo.
+enum FilmBorderStyle {
+  /// No border; preserves legacy output.
+  none('none', 0),
+
+  /// Instant-film paper with a thicker bottom margin.
+  instant('instant', 1),
+
+  /// Black 35 mm film edge with sprocket perforations.
+  thirtyFiveMm('35mm', 2);
+
+  const FilmBorderStyle(this.jsonValue, this.channelValue);
+
+  /// Stable preset JSON value.
+  final String jsonValue;
+
+  /// Stable Android shader payload value.
+  final int channelValue;
+
+  /// Parses unknown and legacy values as [none].
+  static FilmBorderStyle fromJson(Object? value) => values.firstWhere(
+    (style) => style.jsonValue == value,
+    orElse: () => none,
+  );
+}
+
+/// Optional film border configuration.
+@immutable
+class PresetFilmBorder {
+  /// Main constructor.
+  const PresetFilmBorder({this.style = FilmBorderStyle.none});
+
+  /// Factory to parse from a JSON map.
+  factory PresetFilmBorder.fromJson(Map<String, dynamic> json) =>
+      PresetFilmBorder(style: FilmBorderStyle.fromJson(json['style']));
+
+  /// Border style applied at final compositing.
+  final FilmBorderStyle style;
+
+  /// Converts this instance to a JSON map.
+  Map<String, dynamic> toJson() => <String, dynamic>{'style': style.jsonValue};
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PresetFilmBorder && other.style == style;
+
+  @override
+  int get hashCode => style.hashCode;
+
+  @override
+  String toString() => 'PresetFilmBorder(style: ${style.jsonValue})';
+}
+
 /// Preset split-toning parameters.
 @immutable
 class PresetSplitToning {
@@ -498,6 +552,7 @@ class PresetEffects {
     this.softness,
     this.highlightRollOff = 0.0,
     this.shadowRollOff = 0.0,
+    this.filmBorder = const PresetFilmBorder(),
     this.dateStamp,
     this.splitToning,
   });
@@ -512,6 +567,7 @@ class PresetEffects {
     final chromaticAberrationJson =
         json['chromaticAberration'] as Map<String, dynamic>?;
     final dateStampJson = json['dateStamp'] as Map<String, dynamic>?;
+    final filmBorderJson = json['filmBorder'] as Map<String, dynamic>?;
     final splitToningJson = json['splitToning'] as Map<String, dynamic>?;
     return PresetEffects(
       lightLeak: lightLeakJson != null
@@ -535,6 +591,9 @@ class PresetEffects {
       softness: (json['softness'] as num?)?.toDouble() ?? 0.0,
       highlightRollOff: (json['highlightRollOff'] as num?)?.toDouble() ?? 0.0,
       shadowRollOff: (json['shadowRollOff'] as num?)?.toDouble() ?? 0.0,
+      filmBorder: filmBorderJson != null
+          ? PresetFilmBorder.fromJson(filmBorderJson)
+          : const PresetFilmBorder(),
       dateStamp: dateStampJson != null
           ? PresetDateStamp.fromJson(dateStampJson)
           : const PresetDateStamp(enable: false),
@@ -574,6 +633,9 @@ class PresetEffects {
   /// Shadow toe strength, from 0 (neutral) to 1 (maximum).
   final double shadowRollOff;
 
+  /// Final instant-film or 35 mm frame configuration.
+  final PresetFilmBorder filmBorder;
+
   /// Retro date stamp configuration.
   final PresetDateStamp? dateStamp;
 
@@ -593,6 +655,7 @@ class PresetEffects {
     'softness': softness ?? 0.0,
     'highlightRollOff': highlightRollOff,
     'shadowRollOff': shadowRollOff,
+    'filmBorder': filmBorder.toJson(),
     'dateStamp': (dateStamp ?? const PresetDateStamp(enable: false)).toJson(),
     'splitToning':
         (splitToning ??
@@ -616,6 +679,7 @@ class PresetEffects {
         other.softness == softness &&
         other.highlightRollOff == highlightRollOff &&
         other.shadowRollOff == shadowRollOff &&
+        other.filmBorder == filmBorder &&
         other.dateStamp == dateStamp &&
         other.splitToning == splitToning;
   }
@@ -631,6 +695,7 @@ class PresetEffects {
     softness,
     highlightRollOff,
     shadowRollOff,
+    filmBorder,
     dateStamp,
     splitToning,
   );
@@ -642,7 +707,8 @@ class PresetEffects {
       'lensDistortion: $lensDistortion, '
       'chromaticAberration: $chromaticAberration, softness: $softness, '
       'highlightRollOff: $highlightRollOff, shadowRollOff: $shadowRollOff, '
-      'dateStamp: $dateStamp, splitToning: $splitToning)';
+      'filmBorder: $filmBorder, dateStamp: $dateStamp, '
+      'splitToning: $splitToning)';
 }
 
 /// Dynamic, data-driven preset recipe model.
