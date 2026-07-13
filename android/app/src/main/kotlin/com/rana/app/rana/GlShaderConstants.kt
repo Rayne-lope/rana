@@ -282,35 +282,143 @@ object GlShaderConstants {
             return 1.0 - smoothstep(-0.003, 0.003, signedDistance);
         }
 
-        float drawChar(float code, vec2 uv) {
-            if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0.0;
-            float col = floor(uv.x * 3.0);
-            float row = floor(uv.y * 5.0);
-            float bitIndex = row * 3.0 + col;
-            return mod(floor(code / pow(2.0, bitIndex)), 2.0);
+        float drawStroke(vec2 p, vec2 a, vec2 b, float w) {
+            vec2 pa = p - a, ba = b - a;
+            float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+            float d = length(pa - ba * h);
+            return 1.0 - smoothstep(w - 0.015, w + 0.015, d);
         }
 
-        float getPortraChar(float idx) {
-            if (idx < 0.5) return 23925.0; // K
-            if (idx < 1.5) return 31599.0; // O
-            if (idx < 2.5) return 27502.0; // D
-            if (idx < 3.5) return 23530.0; // A
-            if (idx < 4.5) return 23925.0; // K
-            if (idx < 5.5) return 0.0;     // Space
-            if (idx < 6.5) return 18927.0; // P
-            if (idx < 7.5) return 31599.0; // O
-            if (idx < 8.5) return 24047.0; // R
-            if (idx < 9.5) return 9367.0;  // T
-            if (idx < 10.5) return 24047.0; // R
-            if (idx < 11.5) return 23530.0; // A
-            if (idx < 12.5) return 0.0;     // Space
-            if (idx < 13.5) return 5101.0;  // 4
-            if (idx < 14.5) return 31599.0; // 0
-            if (idx < 15.5) return 31599.0; // 0
+        float drawVectorChar(float charId, vec2 p, float w) {
+            if (charId < 0.5) return 0.0;
+            
+            vec2 tl = vec2(0.18, 0.1);
+            vec2 tm = vec2(0.5, 0.1);
+            vec2 tr = vec2(0.82, 0.1);
+            vec2 cl = vec2(0.18, 0.5);
+            vec2 cr = vec2(0.82, 0.5);
+            vec2 bl = vec2(0.18, 0.9);
+            vec2 bm = vec2(0.5, 0.9);
+            vec2 br = vec2(0.82, 0.9);
+            
+            // Triangle '▶'
+            if (charId > 13.5) {
+                if (p.x < 0.2 || p.x > 0.8 || p.y < 0.2 || p.y > 0.8) return 0.0;
+                float halfH = (p.x - 0.2) / 0.6 * 0.3;
+                if (p.y >= 0.5 - halfH && p.y <= 0.5 + halfH) return 1.0;
+                return 0.0;
+            }
+            
+            float s = 0.0;
+            
+            // '0' or 'O'
+            if (charId < 1.5 || (charId > 9.5 && charId < 10.5)) {
+                s = drawStroke(p, tl, tr, w);
+                s = max(s, drawStroke(p, bl, br, w));
+                s = max(s, drawStroke(p, tl, bl, w));
+                s = max(s, drawStroke(p, tr, br, w));
+            }
+            // '1'
+            else if (charId < 2.5) {
+                s = drawStroke(p, tm, bm, w);
+                s = max(s, drawStroke(p, tm, vec2(0.35, 0.2), w));
+                s = max(s, drawStroke(p, vec2(0.3, 0.9), vec2(0.7, 0.9), w));
+            }
+            // '2'
+            else if (charId < 3.5) {
+                s = drawStroke(p, tl, tr, w);
+                s = max(s, drawStroke(p, tr, cr, w));
+                s = max(s, drawStroke(p, cr, bl, w));
+                s = max(s, drawStroke(p, bl, br, w));
+            }
+            // '3'
+            else if (charId < 4.5) {
+                s = drawStroke(p, tl, tr, w);
+                s = max(s, drawStroke(p, tr, cr, w));
+                s = max(s, drawStroke(p, cl, cr, w));
+                s = max(s, drawStroke(p, cr, br, w));
+                s = max(s, drawStroke(p, bl, br, w));
+            }
+            // '4'
+            else if (charId < 5.5) {
+                s = drawStroke(p, vec2(0.75, 0.1), vec2(0.75, 0.9), w);
+                s = max(s, drawStroke(p, vec2(0.15, 0.55), vec2(0.85, 0.55), w));
+                s = max(s, drawStroke(p, vec2(0.75, 0.1), vec2(0.15, 0.55), w));
+            }
+            // '5'
+            else if (charId < 6.5) {
+                s = drawStroke(p, tl, tr, w);
+                s = max(s, drawStroke(p, tl, cl, w));
+                s = max(s, drawStroke(p, cl, cr, w));
+                s = max(s, drawStroke(p, cr, br, w));
+                s = max(s, drawStroke(p, br, bl, w));
+            }
+            // 'A'
+            else if (charId < 7.5) {
+                s = drawStroke(p, bl, tm, w);
+                s = max(s, drawStroke(p, br, tm, w));
+                s = max(s, drawStroke(p, cl, cr, w));
+            }
+            // 'D'
+            else if (charId < 8.5) {
+                s = drawStroke(p, tl, bl, w);
+                s = max(s, drawStroke(p, tl, vec2(0.7, 0.1), w));
+                s = max(s, drawStroke(p, bl, vec2(0.7, 0.9), w));
+                s = max(s, drawStroke(p, vec2(0.7, 0.1), vec2(0.82, 0.3), w));
+                s = max(s, drawStroke(p, vec2(0.82, 0.3), vec2(0.82, 0.7), w));
+                s = max(s, drawStroke(p, vec2(0.82, 0.7), vec2(0.7, 0.9), w));
+            }
+            // 'K'
+            else if (charId < 9.5) {
+                s = drawStroke(p, tl, bl, w);
+                s = max(s, drawStroke(p, cl, tr, w));
+                s = max(s, drawStroke(p, cl, br, w));
+            }
+            // 'P'
+            else if (charId < 11.5) {
+                s = drawStroke(p, tl, bl, w);
+                s = max(s, drawStroke(p, tl, tr, w));
+                s = max(s, drawStroke(p, cl, cr, w));
+                s = max(s, drawStroke(p, tr, cr, w));
+            }
+            // 'R'
+            else if (charId < 12.5) {
+                s = drawStroke(p, tl, bl, w);
+                s = max(s, drawStroke(p, tl, tr, w));
+                s = max(s, drawStroke(p, cl, cr, w));
+                s = max(s, drawStroke(p, tr, cr, w));
+                s = max(s, drawStroke(p, cl, br, w));
+            }
+            // 'T'
+            else if (charId < 13.5) {
+                s = drawStroke(p, tl, tr, w);
+                s = max(s, drawStroke(p, tm, bm, w));
+            }
+            
+            return s;
+        }
+
+        float getArtropChar(float idx) {
+            if (idx < 0.5) return 1.0;  // '0'
+            if (idx < 1.5) return 1.0;  // '0'
+            if (idx < 2.5) return 5.0;  // '4'
+            if (idx < 3.5) return 0.0;  // ' '
+            if (idx < 4.5) return 7.0;  // 'A'
+            if (idx < 5.5) return 12.0; // 'R'
+            if (idx < 6.5) return 13.0; // 'T'
+            if (idx < 7.5) return 12.0; // 'R'
+            if (idx < 8.5) return 10.0; // 'O'
+            if (idx < 9.5) return 11.0; // 'P'
+            if (idx < 10.5) return 0.0; // ' '
+            if (idx < 11.5) return 9.0;  // 'K'
+            if (idx < 12.5) return 7.0;  // 'A'
+            if (idx < 13.5) return 8.0;  // 'D'
+            if (idx < 14.5) return 10.0; // 'O'
+            if (idx < 15.5) return 9.0;  // 'K'
             return 0.0;
         }
 
-        float drawPortraText(vec2 uv) {
+        float drawArtropText(vec2 uv, float w) {
             if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0.0;
             float numChars = 16.0;
             float charIdx = floor(uv.x * numChars);
@@ -319,11 +427,11 @@ object GlShaderConstants {
             float charUvX = localX / charWidth;
             if (charUvX > 1.0) return 0.0;
             
-            float charCode = getPortraChar(charIdx);
-            return drawChar(charCode, vec2(charUvX, uv.y));
+            float charCode = getArtropChar(charIdx);
+            return drawVectorChar(charCode, vec2(charUvX, uv.y), w);
         }
 
-        float draw43Text(vec2 uv) {
+        float draw34Text(vec2 uv, float w) {
             if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0.0;
             float numChars = 2.0;
             float charIdx = floor(uv.x * numChars);
@@ -333,13 +441,13 @@ object GlShaderConstants {
             if (charUvX > 1.0) return 0.0;
             
             float charCode = 0.0;
-            if (charIdx < 0.5) charCode = 5101.0; // 4
-            else if (charIdx < 1.5) charCode = 29647.0; // 3
+            if (charIdx < 0.5) charCode = 4.0; // '3'
+            else if (charIdx < 1.5) charCode = 5.0; // '4'
             
-            return drawChar(charCode, vec2(charUvX, uv.y));
+            return drawVectorChar(charCode, vec2(charUvX, uv.y), w);
         }
 
-        float draw122Text(vec2 uv) {
+        float draw155Text(vec2 uv, float w) {
             if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0.0;
             float numChars = 5.0;
             float charIdx = floor(uv.x * numChars);
@@ -349,16 +457,16 @@ object GlShaderConstants {
             if (charUvX > 1.0) return 0.0;
             
             float charCode = 0.0;
-            if (charIdx < 0.5) charCode = 29874.0; // 1
-            else if (charIdx < 1.5) charCode = 31183.0; // 2
-            else if (charIdx < 2.5) charCode = 0.0; // Space
-            else if (charIdx < 3.5) charCode = 0.0; // Space
-            else if (charIdx < 4.5) charCode = 31183.0; // 2
+            if (charIdx < 0.5) charCode = 2.0; // '1'
+            else if (charIdx < 1.5) charCode = 6.0; // '5'
+            else if (charIdx < 2.5) charCode = 0.0; // ' '
+            else if (charIdx < 3.5) charCode = 0.0; // ' '
+            else if (charIdx < 4.5) charCode = 6.0; // '5'
             
-            return drawChar(charCode, vec2(charUvX, uv.y));
+            return drawVectorChar(charCode, vec2(charUvX, uv.y), w);
         }
 
-        float drawArrow2Text(vec2 uv) {
+        float drawArrow4Text(vec2 uv, float w) {
             if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0.0;
             float numChars = 3.0;
             float charIdx = floor(uv.x * numChars);
@@ -368,11 +476,11 @@ object GlShaderConstants {
             if (charUvX > 1.0) return 0.0;
             
             float charCode = 0.0;
-            if (charIdx < 0.5) charCode = 6105.0; // ▶
-            else if (charIdx < 1.5) charCode = 0.0; // Space
-            else if (charIdx < 2.5) charCode = 31183.0; // 2
+            if (charIdx < 0.5) charCode = 14.0; // ▶
+            else if (charIdx < 1.5) charCode = 0.0; // ' '
+            else if (charIdx < 2.5) charCode = 5.0;  // '4'
             
-            return drawChar(charCode, vec2(charUvX, uv.y));
+            return drawVectorChar(charCode, vec2(charUvX, uv.y), w);
         }
 
         vec3 applyFilmBorder(vec3 color) {
@@ -452,30 +560,31 @@ object GlShaderConstants {
 
                 // Draw text elements
                 float textMask = 0.0;
+                float strokeW = 0.07;
                 
-                // Box 1: KODAK PORTRA 400 (top-left)
+                // Box 1: 004 ARTROP KADOK (top-left)
                 vec2 box1Uv = vec2((0.42 - outputUv.y) / 0.30, (0.052 - outputUv.x) / 0.024);
-                textMask = max(textMask, drawPortraText(box1Uv));
+                textMask = max(textMask, drawArtropText(box1Uv, strokeW));
 
-                // Box 2: KODAK PORTRA 400 (bottom-left)
+                // Box 2: 004 ARTROP KADOK (bottom-left)
                 vec2 box2Uv = vec2((0.88 - outputUv.y) / 0.30, (0.052 - outputUv.x) / 0.024);
-                textMask = max(textMask, drawPortraText(box2Uv));
+                textMask = max(textMask, drawArtropText(box2Uv, strokeW));
 
-                // Box 3: 43 (middle-left)
+                // Box 3: 34 (middle-left)
                 vec2 box3Uv = vec2((0.52 - outputUv.y) / 0.04, (0.052 - outputUv.x) / 0.024);
-                textMask = max(textMask, draw43Text(box3Uv));
+                textMask = max(textMask, draw34Text(box3Uv, strokeW));
 
-                // Box 4: 12 2 (bottom-left corner)
+                // Box 4: 15 5 (bottom-left corner)
                 vec2 box4Uv = vec2((outputUv.x - 0.02) / 0.05, (outputUv.y - 0.962) / 0.02);
-                textMask = max(textMask, draw122Text(box4Uv));
+                textMask = max(textMask, draw155Text(box4Uv, strokeW));
 
-                // Box 5: ▶ 2 (middle-right)
+                // Box 5: ▶ 4 (middle-right)
                 vec2 box5Uv = vec2((outputUv.y - 0.48) / 0.04, (outputUv.x - 0.948) / 0.024);
-                textMask = max(textMask, drawArrow2Text(box5Uv));
+                textMask = max(textMask, drawArrow4Text(box5Uv, strokeW));
 
                 // Box 6: ▶ (top-right)
                 vec2 box6Uv = vec2((outputUv.y - 0.04) / 0.02, (outputUv.x - 0.948) / 0.024);
-                textMask = max(textMask, drawChar(6105.0, box6Uv));
+                textMask = max(textMask, drawVectorChar(14.0, box6Uv, strokeW));
 
                 // Inner bevel shadow on the photo
                 float distToLeft = outputUv.x - 0.085;
