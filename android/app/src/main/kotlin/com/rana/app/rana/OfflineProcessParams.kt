@@ -24,6 +24,10 @@ data class OfflineProcessParams(
     val bloomThreshold: Float = 0.8f,
     val bloomIntensity: Float = 0f,
     val halationIntensity: Float = 0f,
+    val halationRadius: Float = 1f,
+    val halationColorR: Float = 1f,
+    val halationColorG: Float = 0.35f,
+    val halationColorB: Float = 0.15f,
     val lensDistortionStrength: Float = 0f,
     val tone: Float = 0f,
     val color: Float = 0f,
@@ -88,6 +92,19 @@ internal fun offlineProcessParamsFromArguments(
         bloomThreshold = numberArg("bloomThreshold", 0.8f),
         bloomIntensity = numberArg("bloomIntensity"),
         halationIntensity = numberArg("halationIntensity"),
+        halationRadius = numberArg("halationRadius", 1f),
+        halationColorR = normalizedHalationColor(
+            numberArg("halationColorR", 1f),
+            1f
+        ),
+        halationColorG = normalizedHalationColor(
+            numberArg("halationColorG", 0.35f),
+            0.35f
+        ),
+        halationColorB = normalizedHalationColor(
+            numberArg("halationColorB", 0.15f),
+            0.15f
+        ),
         lensDistortionStrength = numberArg("lensDistortionStrength"),
         tone = numberArg("tone"),
         color = numberArg("color"),
@@ -125,3 +142,14 @@ internal fun colorMatrixForGl(rowMajor: FloatArray): FloatArray {
         matrix[2], matrix[5], matrix[8]
     )
 }
+
+internal fun normalizedHalationRadius(radius: Float): Float =
+    if (radius.isFinite()) radius.coerceIn(0.25f, 4f) else 1f
+
+internal fun normalizedHalationColor(component: Float, fallback: Float): Float =
+    if (component.isFinite()) component.coerceIn(0f, 1f) else fallback
+
+internal fun canShareHalationBlur(
+    bloomIntensity: Float,
+    halationRadius: Float
+): Boolean = bloomIntensity > 0f && normalizedHalationRadius(halationRadius) == 1f

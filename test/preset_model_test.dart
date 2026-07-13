@@ -35,6 +35,8 @@ void main() {
       expect(model.effects.bloom.threshold, 0.8);
       expect(model.effects.bloom.intensity, 0.0);
       expect(model.effects.halation.intensity, 0.0);
+      expect(model.effects.halation.radius, 1.0);
+      expect(model.effects.halation.color, PresetHalation.defaultColor);
       expect(model.effects.lensDistortion.strength, 0.0);
       expect(model.effects.chromaticAberration?.intensity, 0.0);
       expect(model.effects.softness, 0.0);
@@ -133,6 +135,11 @@ void main() {
         'vignette': <String, dynamic>{'intensity': 0.2},
         'effects': <String, dynamic>{
           'chromaticAberration': <String, dynamic>{'intensity': 0.15},
+          'halation': <String, dynamic>{
+            'intensity': 0.35,
+            'radius': 2.5,
+            'color': <dynamic>[0.9, 0.25, 0.05],
+          },
           'softness': 0.25,
           'highlightRollOff': 0.6,
           'shadowRollOff': 0.4,
@@ -159,6 +166,9 @@ void main() {
       ]);
       expect(model.grain.size, 1.7);
       expect(model.effects.chromaticAberration?.intensity, 0.15);
+      expect(model.effects.halation.intensity, 0.35);
+      expect(model.effects.halation.radius, 2.5);
+      expect(model.effects.halation.color, <double>[0.9, 0.25, 0.05]);
       expect(model.effects.softness, 0.25);
       expect(model.effects.highlightRollOff, 0.6);
       expect(model.effects.shadowRollOff, 0.4);
@@ -178,6 +188,11 @@ void main() {
       expect(effects['dateStamp'], <String, dynamic>{'enable': true});
       expect(effects['chromaticAberration'], <String, dynamic>{
         'intensity': 0.15,
+      });
+      expect(effects['halation'], <String, dynamic>{
+        'intensity': 0.35,
+        'radius': 2.5,
+        'color': <double>[0.9, 0.25, 0.05],
       });
       expect(effects['splitToning'], <String, dynamic>{
         'shadowsTint': <double>[0.1, 0.2, 0],
@@ -210,6 +225,30 @@ void main() {
 
         expect(model.color.matrix, PresetColor.identityMatrix);
       }
+    });
+
+    test('invalid halation color resolves to legacy hue', () {
+      final model = PresetModel.fromJson(const <String, dynamic>{
+        'id': 'bad_halation',
+        'name': 'Bad Halation',
+        'category': 'Custom',
+        'color': <String, dynamic>{
+          'temperature': 0.0,
+          'contrast': 0.0,
+          'saturation': 0.0,
+        },
+        'grain': <String, dynamic>{'intensity': 0.0},
+        'vignette': <String, dynamic>{'intensity': 0.0},
+        'effects': <String, dynamic>{
+          'halation': <String, dynamic>{
+            'intensity': 0.2,
+            'color': <dynamic>[1.0, 'bad', 0.0],
+          },
+        },
+      });
+
+      expect(model.effects.halation.radius, 1.0);
+      expect(model.effects.halation.color, PresetHalation.defaultColor);
     });
   });
 }

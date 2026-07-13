@@ -468,6 +468,16 @@ class CameraController extends _$CameraController {
       'bloomThreshold': activePreset?.effects.bloom.threshold ?? 0.8,
       'bloomIntensity': activePreset?.effects.bloom.intensity ?? 0.0,
       'halationIntensity': activePreset?.effects.halation.intensity ?? 0.0,
+      'halationRadius': activePreset?.effects.halation.radius ?? 1.0,
+      'halationColorR':
+          activePreset?.effects.halation.color[0] ??
+          PresetHalation.defaultColor[0],
+      'halationColorG':
+          activePreset?.effects.halation.color[1] ??
+          PresetHalation.defaultColor[1],
+      'halationColorB':
+          activePreset?.effects.halation.color[2] ??
+          PresetHalation.defaultColor[2],
       'lensDistortionStrength':
           activePreset?.effects.lensDistortion.strength ?? 0.0,
       'chromaticAberrationIntensity':
@@ -673,6 +683,10 @@ class CameraController extends _$CameraController {
       'bloomThreshold': preset.effects.bloom.threshold,
       'bloomIntensity': preset.effects.bloom.intensity,
       'halationIntensity': preset.effects.halation.intensity,
+      'halationRadius': preset.effects.halation.radius,
+      'halationColorR': preset.effects.halation.color[0],
+      'halationColorG': preset.effects.halation.color[1],
+      'halationColorB': preset.effects.halation.color[2],
       'lensDistortionStrength': preset.effects.lensDistortion.strength,
       'chromaticAberrationIntensity':
           preset.effects.chromaticAberration?.intensity ?? 0.0,

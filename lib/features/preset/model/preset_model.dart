@@ -280,29 +280,67 @@ class PresetBloom {
 @immutable
 class PresetHalation {
   /// Main constructor.
-  const PresetHalation({required this.intensity});
+  const PresetHalation({
+    required this.intensity,
+    this.radius = 1.0,
+    this.color = defaultColor,
+  });
 
   /// Factory to parse from a JSON map.
-  factory PresetHalation.fromJson(Map<String, dynamic> json) =>
-      PresetHalation(intensity: (json['intensity'] as num).toDouble());
+  factory PresetHalation.fromJson(Map<String, dynamic> json) => PresetHalation(
+    intensity: (json['intensity'] as num).toDouble(),
+    radius: (json['radius'] as num?)?.toDouble() ?? 1.0,
+    color: _parseHalationColor(json['color']),
+  );
+
+  /// Legacy red-orange halation hue.
+  static const List<double> defaultColor = <double>[1, 0.35, 0.15];
 
   /// The halation intensity.
   final double intensity;
 
+  /// Blur radius multiplier for reflected highlight spread.
+  final double radius;
+
+  /// Normalized RGB hue of the halation flare.
+  final List<double> color;
+
   /// Converts this instance to a JSON map.
-  Map<String, dynamic> toJson() => <String, dynamic>{'intensity': intensity};
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'intensity': intensity,
+    'radius': radius,
+    'color': List<double>.of(color),
+  };
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is PresetHalation && other.intensity == intensity;
+    return other is PresetHalation &&
+        other.intensity == intensity &&
+        other.radius == radius &&
+        listEquals(other.color, color);
   }
 
   @override
-  int get hashCode => intensity.hashCode;
+  int get hashCode => Object.hash(intensity, radius, Object.hashAll(color));
 
   @override
-  String toString() => 'PresetHalation(intensity: $intensity)';
+  String toString() =>
+      'PresetHalation(intensity: $intensity, radius: $radius, color: $color)';
+}
+
+List<double> _parseHalationColor(Object? value) {
+  if (value is! List<dynamic> || value.length != 3) {
+    return PresetHalation.defaultColor;
+  }
+  final parsed = <double>[];
+  for (final component in value) {
+    if (component is! num || !component.isFinite) {
+      return PresetHalation.defaultColor;
+    }
+    parsed.add(component.toDouble().clamp(0.0, 1.0));
+  }
+  return List<double>.unmodifiable(parsed);
 }
 
 /// Preset lens distortion effect parameters.

@@ -1388,7 +1388,11 @@ void main() {
           lightLeak: LightLeakEffect(intensity: 0.22, variant: -1),
           dust: DustEffect(intensity: 0.06),
           bloom: PresetBloom(threshold: 0.65, intensity: 0.10),
-          halation: PresetHalation(intensity: 0.08),
+          halation: PresetHalation(
+            intensity: 0.08,
+            radius: 1.8,
+            color: <double>[0.95, 0.25, 0.08],
+          ),
           lensDistortion: PresetLensDistortion(strength: 0.06),
         ),
       );
@@ -1417,6 +1421,10 @@ void main() {
       expect(previewParams['bloomThreshold'], equals(0.65));
       expect(previewParams['bloomIntensity'], equals(0.10));
       expect(previewParams['halationIntensity'], equals(0.08));
+      expect(previewParams['halationRadius'], equals(1.8));
+      expect(previewParams['halationColorR'], equals(0.95));
+      expect(previewParams['halationColorG'], equals(0.25));
+      expect(previewParams['halationColorB'], equals(0.08));
       expect(previewParams['lensDistortionStrength'], equals(0.06));
       log.clear();
 
@@ -1442,6 +1450,10 @@ void main() {
       expect(args['bloomThreshold'], equals(0.65));
       expect(args['bloomIntensity'], equals(0.10));
       expect(args['halationIntensity'], equals(0.08));
+      expect(args['halationRadius'], equals(1.8));
+      expect(args['halationColorR'], equals(0.95));
+      expect(args['halationColorG'], equals(0.25));
+      expect(args['halationColorB'], equals(0.08));
       expect(args['lensDistortionStrength'], equals(0.06));
     });
 

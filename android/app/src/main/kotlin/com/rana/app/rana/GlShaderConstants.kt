@@ -448,8 +448,10 @@ object GlShaderConstants {
         varying vec2 vTextureCoord;
         uniform sampler2D sTexture;
         uniform sampler2D uBloomTexture;
+        uniform sampler2D uHalationTexture;
         uniform float uBloomIntensity;
         uniform float uHalationIntensity;
+        uniform vec3 uHalationColor;
 
         $STYLE_HELPERS
         $FINAL_EFFECT_HELPERS
@@ -475,14 +477,20 @@ object GlShaderConstants {
 
             if (uBloomIntensity > 0.0) {
                 vec3 bloomColor = texture2D(uBloomTexture, vTextureCoord).rgb;
-                if (uHalationIntensity > 0.0) {
-                    bloomColor *= mix(
-                        vec3(1.0),
-                        vec3(1.0, 0.35, 0.15),
-                        clamp(uHalationIntensity, 0.0, 1.0)
-                    );
-                }
                 color += bloomColor * uBloomIntensity;
+            }
+            if (uHalationIntensity > 0.0) {
+                vec3 reflectedLight = texture2D(
+                    uHalationTexture,
+                    vTextureCoord
+                ).rgb;
+                vec3 halationTint = mix(
+                    vec3(1.0),
+                    uHalationColor,
+                    clamp(uHalationIntensity, 0.0, 1.0)
+                );
+                color += reflectedLight * (halationTint - vec3(1.0)) *
+                    uBloomIntensity;
             }
 
             color = applyLightLeak(color, vTextureCoord);

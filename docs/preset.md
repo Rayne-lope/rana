@@ -49,7 +49,9 @@ Here is a complete JSON layout showing all available parameters, including color
       "intensity": 0.3
     },
     "halation": {
-      "intensity": 0.2
+      "intensity": 0.2,
+      "radius": 1.5,
+      "color": [1.0, 0.35, 0.15]
     },
     "lensDistortion": {
       "strength": 0.08
@@ -117,6 +119,8 @@ Low-level shader operations applied in the final compositing step:
   * `intensity` *(Float, 0.0 to 1.0)*: Glow strength of the blurred highlights overlay.
 * **`halation`** *(Object)*:
   * `intensity` *(Float, 0.0 to 1.0)*: Red-orange glow bleeding around bright highlight edges, simulating vintage chemical film halation.
+  * `radius` *(Float, 0.25 to 4.0, **Optional**)*: Multiplier for the reflected-highlight blur spread. `1.0` matches the legacy spread; values are clamped to the supported range. Default: `1.0`.
+  * `color` *(Array of 3 Floats, each 0.0 to 1.0, **Optional**)*: Normalized RGB hue of the halation flare. Default: legacy red-orange `[1.0, 0.35, 0.15]`. Invalid arrays fall back to the default hue.
 * **`lensDistortion`** *(Object)*:
   * `strength` *(Float, -1.0 to 1.0)*: Radial barrel/pincushion lens distortion.
 * **`chromaticAberration`** *(Object, **Optional**)*:

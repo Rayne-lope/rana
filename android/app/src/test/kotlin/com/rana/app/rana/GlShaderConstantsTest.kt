@@ -98,6 +98,8 @@ class GlShaderConstantsTest {
         assertTrue(shader.contains("uniform float uFade;"))
         assertTrue(shader.contains("uniform float uHighlightRollOff;"))
         assertTrue(shader.contains("uniform float uShadowRollOff;"))
+        assertTrue(shader.contains("uniform sampler2D uHalationTexture;"))
+        assertTrue(shader.contains("uniform vec3 uHalationColor;"))
         assertTrue(shader.contains("uniform vec3 uShadowsTint;"))
         assertTrue(shader.contains("uniform vec3 uHighlightsTint;"))
         assertTrue(shader.contains("color += vec3(uTextureVal * 0.0);"))
@@ -107,6 +109,21 @@ class GlShaderConstantsTest {
         assertOrder(shader, "color = applySplitToning(color);", "if (uBloomIntensity > 0.0)")
         assertOrder(shader, "color = applyRanaStyles(color);", "color = applyLightLeak(color, vTextureCoord);")
         assertOrder(shader, "color = applyVignette(color);", "color = applyToneRollOff(color);")
+    }
+
+    @Test
+    fun `halation uses independent texture and backward compatible custom hue`() {
+        val shader = GlShaderConstants.FRAGMENT_SHADER_BLOOM_COMPOSITE
+
+        assertTrue(shader.contains("texture2D(\n                    uHalationTexture"))
+        assertTrue(shader.contains("vec3 halationTint = mix("))
+        assertTrue(shader.contains("uHalationColor,"))
+        assertTrue(shader.contains("reflectedLight * (halationTint - vec3(1.0))"))
+        assertOrder(
+            shader,
+            "color += bloomColor * uBloomIntensity;",
+            "if (uHalationIntensity > 0.0)"
+        )
     }
 
     @Test

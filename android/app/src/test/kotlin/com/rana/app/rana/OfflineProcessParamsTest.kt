@@ -23,6 +23,10 @@ class OfflineProcessParamsTest {
         assertEquals(0f, params.highlightRollOff)
         assertEquals(0f, params.shadowRollOff)
         assertArrayEquals(IDENTITY_COLOR_MATRIX, params.colorMatrix, 0f)
+        assertEquals(1f, params.halationRadius)
+        assertEquals(1f, params.halationColorR)
+        assertEquals(0.35f, params.halationColorG)
+        assertEquals(0.15f, params.halationColorB)
         assertFalse(params.dateStampEnable)
         assertEquals(0f, params.shadowsTintR)
         assertEquals(0f, params.highlightsTintB)
@@ -43,6 +47,10 @@ class OfflineProcessParamsTest {
                     0.3, 0.9, 0.4,
                     0.5, 0.6, 0.8
                 ),
+                "halationRadius" to 2.5,
+                "halationColorR" to 0.9,
+                "halationColorG" to 0.25,
+                "halationColorB" to 0.05,
                 "dateStampEnable" to true,
                 "shadowsTintR" to 0.1,
                 "shadowsTintG" to 0.2,
@@ -66,6 +74,10 @@ class OfflineProcessParamsTest {
             params.colorMatrix,
             0f
         )
+        assertEquals(2.5f, params.halationRadius)
+        assertEquals(0.9f, params.halationColorR)
+        assertEquals(0.25f, params.halationColorG)
+        assertEquals(0.05f, params.halationColorB)
         assertTrue(params.dateStampEnable)
         assertEquals(0.1f, params.shadowsTintR)
         assertEquals(0.2f, params.shadowsTintG)
@@ -97,6 +109,18 @@ class OfflineProcessParamsTest {
             ),
             0f
         )
+    }
+
+    @Test
+    fun `halation blur radius is bounded and only shared at legacy radius`() {
+        assertEquals(0.25f, normalizedHalationRadius(0f))
+        assertEquals(4f, normalizedHalationRadius(9f))
+        assertEquals(1f, normalizedHalationRadius(Float.NaN))
+        assertEquals(0.4f, normalizedHalationColor(0.4f, 1f))
+        assertEquals(1f, normalizedHalationColor(Float.NaN, 1f))
+        assertTrue(canShareHalationBlur(0.2f, 1f))
+        assertFalse(canShareHalationBlur(0.2f, 1.5f))
+        assertFalse(canShareHalationBlur(0f, 1f))
     }
 
     @Test

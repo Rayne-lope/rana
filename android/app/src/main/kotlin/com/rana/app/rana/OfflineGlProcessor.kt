@@ -107,8 +107,10 @@ object OfflineGlProcessor {
         val texMatrixLoc: Int,
         val baseTextureLoc: Int,
         val bloomTextureLoc: Int,
+        val halationTextureLoc: Int,
         val bloomIntensityLoc: Int,
         val halationIntensityLoc: Int,
+        val halationColorLoc: Int,
         val lightLeakTextureLoc: Int,
         val lightLeakIntensityLoc: Int,
         val dustTextureLoc: Int,
@@ -151,7 +153,8 @@ object OfflineGlProcessor {
         val lutTextureIds: MutableMap<String, Int> = mutableMapOf(),
         val lightLeakTextureIds: MutableMap<Int, Int> = mutableMapOf(),
         var dustTextureId: Int = -1,
-        var bloomProcessor: BloomProcessor? = null
+        var bloomProcessor: BloomProcessor? = null,
+        var halationProcessor: BloomProcessor? = null
     )
 
     private val retainedLock = Any()
@@ -374,11 +377,34 @@ object OfflineGlProcessor {
                     divisor = effectScale.bloomDivisor,
                     blurRadiusScale = effectScale.blurRadiusScale
                 )
+                val halationResult = when {
+                    params.halationIntensity <= 0f -> null
+                    canShareHalationBlur(
+                        params.bloomIntensity,
+                        params.halationRadius
+                    ) -> bloomResult
+                    else -> {
+                        val processor = retainedState.halationProcessor
+                            ?: BloomProcessor().also {
+                                retainedState.halationProcessor = it
+                            }
+                        processor.applyBloom(
+                            inputTextureId = baseTarget.textureId,
+                            sourceWidth = renderWidth,
+                            sourceHeight = renderHeight,
+                            bloomThreshold = params.bloomThreshold,
+                            divisor = effectScale.bloomDivisor,
+                            blurRadiusScale = effectScale.blurRadiusScale *
+                                normalizedHalationRadius(params.halationRadius)
+                        )
+                    }
+                }
 
                 renderCompositePass(
                     program = compositeProgram,
                     baseTextureId = baseTarget.textureId,
                     bloomTextureId = bloomResult.textureId,
+                    halationTextureId = halationResult?.textureId ?: 0,
                     lightLeakTextureId = leakTextureId,
                     dustTextureId = dustTextureId,
                     params = params,
@@ -479,6 +505,7 @@ object OfflineGlProcessor {
             state.lightLeakTextureIds.values.forEach(::deleteTexture)
             deleteTexture(state.dustTextureId)
             state.bloomProcessor?.release()
+            state.halationProcessor?.release()
             EGL14.eglMakeCurrent(
                 state.eglDisplay,
                 EGL14.EGL_NO_SURFACE,
@@ -807,6 +834,7 @@ object OfflineGlProcessor {
         program: CompositeProgram,
         baseTextureId: Int,
         bloomTextureId: Int,
+        halationTextureId: Int,
         lightLeakTextureId: Int,
         dustTextureId: Int,
         params: OfflineProcessParams,
@@ -828,6 +856,12 @@ object OfflineGlProcessor {
         GLES20.glUniformMatrix4fv(program.texMatrixLoc, 1, false, identityMatrix, 0)
         GLES20.glUniform1f(program.bloomIntensityLoc, params.bloomIntensity)
         GLES20.glUniform1f(program.halationIntensityLoc, params.halationIntensity)
+        GLES20.glUniform3f(
+            program.halationColorLoc,
+            params.halationColorR,
+            params.halationColorG,
+            params.halationColorB
+        )
         GLES20.glUniform1f(program.lightLeakIntensityLoc, params.lightLeakIntensity)
         GLES20.glUniform1f(program.dustIntensityLoc, params.dustIntensity)
         GLES20.glUniform1f(program.dustUvOffsetXLoc, dustUVOffsetX)
@@ -883,6 +917,10 @@ object OfflineGlProcessor {
             if (dustTextureId != -1) dustTextureId else 0
         )
         GLES20.glUniform1i(program.dustTextureLoc, 3)
+
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE4)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, halationTextureId)
+        GLES20.glUniform1i(program.halationTextureLoc, 4)
 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         unbindQuad(program.positionLoc, program.textureCoordLoc)
@@ -1152,8 +1190,16 @@ object OfflineGlProcessor {
             texMatrixLoc = GLES20.glGetUniformLocation(programId, "uTexMatrix"),
             baseTextureLoc = GLES20.glGetUniformLocation(programId, "sTexture"),
             bloomTextureLoc = GLES20.glGetUniformLocation(programId, "uBloomTexture"),
+            halationTextureLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uHalationTexture"
+            ),
             bloomIntensityLoc = GLES20.glGetUniformLocation(programId, "uBloomIntensity"),
             halationIntensityLoc = GLES20.glGetUniformLocation(programId, "uHalationIntensity"),
+            halationColorLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uHalationColor"
+            ),
             lightLeakTextureLoc = GLES20.glGetUniformLocation(programId, "uLightLeakTexture"),
             lightLeakIntensityLoc = GLES20.glGetUniformLocation(programId, "uLightLeakIntensity"),
             dustTextureLoc = GLES20.glGetUniformLocation(programId, "uDustTexture"),

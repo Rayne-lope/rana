@@ -101,8 +101,10 @@ class CameraGlRenderer(
         val texMatrixLoc: Int,
         val baseTextureLoc: Int,
         val bloomTextureLoc: Int,
+        val halationTextureLoc: Int,
         val bloomIntensityLoc: Int,
         val halationIntensityLoc: Int,
+        val halationColorLoc: Int,
         val lightLeakTextureLoc: Int,
         val lightLeakIntensityLoc: Int,
         val dustTextureLoc: Int,
@@ -142,6 +144,7 @@ class CameraGlRenderer(
     private var basePassProgram: BasePassProgram? = null
     private var compositeProgram: CompositeProgram? = null
     private var bloomProcessor: BloomProcessor? = null
+    private var halationProcessor: BloomProcessor? = null
 
     private var baseFramebufferId = 0
     private var baseTextureId = 0
@@ -161,6 +164,10 @@ class CameraGlRenderer(
     private var bloomThreshold = 0.8f
     private var bloomIntensity = 0f
     private var halationIntensity = 0f
+    private var halationRadius = 1f
+    private var halationColorR = 1f
+    private var halationColorG = 0.35f
+    private var halationColorB = 0.15f
     private var lensDistortionStrength = 0f
     private var dustUVOffsetX = 0f
     private var dustUVOffsetY = 0f
@@ -296,6 +303,10 @@ class CameraGlRenderer(
         bloomThreshold: Float,
         bloomIntensity: Float,
         halationIntensity: Float,
+        halationRadius: Float,
+        halationColorR: Float,
+        halationColorG: Float,
+        halationColorB: Float,
         lensDistortionStrength: Float,
         tone: Float,
         color: Float,
@@ -330,6 +341,10 @@ class CameraGlRenderer(
             this.bloomThreshold = bloomThreshold
             this.bloomIntensity = bloomIntensity
             this.halationIntensity = halationIntensity
+            this.halationRadius = normalizedHalationRadius(halationRadius)
+            this.halationColorR = normalizedHalationColor(halationColorR, 1f)
+            this.halationColorG = normalizedHalationColor(halationColorG, 0.35f)
+            this.halationColorB = normalizedHalationColor(halationColorB, 0.15f)
             this.lensDistortionStrength = lensDistortionStrength
             this.tone = tone
             this.color = color
@@ -673,8 +688,16 @@ class CameraGlRenderer(
                     texMatrixLoc = GLES20.glGetUniformLocation(programId, "uTexMatrix"),
                     baseTextureLoc = GLES20.glGetUniformLocation(programId, "sTexture"),
                     bloomTextureLoc = GLES20.glGetUniformLocation(programId, "uBloomTexture"),
+                    halationTextureLoc = GLES20.glGetUniformLocation(
+                        programId,
+                        "uHalationTexture"
+                    ),
                     bloomIntensityLoc = GLES20.glGetUniformLocation(programId, "uBloomIntensity"),
                     halationIntensityLoc = GLES20.glGetUniformLocation(programId, "uHalationIntensity"),
+                    halationColorLoc = GLES20.glGetUniformLocation(
+                        programId,
+                        "uHalationColor"
+                    ),
                     lightLeakTextureLoc = GLES20.glGetUniformLocation(programId, "uLightLeakTexture"),
                     lightLeakIntensityLoc = GLES20.glGetUniformLocation(programId, "uLightLeakIntensity"),
                     dustTextureLoc = GLES20.glGetUniformLocation(programId, "uDustTexture"),
@@ -998,6 +1021,26 @@ class CameraGlRenderer(
             bloomThreshold = bloomThreshold,
             divisor = currentBloomDivisor
         )
+        val halationResult = when {
+            halationIntensity <= 0f -> null
+            canShareHalationBlur(
+                bloomIntensity,
+                halationRadius
+            ) -> bloomResult
+            else -> {
+                val processor = halationProcessor ?: BloomProcessor().also {
+                    halationProcessor = it
+                }
+                processor.applyBloom(
+                    inputTextureId = baseTextureId,
+                    sourceWidth = viewportWidth,
+                    sourceHeight = viewportHeight,
+                    bloomThreshold = bloomThreshold,
+                    divisor = currentBloomDivisor,
+                    blurRadiusScale = halationRadius
+                )
+            }
+        }
 
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
         GLES20.glViewport(0, 0, viewportWidth, viewportHeight)
@@ -1009,6 +1052,12 @@ class CameraGlRenderer(
         GLES20.glUniformMatrix4fv(composite.texMatrixLoc, 1, false, identityMatrix, 0)
         GLES20.glUniform1f(composite.bloomIntensityLoc, bloomIntensity)
         GLES20.glUniform1f(composite.halationIntensityLoc, halationIntensity)
+        GLES20.glUniform3f(
+            composite.halationColorLoc,
+            halationColorR,
+            halationColorG,
+            halationColorB
+        )
         GLES20.glUniform1f(composite.lightLeakIntensityLoc, lightLeakIntensity)
         GLES20.glUniform1f(composite.dustIntensityLoc, dustIntensity)
         GLES20.glUniform1f(composite.dustUvOffsetXLoc, dustUVOffsetX)
@@ -1051,7 +1100,10 @@ class CameraGlRenderer(
         GLES20.glUniform1i(composite.baseTextureLoc, 0)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, bloomResult.textureId)
+        GLES20.glBindTexture(
+            GLES20.GL_TEXTURE_2D,
+            bloomResult.textureId
+        )
         GLES20.glUniform1i(composite.bloomTextureLoc, 1)
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE2)
@@ -1067,6 +1119,13 @@ class CameraGlRenderer(
             getActiveDustTextureId().coerceAtLeast(0)
         )
         GLES20.glUniform1i(composite.dustTextureLoc, 3)
+
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE4)
+        GLES20.glBindTexture(
+            GLES20.GL_TEXTURE_2D,
+            halationResult?.textureId ?: 0
+        )
+        GLES20.glUniform1i(composite.halationTextureLoc, 4)
 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         unbindQuad(composite.positionLoc, composite.textureCoordLoc)
@@ -1240,6 +1299,7 @@ class CameraGlRenderer(
     private fun releaseBloomTargetsOnly() {
         releaseBaseFramebuffer()
         bloomProcessor?.releaseFramebuffers()
+        halationProcessor?.releaseFramebuffers()
     }
 
     private fun releaseBaseFramebuffer() {
@@ -1262,9 +1322,11 @@ class CameraGlRenderer(
             basePassProgram?.let { GLES20.glDeleteProgram(it.programId) }
             compositeProgram?.let { GLES20.glDeleteProgram(it.programId) }
             bloomProcessor?.release()
+            halationProcessor?.release()
             basePassProgram = null
             compositeProgram = null
             bloomProcessor = null
+            halationProcessor = null
         }
     }
 
