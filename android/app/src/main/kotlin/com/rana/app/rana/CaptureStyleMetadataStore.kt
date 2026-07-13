@@ -88,6 +88,22 @@ internal fun decodeCaptureParameter(
     else -> null
 }
 
+internal fun commitNonDestructiveCapture(
+    persistMetadata: () -> Unit,
+    publishMedia: () -> Unit,
+    rollbackMetadata: () -> Unit,
+    rollbackMedia: () -> Unit
+) {
+    try {
+        persistMetadata()
+        publishMedia()
+    } catch (failure: Throwable) {
+        runCatching(rollbackMetadata)
+        runCatching(rollbackMedia)
+        throw failure
+    }
+}
+
 internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
     CaptureStyleMetadataSchema.DATABASE_NAME,

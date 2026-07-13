@@ -54,4 +54,45 @@ class CaptureStyleMetadataStoreTest {
             )
         )
     }
+
+    @Test
+    fun `capture commit persists metadata before publishing media`() {
+        val events = mutableListOf<String>()
+
+        commitNonDestructiveCapture(
+            persistMetadata = { events += "metadata" },
+            publishMedia = { events += "publish" },
+            rollbackMetadata = { events += "rollback_metadata" },
+            rollbackMedia = { events += "rollback_media" }
+        )
+
+        assertEquals(listOf("metadata", "publish"), events)
+    }
+
+    @Test
+    fun `capture commit rolls back both stores when publish fails`() {
+        val events = mutableListOf<String>()
+
+        runCatching {
+            commitNonDestructiveCapture(
+                persistMetadata = { events += "metadata" },
+                publishMedia = {
+                    events += "publish"
+                    error("publish failed")
+                },
+                rollbackMetadata = { events += "rollback_metadata" },
+                rollbackMedia = { events += "rollback_media" }
+            )
+        }
+
+        assertEquals(
+            listOf(
+                "metadata",
+                "publish",
+                "rollback_metadata",
+                "rollback_media"
+            ),
+            events
+        )
+    }
 }

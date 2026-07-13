@@ -131,6 +131,7 @@ class CameraPreviewView(
     private var lastSensorTargetRotation: Int? = null
     private val captureExecutor = Executors.newSingleThreadExecutor()
     private val processingExecutor = Executors.newSingleThreadExecutor()
+    private val captureStyleMetadataStore = CaptureStyleMetadataStore(context)
     private val isCapturing = AtomicBoolean(false)
     private val capturePipelineLimiter =
         CapturePipelineLimiter(MAX_PENDING_CAPTURE_PIPELINES)
@@ -1063,7 +1064,6 @@ class CameraPreviewView(
     ) {
         var decodedBitmap: Bitmap? = null
         var inputBitmap: Bitmap? = null
-        var processedBitmap: Bitmap? = null
         var savedUri: Uri? = null
         var qualityMetadata: CaptureQualityMetadata? = null
         var errorCode: String? = null
@@ -1129,50 +1129,54 @@ class CameraPreviewView(
                     captureZoomRatio
                 )
 
-                processedBitmap = OfflineGlProcessor.processImage(
-                    context,
+                val savedOutput = saveCaptureBitmap(
                     inputBitmap,
-                    effectiveParams
+                    captureZoomRatio,
+                    params
                 )
-                markProgress("gl_process_done")
-                CameraQualityAudit.logBitmapStage(
-                    viewId,
-                    "processed",
-                    processedBitmap,
-                    captureZoomRatio
-                )
-                inputBitmap = null
-                if (processedBitmap == null) {
-                    errorCode = "PROCESS_FAILED"
-                    errorMessage = "OfflineGlProcessor returned null"
+                if (savedOutput == null) {
+                    errorCode = "SAVE_FAILED"
+                    errorMessage = "Unable to save clean capture"
                 } else {
-                    if (effectiveParams.dateStampEnable) {
-                        val stampedBitmap = applyDateStamp(processedBitmap)
-                        if (stampedBitmap !== processedBitmap) {
-                            processedBitmap.safeRecycle()
+                    commitNonDestructiveCapture(
+                        persistMetadata = {
+                            captureStyleMetadataStore.upsert(
+                                CaptureStyleMetadata(
+                                    cleanImageUri = savedOutput.uri.toString(),
+                                    presetId = effectiveParams.presetId,
+                                    undertoneX = effectiveParams.undertoneX,
+                                    undertoneY = effectiveParams.undertoneY,
+                                    params = effectiveParams.asMetadataParams(),
+                                    createdAtEpochMs = System.currentTimeMillis()
+                                )
+                            )
+                            markProgress("metadata_saved")
+                        },
+                        publishMedia = { publishCapture(savedOutput.uri) },
+                        rollbackMetadata = {
+                            captureStyleMetadataStore.delete(
+                                savedOutput.uri.toString()
+                            )
+                        },
+                        rollbackMedia = {
+                            context.contentResolver.delete(
+                                savedOutput.uri,
+                                null,
+                                null
+                            )
                         }
-                        processedBitmap = stampedBitmap
-                    }
-                    val savedOutput = saveProcessedBitmap(
-                        processedBitmap,
-                        captureZoomRatio,
-                        params
                     )
-                    savedUri = savedOutput?.uri
+                    savedUri = savedOutput.uri
                     qualityMetadata = qualityMetadata?.copy(
                         requestedOutputQuality = params.outputQuality.channelValue,
-                        actualOutputFormat = savedOutput?.profile?.extension ?: "",
-                        outputMimeType = savedOutput?.profile?.mimeType ?: "",
-                        outputWidth = processedBitmap.width,
-                        outputHeight = processedBitmap.height,
-                        fileSizeBytes = savedOutput?.fileSizeBytes ?: 0,
-                        fallbackReason = savedOutput?.fallbackReason
+                        actualOutputFormat = savedOutput.profile.extension,
+                        outputMimeType = savedOutput.profile.mimeType,
+                        outputWidth = inputBitmap.width,
+                        outputHeight = inputBitmap.height,
+                        fileSizeBytes = savedOutput.fileSizeBytes,
+                        fallbackReason = savedOutput.fallbackReason
                     )
                     markProgress("save_done")
-                    if (savedUri == null) {
-                        errorCode = "SAVE_FAILED"
-                        errorMessage = "Unable to save processed image"
-                    }
                 }
             }
         } catch (oom: OutOfMemoryError) {
@@ -1184,7 +1188,6 @@ class CameraPreviewView(
         } finally {
             decodedBitmap?.safeRecycle()
             inputBitmap?.safeRecycle()
-            processedBitmap?.safeRecycle()
             capturePipelineLimiter.release()
         }
 
@@ -1342,7 +1345,7 @@ class CameraPreviewView(
         return target
     }
 
-    private fun saveProcessedBitmap(
+    private fun saveCaptureBitmap(
         bitmap: Bitmap,
         zoomRatio: Float,
         params: OfflineProcessParams
@@ -1451,12 +1454,6 @@ class CameraPreviewView(
                 zoomRatio = zoomRatio
             )
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val publishValues = ContentValues().apply {
-                    put(MediaStore.Images.Media.IS_PENDING, 0)
-                }
-                resolver.update(uri, publishValues, null, null)
-            }
             success = true
             android.util.Log.i(
                 "RanaCaptureQuality",
@@ -1469,6 +1466,22 @@ class CameraPreviewView(
             return null
         } finally {
             if (!success) resolver.delete(uri, null, null)
+        }
+    }
+
+    private fun publishCapture(uri: Uri) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val publishValues = ContentValues().apply {
+            put(MediaStore.Images.Media.IS_PENDING, 0)
+        }
+        val updated = context.contentResolver.update(
+            uri,
+            publishValues,
+            null,
+            null
+        )
+        if (updated != 1) {
+            throw IOException("Unable to publish MediaStore capture")
         }
     }
 

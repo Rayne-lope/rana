@@ -142,4 +142,39 @@ class OfflineProcessParamsTest {
         assertEquals("rana_chroma", params.presetId)
         assertTrue(params.isStyleModified)
     }
+
+    @Test
+    fun `metadata payload restores rendering parameters`() {
+        val original = OfflineProcessParams(
+            temperature = 0.2f,
+            colorMatrix = floatArrayOf(
+                1f, 0.1f, 0f,
+                0f, 0.9f, 0f,
+                0f, 0.1f, 1f
+            ),
+            grain = 0.3f,
+            halationRadius = 1.8f,
+            undertoneX = -0.4f,
+            undertoneY = 0.25f,
+            dateStampEnable = true,
+            outputQuality = OutputQualityProfile.EFFICIENT_HEIC,
+            presetId = "cinestill_800t",
+            isStyleModified = true
+        )
+
+        val restored = offlineProcessParamsFromArguments(
+            original.asMetadataParams()
+        )
+
+        assertEquals(original.temperature, restored.temperature)
+        assertArrayEquals(original.colorMatrix, restored.colorMatrix, 0f)
+        assertEquals(original.grain, restored.grain)
+        assertEquals(original.halationRadius, restored.halationRadius)
+        assertEquals(original.undertoneX, restored.undertoneX)
+        assertEquals(original.undertoneY, restored.undertoneY)
+        assertEquals(original.dateStampEnable, restored.dateStampEnable)
+        assertEquals(original.outputQuality, restored.outputQuality)
+        assertEquals(original.presetId, restored.presetId)
+        assertEquals(original.isStyleModified, restored.isStyleModified)
+    }
 }

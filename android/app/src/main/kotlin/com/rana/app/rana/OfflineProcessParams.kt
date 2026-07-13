@@ -53,6 +53,51 @@ data class OfflineProcessParams(
     val isStyleModified: Boolean = false
 )
 
+/** Stable flat payload persisted for later non-destructive rendering. */
+internal fun OfflineProcessParams.asMetadataParams(): Map<String, Any?> = mapOf(
+    "temperature" to temperature,
+    "saturation" to saturation,
+    "contrast" to contrast,
+    "colorMatrix" to colorMatrix.toList(),
+    "grain" to grain,
+    "vignette" to vignette,
+    "lutPath" to lutAssetPath,
+    "lutStrength" to lutStrength,
+    "lightLeakIntensity" to lightLeakIntensity,
+    "lightLeakVariant" to lightLeakVariant,
+    "dustIntensity" to dustIntensity,
+    "bloomThreshold" to bloomThreshold,
+    "bloomIntensity" to bloomIntensity,
+    "halationIntensity" to halationIntensity,
+    "halationRadius" to halationRadius,
+    "halationColorR" to halationColorR,
+    "halationColorG" to halationColorG,
+    "halationColorB" to halationColorB,
+    "lensDistortionStrength" to lensDistortionStrength,
+    "tone" to tone,
+    "color" to color,
+    "textureVal" to textureVal,
+    "styleStrength" to styleStrength,
+    "undertoneX" to undertoneX,
+    "undertoneY" to undertoneY,
+    "grainSize" to grainSize,
+    "softness" to softness,
+    "chromaticAberrationIntensity" to chromaticAberrationIntensity,
+    "fade" to fade,
+    "highlightRollOff" to highlightRollOff,
+    "shadowRollOff" to shadowRollOff,
+    "dateStampEnable" to dateStampEnable,
+    "shadowsTintR" to shadowsTintR,
+    "shadowsTintG" to shadowsTintG,
+    "shadowsTintB" to shadowsTintB,
+    "highlightsTintR" to highlightsTintR,
+    "highlightsTintG" to highlightsTintG,
+    "highlightsTintB" to highlightsTintB,
+    "outputQuality" to outputQuality.channelValue,
+    "presetId" to presetId,
+    "isStyleModified" to isStyleModified
+)
+
 /** Parses MethodChannel arguments while preserving neutral legacy defaults. */
 internal fun offlineProcessParamsFromArguments(
     arguments: Any?
