@@ -175,6 +175,8 @@ object GlShaderConstants {
         uniform float uDustUVOffsetY;
         uniform float uGrain;
         uniform float uVignette;
+        uniform vec3 uVignetteColor;
+        uniform float uVignetteRoundness;
         uniform float uTime;
         uniform float uGrainSize;
         uniform float uFilmBorderStyle;
@@ -240,10 +242,21 @@ object GlShaderConstants {
 
         vec3 applyVignette(vec3 color) {
             if (uVignette <= 0.0) return color;
-            vec2 uv = vTextureCoord - 0.5;
+            float roundness = clamp(uVignetteRoundness, 0.0, 1.0);
+            vec2 legacyUv = vTextureCoord - 0.5;
+            vec2 outputUv = vOutputCoord - 0.5;
+            float aspectRatio = max(uOutputAspectRatio, 0.0001);
+            vec2 circleScale = aspectRatio >= 1.0
+                ? vec2(aspectRatio, 1.0)
+                : vec2(1.0, 1.0 / aspectRatio);
+            vec2 uv = mix(legacyUv, outputUv * circleScale, roundness);
             float dist = length(uv);
-            float vignette = smoothstep(0.8, 0.8 - uVignette * 0.6, dist);
-            return color * vignette;
+            float innerEdge = 0.8 - uVignette * 0.6;
+            float vignette = 1.0 - smoothstep(innerEdge, 0.8, dist);
+            if (dot(uVignetteColor, uVignetteColor) <= 0.0) {
+                return color * vignette;
+            }
+            return mix(uVignetteColor, color, vignette);
         }
 
         float roundedBoxMask(

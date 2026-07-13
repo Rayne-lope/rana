@@ -151,6 +151,23 @@ class GlShaderConstantsTest {
     }
 
     @Test
+    fun `vignette supports color and aspect corrected roundness`() {
+        for (shader in listOf(
+            GlShaderConstants.FRAGMENT_SHADER_EXPORT,
+            GlShaderConstants.FRAGMENT_SHADER_BLOOM_COMPOSITE
+        )) {
+            assertTrue(shader.contains("uniform vec3 uVignetteColor;"))
+            assertTrue(shader.contains("uniform float uVignetteRoundness;"))
+            assertTrue(shader.contains("vec2 legacyUv = vTextureCoord - 0.5;"))
+            assertTrue(shader.contains("vec2 outputUv = vOutputCoord - 0.5;"))
+            assertTrue(shader.contains("outputUv * circleScale, roundness"))
+            assertTrue(shader.contains("1.0 - smoothstep(innerEdge, 0.8, dist)"))
+            assertTrue(shader.contains("return color * vignette;"))
+            assertTrue(shader.contains("return mix(uVignetteColor, color, vignette);"))
+        }
+    }
+
+    @Test
     fun `roll-off helper uses film shoulder and toe curves`() {
         val shader = GlShaderConstants.FRAGMENT_SHADER_EXPORT
 

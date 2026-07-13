@@ -43,6 +43,8 @@ class CameraGlRenderer(
         val colorMatrixLoc: Int,
         val grainLoc: Int,
         val vignetteLoc: Int,
+        val vignetteColorLoc: Int,
+        val vignetteRoundnessLoc: Int,
         val lutTextureLoc: Int,
         val lutStrengthLoc: Int,
         val lightLeakTextureLoc: Int,
@@ -116,6 +118,8 @@ class CameraGlRenderer(
         val dustUvOffsetYLoc: Int,
         val grainLoc: Int,
         val vignetteLoc: Int,
+        val vignetteColorLoc: Int,
+        val vignetteRoundnessLoc: Int,
         val timeLoc: Int,
         val grainSizeLoc: Int,
         val toneLoc: Int,
@@ -163,6 +167,10 @@ class CameraGlRenderer(
     private var colorMatrix = colorMatrixForGl(IDENTITY_COLOR_MATRIX)
     private var grain = 0f
     private var vignette = 0f
+    private var vignetteColorR = 0f
+    private var vignetteColorG = 0f
+    private var vignetteColorB = 0f
+    private var vignetteRoundness = 0f
     private var lutStrength = 0f
     private var lightLeakIntensity = 0f
     private var lightLeakVariant = -1
@@ -302,6 +310,10 @@ class CameraGlRenderer(
         colorMatrix: FloatArray,
         grain: Float,
         vignette: Float,
+        vignetteColorR: Float,
+        vignetteColorG: Float,
+        vignetteColorB: Float,
+        vignetteRoundness: Float,
         lutPath: String?,
         lutStrength: Float,
         lightLeakIntensity: Float,
@@ -342,6 +354,12 @@ class CameraGlRenderer(
             this.colorMatrix = colorMatrixForGl(colorMatrix)
             this.grain = grain
             this.vignette = vignette
+            this.vignetteColorR = normalizedVignetteColor(vignetteColorR)
+            this.vignetteColorG = normalizedVignetteColor(vignetteColorG)
+            this.vignetteColorB = normalizedVignetteColor(vignetteColorB)
+            this.vignetteRoundness = normalizedVignetteRoundness(
+                vignetteRoundness
+            )
             this.lutStrength = lutStrength
             this.lightLeakIntensity = lightLeakIntensity
             this.lightLeakVariant = lightLeakVariant
@@ -592,6 +610,14 @@ class CameraGlRenderer(
             colorMatrixLoc = GLES20.glGetUniformLocation(programId, "uColorMatrix"),
             grainLoc = GLES20.glGetUniformLocation(programId, "uGrain"),
             vignetteLoc = GLES20.glGetUniformLocation(programId, "uVignette"),
+            vignetteColorLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uVignetteColor"
+            ),
+            vignetteRoundnessLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uVignetteRoundness"
+            ),
             lutTextureLoc = GLES20.glGetUniformLocation(programId, "uLutTexture"),
             lutStrengthLoc = GLES20.glGetUniformLocation(programId, "uLutStrength"),
             lightLeakTextureLoc = GLES20.glGetUniformLocation(programId, "uLightLeakTexture"),
@@ -727,6 +753,14 @@ class CameraGlRenderer(
                     dustUvOffsetYLoc = GLES20.glGetUniformLocation(programId, "uDustUVOffsetY"),
                     grainLoc = GLES20.glGetUniformLocation(programId, "uGrain"),
                     vignetteLoc = GLES20.glGetUniformLocation(programId, "uVignette"),
+                    vignetteColorLoc = GLES20.glGetUniformLocation(
+                        programId,
+                        "uVignetteColor"
+                    ),
+                    vignetteRoundnessLoc = GLES20.glGetUniformLocation(
+                        programId,
+                        "uVignetteRoundness"
+                    ),
                     timeLoc = GLES20.glGetUniformLocation(programId, "uTime"),
                     grainSizeLoc = GLES20.glGetUniformLocation(programId, "uGrainSize"),
                     toneLoc = GLES20.glGetUniformLocation(programId, "uTone"),
@@ -919,6 +953,16 @@ class CameraGlRenderer(
         )
         GLES20.glUniform1f(singlePassProgram.grainLoc, grain)
         GLES20.glUniform1f(singlePassProgram.vignetteLoc, vignette)
+        GLES20.glUniform3f(
+            singlePassProgram.vignetteColorLoc,
+            vignetteColorR,
+            vignetteColorG,
+            vignetteColorB
+        )
+        GLES20.glUniform1f(
+            singlePassProgram.vignetteRoundnessLoc,
+            vignetteRoundness
+        )
         GLES20.glUniform1f(singlePassProgram.lutStrengthLoc, lutStrength)
         GLES20.glUniform1f(singlePassProgram.lightLeakIntensityLoc, lightLeakIntensity)
         GLES20.glUniform1f(singlePassProgram.dustIntensityLoc, dustIntensity)
@@ -1106,6 +1150,16 @@ class CameraGlRenderer(
         GLES20.glUniform1f(composite.dustUvOffsetYLoc, dustUVOffsetY)
         GLES20.glUniform1f(composite.grainLoc, grain)
         GLES20.glUniform1f(composite.vignetteLoc, vignette)
+        GLES20.glUniform3f(
+            composite.vignetteColorLoc,
+            vignetteColorR,
+            vignetteColorG,
+            vignetteColorB
+        )
+        GLES20.glUniform1f(
+            composite.vignetteRoundnessLoc,
+            vignetteRoundness
+        )
         GLES20.glUniform1f(composite.toneLoc, tone)
         GLES20.glUniform1f(composite.colorLoc, color)
         GLES20.glUniform1f(composite.textureValLoc, textureVal)

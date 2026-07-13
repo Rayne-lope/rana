@@ -26,6 +26,8 @@ void main() {
       expect(model.grain.intensity, 0.0);
       expect(model.grain.size, 1.0);
       expect(model.vignette.intensity, 0.0);
+      expect(model.vignette.color, PresetVignette.defaultColor);
+      expect(model.vignette.roundness, 0.0);
       expect(model.lut, isNull);
       expect(model.overlay, isNull);
       expect(model.behavior, isNull);
@@ -92,6 +94,16 @@ void main() {
       expect(model.style!.undertoneY, -0.04);
     });
 
+    test('Matte Pastel opts into a subtle light vignette', () {
+      final decoded = json.decode(
+        File('assets/presets/matte_pastel_100.json').readAsStringSync(),
+      );
+      final model = PresetModel.fromJson(decoded as Map<String, dynamic>);
+
+      expect(model.vignette.color, <double>[1, 0.98, 0.94]);
+      expect(model.vignette.roundness, 0.75);
+    });
+
     test('successfully parses preset with style block', () {
       final jsonMap = {
         'id': 'custom_styled',
@@ -150,7 +162,11 @@ void main() {
           'matrix': <dynamic>[1.1, 0.1, 0, 0, 0.9, 0.1, 0, 0.2, 0.8],
         },
         'grain': <String, dynamic>{'intensity': 0.4, 'size': 1.7},
-        'vignette': <String, dynamic>{'intensity': 0.2},
+        'vignette': <String, dynamic>{
+          'intensity': 0.2,
+          'color': <dynamic>[1.2, 0.9, 0.8],
+          'roundness': 0.75,
+        },
         'effects': <String, dynamic>{
           'chromaticAberration': <String, dynamic>{'intensity': 0.15},
           'halation': <String, dynamic>{
@@ -184,6 +200,8 @@ void main() {
         0.8,
       ]);
       expect(model.grain.size, 1.7);
+      expect(model.vignette.color, <double>[1, 0.9, 0.8]);
+      expect(model.vignette.roundness, 0.75);
       expect(model.effects.chromaticAberration?.intensity, 0.15);
       expect(model.effects.halation.intensity, 0.35);
       expect(model.effects.halation.radius, 2.5);
@@ -201,7 +219,10 @@ void main() {
       final serialized = model.toJson();
       final effects = serialized['effects'] as Map<String, dynamic>;
       final color = serialized['color'] as Map<String, dynamic>;
+      final vignette = serialized['vignette'] as Map<String, dynamic>;
       expect(color['matrix'], <double>[1.1, 0.1, 0, 0, 0.9, 0.1, 0, 0.2, 0.8]);
+      expect(vignette['color'], <double>[1, 0.9, 0.8]);
+      expect(vignette['roundness'], 0.75);
       expect(effects['softness'], 0.25);
       expect(effects['highlightRollOff'], 0.6);
       expect(effects['shadowRollOff'], 0.4);
@@ -229,6 +250,20 @@ void main() {
       expect(border.style, FilmBorderStyle.none);
       expect(border.toJson(), <String, dynamic>{'style': 'none'});
     });
+
+    test(
+      'invalid vignette color and out of range roundness are normalized',
+      () {
+        final vignette = PresetVignette.fromJson(const <String, dynamic>{
+          'intensity': 0.5,
+          'color': <dynamic>[1, 'bad', 0],
+          'roundness': 2,
+        });
+
+        expect(vignette.color, PresetVignette.defaultColor);
+        expect(vignette.roundness, 1.0);
+      },
+    );
 
     test('invalid color matrix resolves to identity', () {
       final base = <String, dynamic>{

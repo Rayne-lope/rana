@@ -49,6 +49,8 @@ object OfflineGlProcessor {
         val colorMatrixLoc: Int,
         val grainLoc: Int,
         val vignetteLoc: Int,
+        val vignetteColorLoc: Int,
+        val vignetteRoundnessLoc: Int,
         val lutTextureLoc: Int,
         val lutStrengthLoc: Int,
         val lightLeakTextureLoc: Int,
@@ -122,6 +124,8 @@ object OfflineGlProcessor {
         val dustUvOffsetYLoc: Int,
         val grainLoc: Int,
         val vignetteLoc: Int,
+        val vignetteColorLoc: Int,
+        val vignetteRoundnessLoc: Int,
         val timeLoc: Int,
         val grainSizeLoc: Int,
         val toneLoc: Int,
@@ -711,6 +715,16 @@ object OfflineGlProcessor {
         )
         GLES20.glUniform1f(program.grainLoc, effectScale.grainIntensity)
         GLES20.glUniform1f(program.vignetteLoc, params.vignette)
+        GLES20.glUniform3f(
+            program.vignetteColorLoc,
+            params.vignetteColorR,
+            params.vignetteColorG,
+            params.vignetteColorB
+        )
+        GLES20.glUniform1f(
+            program.vignetteRoundnessLoc,
+            params.vignetteRoundness
+        )
         GLES20.glUniform1f(program.lutStrengthLoc, params.lutStrength)
         GLES20.glUniform1f(program.lightLeakIntensityLoc, params.lightLeakIntensity)
         GLES20.glUniform1f(program.dustIntensityLoc, params.dustIntensity)
@@ -887,6 +901,16 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.dustUvOffsetYLoc, dustUVOffsetY)
         GLES20.glUniform1f(program.grainLoc, effectScale.grainIntensity)
         GLES20.glUniform1f(program.vignetteLoc, params.vignette)
+        GLES20.glUniform3f(
+            program.vignetteColorLoc,
+            params.vignetteColorR,
+            params.vignetteColorG,
+            params.vignetteColorB
+        )
+        GLES20.glUniform1f(
+            program.vignetteRoundnessLoc,
+            params.vignetteRoundness
+        )
         GLES20.glUniform1f(program.toneLoc, params.tone)
         GLES20.glUniform1f(program.colorLoc, params.color)
         GLES20.glUniform1f(program.textureValLoc, params.textureVal)
@@ -1128,6 +1152,14 @@ object OfflineGlProcessor {
             colorMatrixLoc = GLES20.glGetUniformLocation(programId, "uColorMatrix"),
             grainLoc = GLES20.glGetUniformLocation(programId, "uGrain"),
             vignetteLoc = GLES20.glGetUniformLocation(programId, "uVignette"),
+            vignetteColorLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uVignetteColor"
+            ),
+            vignetteRoundnessLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uVignetteRoundness"
+            ),
             lutTextureLoc = GLES20.glGetUniformLocation(programId, "uLutTexture"),
             lutStrengthLoc = GLES20.glGetUniformLocation(programId, "uLutStrength"),
             lightLeakTextureLoc = GLES20.glGetUniformLocation(programId, "uLightLeakTexture"),
@@ -1248,6 +1280,14 @@ object OfflineGlProcessor {
             dustUvOffsetYLoc = GLES20.glGetUniformLocation(programId, "uDustUVOffsetY"),
             grainLoc = GLES20.glGetUniformLocation(programId, "uGrain"),
             vignetteLoc = GLES20.glGetUniformLocation(programId, "uVignette"),
+            vignetteColorLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uVignetteColor"
+            ),
+            vignetteRoundnessLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uVignetteRoundness"
+            ),
             timeLoc = GLES20.glGetUniformLocation(programId, "uTime"),
             grainSizeLoc = GLES20.glGetUniformLocation(programId, "uGrainSize"),
             toneLoc = GLES20.glGetUniformLocation(programId, "uTone"),

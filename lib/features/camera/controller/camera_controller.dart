@@ -460,6 +460,13 @@ class CameraController extends _$CameraController {
       'fade': activePreset?.color.fade ?? 0.0,
       'grain': finalGrain,
       'vignette': activePreset?.vignette.intensity ?? 0.0,
+      'vignetteColorR':
+          activePreset?.vignette.color[0] ?? PresetVignette.defaultColor[0],
+      'vignetteColorG':
+          activePreset?.vignette.color[1] ?? PresetVignette.defaultColor[1],
+      'vignetteColorB':
+          activePreset?.vignette.color[2] ?? PresetVignette.defaultColor[2],
+      'vignetteRoundness': activePreset?.vignette.roundness ?? 0.0,
       'lutPath': lutPath,
       'lutStrength': lutPath != null ? 1.0 : 0.0,
       'lightLeakIntensity': activePreset?.effects.lightLeak.intensity ?? 0.0,
@@ -677,6 +684,10 @@ class CameraController extends _$CameraController {
       'fade': preset.color.fade ?? 0.0,
       'grain': finalGrain,
       'vignette': preset.vignette.intensity,
+      'vignetteColorR': preset.vignette.color[0],
+      'vignetteColorG': preset.vignette.color[1],
+      'vignetteColorB': preset.vignette.color[2],
+      'vignetteRoundness': preset.vignette.roundness,
       'lutPath': lutPath,
       'lutStrength': lutPath != null ? 1.0 : 0.0,
       'lightLeakIntensity': preset.effects.lightLeak.intensity,

@@ -16,6 +16,10 @@ data class OfflineProcessParams(
     val colorMatrix: FloatArray = IDENTITY_COLOR_MATRIX.copyOf(),
     val grain: Float = 0f,
     val vignette: Float = 0f,
+    val vignetteColorR: Float = 0f,
+    val vignetteColorG: Float = 0f,
+    val vignetteColorB: Float = 0f,
+    val vignetteRoundness: Float = 0f,
     val lutAssetPath: String? = null,
     val lutStrength: Float = 0f,
     val lightLeakIntensity: Float = 0f,
@@ -64,6 +68,10 @@ internal fun OfflineProcessParams.asMetadataParams(): Map<String, Any?> = mapOf(
     "colorMatrix" to colorMatrix.toList(),
     "grain" to grain,
     "vignette" to vignette,
+    "vignetteColorR" to vignetteColorR,
+    "vignetteColorG" to vignetteColorG,
+    "vignetteColorB" to vignetteColorB,
+    "vignetteRoundness" to vignetteRoundness,
     "lutPath" to lutAssetPath,
     "lutStrength" to lutStrength,
     "lightLeakIntensity" to lightLeakIntensity,
@@ -135,6 +143,18 @@ internal fun offlineProcessParamsFromArguments(
         colorMatrix = colorMatrixArg(),
         grain = numberArg("grain"),
         vignette = numberArg("vignette"),
+        vignetteColorR = normalizedVignetteColor(
+            numberArg("vignetteColorR")
+        ),
+        vignetteColorG = normalizedVignetteColor(
+            numberArg("vignetteColorG")
+        ),
+        vignetteColorB = normalizedVignetteColor(
+            numberArg("vignetteColorB")
+        ),
+        vignetteRoundness = normalizedVignetteRoundness(
+            numberArg("vignetteRoundness")
+        ),
         lutAssetPath = args?.get("lutPath") as? String,
         lutStrength = numberArg("lutStrength"),
         lightLeakIntensity = numberArg("lightLeakIntensity"),
@@ -207,6 +227,12 @@ internal fun normalizedHalationColor(component: Float, fallback: Float): Float =
 
 internal fun normalizedFilmBorderStyle(style: Int): Int =
     if (style in 0..2) style else 0
+
+internal fun normalizedVignetteColor(component: Float): Float =
+    if (component.isFinite()) component.coerceIn(0f, 1f) else 0f
+
+internal fun normalizedVignetteRoundness(roundness: Float): Float =
+    if (roundness.isFinite()) roundness.coerceIn(0f, 1f) else 0f
 
 internal fun canShareHalationBlur(
     bloomIntensity: Float,

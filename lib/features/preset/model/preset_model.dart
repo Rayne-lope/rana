@@ -141,29 +141,68 @@ class PresetGrain {
 @immutable
 class PresetVignette {
   /// Main constructor.
-  const PresetVignette({required this.intensity});
+  const PresetVignette({
+    required this.intensity,
+    this.color = defaultColor,
+    this.roundness = 0.0,
+  });
 
   /// Factory to parse from a JSON map.
-  factory PresetVignette.fromJson(Map<String, dynamic> json) =>
-      PresetVignette(intensity: (json['intensity'] as num).toDouble());
+  factory PresetVignette.fromJson(Map<String, dynamic> json) => PresetVignette(
+    intensity: (json['intensity'] as num).toDouble(),
+    color: _parseVignetteColor(json['color']),
+    roundness: ((json['roundness'] as num?)?.toDouble() ?? 0.0).clamp(0.0, 1.0),
+  );
+
+  /// Legacy black vignette color.
+  static const List<double> defaultColor = <double>[0, 0, 0];
 
   /// The vignette intensity parameter.
   final double intensity;
 
+  /// Normalized RGB color blended into vignetted edges.
+  final List<double> color;
+
+  /// Aspect correction from legacy oval (0) to pixel-space circle (1).
+  final double roundness;
+
   /// Converts this instance to a JSON map.
-  Map<String, dynamic> toJson() => <String, dynamic>{'intensity': intensity};
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'intensity': intensity,
+    'color': List<double>.of(color),
+    'roundness': roundness,
+  };
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is PresetVignette && other.intensity == intensity;
+    return other is PresetVignette &&
+        other.intensity == intensity &&
+        listEquals(other.color, color) &&
+        other.roundness == roundness;
   }
 
   @override
-  int get hashCode => intensity.hashCode;
+  int get hashCode => Object.hash(intensity, Object.hashAll(color), roundness);
 
   @override
-  String toString() => 'PresetVignette(intensity: $intensity)';
+  String toString() =>
+      'PresetVignette(intensity: $intensity, color: $color, '
+      'roundness: $roundness)';
+}
+
+List<double> _parseVignetteColor(Object? value) {
+  if (value is! List<dynamic> || value.length != 3) {
+    return PresetVignette.defaultColor;
+  }
+  final parsed = <double>[];
+  for (final component in value) {
+    if (component is! num || !component.isFinite) {
+      return PresetVignette.defaultColor;
+    }
+    parsed.add(component.toDouble().clamp(0.0, 1.0));
+  }
+  return List<double>.unmodifiable(parsed);
 }
 
 /// Preset light leak effect parameters.

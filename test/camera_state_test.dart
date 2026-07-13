@@ -480,6 +480,10 @@ void main() {
       expect(params['saturation'], equals(0.3));
       expect(params['grain'], equals(0.4));
       expect(params['vignette'], equals(0.5));
+      expect(params['vignetteColorR'], equals(0.0));
+      expect(params['vignetteColorG'], equals(0.0));
+      expect(params['vignetteColorB'], equals(0.0));
+      expect(params['vignetteRoundness'], equals(0.0));
       expect(params['lutPath'], isNull);
       expect(params['lutStrength'], equals(0.0));
       expect(params['lightLeakIntensity'], equals(0.0));
@@ -522,7 +526,11 @@ void main() {
           fade: 0.25,
         ),
         grain: PresetGrain(intensity: 0.4, size: 1.6),
-        vignette: PresetVignette(intensity: 0.5),
+        vignette: PresetVignette(
+          intensity: 0.5,
+          color: <double>[1, 0.9, 0.8],
+          roundness: 0.75,
+        ),
         effects: PresetEffects(
           lightLeak: LightLeakEffect(intensity: 0, variant: 0),
           dust: DustEffect(intensity: 0),
@@ -560,6 +568,10 @@ void main() {
         'highlightRollOff',
         'shadowRollOff',
         'filmBorderStyle',
+        'vignetteColorR',
+        'vignetteColorG',
+        'vignetteColorB',
+        'vignetteRoundness',
         'dateStampEnable',
         'shadowsTintR',
         'shadowsTintG',
@@ -579,6 +591,10 @@ void main() {
       expect(previewParams['highlightRollOff'], 0.6);
       expect(previewParams['shadowRollOff'], 0.4);
       expect(previewParams['filmBorderStyle'], 2);
+      expect(previewParams['vignetteColorR'], 1.0);
+      expect(previewParams['vignetteColorG'], 0.9);
+      expect(previewParams['vignetteColorB'], 0.8);
+      expect(previewParams['vignetteRoundness'], 0.75);
       expect(previewParams['dateStampEnable'], isTrue);
     });
 

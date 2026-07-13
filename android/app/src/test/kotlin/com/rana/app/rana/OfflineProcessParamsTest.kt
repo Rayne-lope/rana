@@ -22,6 +22,10 @@ class OfflineProcessParamsTest {
         assertEquals(0f, params.fade)
         assertEquals(0f, params.highlightRollOff)
         assertEquals(0f, params.shadowRollOff)
+        assertEquals(0f, params.vignetteColorR)
+        assertEquals(0f, params.vignetteColorG)
+        assertEquals(0f, params.vignetteColorB)
+        assertEquals(0f, params.vignetteRoundness)
         assertEquals(0, params.filmBorderStyle)
         assertEquals(-1f, params.dustOffsetX)
         assertEquals(-1f, params.dustOffsetY)
@@ -45,6 +49,10 @@ class OfflineProcessParamsTest {
                 "fade" to 0.25,
                 "highlightRollOff" to 0.6,
                 "shadowRollOff" to 0.4,
+                "vignetteColorR" to 1.2,
+                "vignetteColorG" to 0.9,
+                "vignetteColorB" to 0.8,
+                "vignetteRoundness" to 0.75,
                 "colorMatrix" to listOf(
                     1.1, 0.1, 0.2,
                     0.3, 0.9, 0.4,
@@ -68,6 +76,10 @@ class OfflineProcessParamsTest {
         assertEquals(0.25f, params.fade)
         assertEquals(0.6f, params.highlightRollOff)
         assertEquals(0.4f, params.shadowRollOff)
+        assertEquals(1f, params.vignetteColorR)
+        assertEquals(0.9f, params.vignetteColorG)
+        assertEquals(0.8f, params.vignetteColorB)
+        assertEquals(0.75f, params.vignetteRoundness)
         assertArrayEquals(
             floatArrayOf(
                 1.1f, 0.1f, 0.2f,
@@ -156,6 +168,10 @@ class OfflineProcessParamsTest {
                 0f, 0.1f, 1f
             ),
             grain = 0.3f,
+            vignetteColorR = 1f,
+            vignetteColorG = 0.9f,
+            vignetteColorB = 0.8f,
+            vignetteRoundness = 0.75f,
             dustOffsetX = 0.2f,
             dustOffsetY = 0.7f,
             filmBorderStyle = 2,
@@ -175,6 +191,10 @@ class OfflineProcessParamsTest {
         assertEquals(original.temperature, restored.temperature)
         assertArrayEquals(original.colorMatrix, restored.colorMatrix, 0f)
         assertEquals(original.grain, restored.grain)
+        assertEquals(original.vignetteColorR, restored.vignetteColorR)
+        assertEquals(original.vignetteColorG, restored.vignetteColorG)
+        assertEquals(original.vignetteColorB, restored.vignetteColorB)
+        assertEquals(original.vignetteRoundness, restored.vignetteRoundness)
         assertEquals(original.dustOffsetX, restored.dustOffsetX)
         assertEquals(original.dustOffsetY, restored.dustOffsetY)
         assertEquals(original.filmBorderStyle, restored.filmBorderStyle)
@@ -201,5 +221,15 @@ class OfflineProcessParamsTest {
                 mapOf("filmBorderStyle" to 99)
             ).filmBorderStyle
         )
+    }
+
+    @Test
+    fun `vignette color and roundness normalization rejects invalid values`() {
+        assertEquals(0f, normalizedVignetteColor(Float.NaN))
+        assertEquals(0f, normalizedVignetteColor(-1f))
+        assertEquals(1f, normalizedVignetteColor(2f))
+        assertEquals(0f, normalizedVignetteRoundness(Float.NaN))
+        assertEquals(0f, normalizedVignetteRoundness(-1f))
+        assertEquals(1f, normalizedVignetteRoundness(2f))
     }
 }

@@ -13,7 +13,9 @@
     "size": 0.90
   },
   "vignette": {
-    "intensity": 0.08
+    "intensity": 0.08,
+    "color": [1.0, 0.98, 0.94],
+    "roundness": 0.75
   },
   "lut": null,
   "overlay": null,

@@ -31,7 +31,9 @@ Here is a complete JSON layout showing all available parameters, including color
     "size": 1.5
   },
   "vignette": {
-    "intensity": 0.35
+    "intensity": 0.35,
+    "color": [0.0, 0.0, 0.0],
+    "roundness": 0.5
   },
   "lut": "assets/luts/vintage_warm.png",
   "overlay": null,
@@ -106,7 +108,9 @@ Color grading properties processed inside the color grading shader pass:
 ---
 
 ### 2.4 Vignette Parameters (`vignette`)
-* **`intensity`** *(Float, Range: 0.0 to 1.0)*: Darkness of the corners. Uses a smooth radial gradient towards the outer edges of the frame.
+* **`intensity`** *(Float, Range: 0.0 to 1.0)*: Blend strength at the corners. Uses a smooth radial gradient towards the outer edges of the frame.
+* **`color`** *(Array of 3 Floats, each 0.0 to 1.0, **Optional**)*: Normalized RGB color blended into the edges. Black `[0, 0, 0]` preserves the legacy dark vignette; near-white colors create a light, dreamy edge fade. Invalid arrays fall back to black. Default: `[0, 0, 0]`.
+* **`roundness`** *(Float, Range: 0.0 to 1.0, **Optional**)*: Aspect-ratio correction for the vignette shape. `0.0` preserves the legacy frame-relative oval, while `1.0` approaches a pixel-space circle on portrait or landscape output. Values are clamped. Default: `0.0`.
 
 ---
 
