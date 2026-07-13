@@ -300,7 +300,24 @@ object GlShaderConstants {
                     max(leftPaper, rightPaper),
                     max(topPaper, bottomPaper)
                 );
-                return mix(color, vec3(0.965, 0.950, 0.905), paperMask);
+
+                // Organic paper texture
+                float noise1 = rand(outputUv * 1500.0) * 0.6;
+                float noise2 = rand(outputUv * 750.0) * 0.4;
+                float paperNoise = (noise1 + noise2 - 0.5) * 0.012;
+                vec3 paperColor = vec3(0.965, 0.950, 0.905) + vec3(paperNoise);
+
+                // Inner bevel shadow on the photo
+                float distToLeft = outputUv.x - 0.077;
+                float distToRight = 0.923 - outputUv.x;
+                float distToTop = outputUv.y - 0.050;
+                float distToBottom = 0.765 - outputUv.y;
+                float distToEdge = min(min(distToLeft, distToRight), min(distToTop, distToBottom));
+                
+                float shadowFactor = 1.0 - smoothstep(0.0, 0.014, max(distToEdge, 0.0));
+                vec3 finalColor = mix(color, color * 0.55, shadowFactor * 0.7);
+
+                return mix(finalColor, paperColor, paperMask);
             }
 
             // Keep sprockets on the long edges after device rotation.

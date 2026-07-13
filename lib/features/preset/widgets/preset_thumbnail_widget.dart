@@ -115,6 +115,21 @@ class PresetThumbnailWidget extends StatelessWidget {
                         ),
                       ),
                     ),
+                    // Subtle inner shadow overlay to define the
+                    // frame cutout depth
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(width * 0.04),
+                            border: Border.all(
+                              color: Colors.black.withValues(alpha: 0.12),
+                              width: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

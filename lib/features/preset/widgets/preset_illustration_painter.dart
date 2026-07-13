@@ -737,6 +737,16 @@ class PresetIllustrationPainter extends CustomPainter {
           colors: [Color(0xFF85C1E9), Color(0xFFF5B041)],
         ).createShader(photoRect.outerRect),
     );
+
+    // Draw a subtle inner shadow/border on the photo inside the
+    // mini-instant representation
+    canvas.drawRRect(
+      photoRect,
+      Paint()
+        ..color = const Color(0x1F000000)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5,
+    );
   }
 
   void _paintCinematic(Canvas canvas, Size size, Rect rect) {
