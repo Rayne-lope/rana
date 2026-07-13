@@ -8,7 +8,10 @@
     "saturation": 0.06
   },
   "grain": {
-    "intensity": 0.15
+    "intensity": 0.15,
+    "size": 0.85,
+    "shadowsLimit": 0.10,
+    "highlightsLimit": 0.08
   },
   "vignette": {
     "intensity": 0.04
@@ -33,6 +36,9 @@
     },
     "lensDistortion": {
       "strength": 0.0
+    },
+    "chromaticAberration": {
+      "intensity": 0.02
     }
   },
   "style": {

@@ -82,6 +82,8 @@ class _ConsistencyDebugScreenState
       'undertoneX',
       'undertoneY',
       'grainSize',
+      'grainShadowsLimit',
+      'grainHighlightsLimit',
       'softness',
     };
 

@@ -28,7 +28,9 @@ Here is a complete JSON layout showing all available parameters, including color
   },
   "grain": {
     "intensity": 0.25,
-    "size": 1.5
+    "size": 1.5,
+    "shadowsLimit": 0.10,
+    "highlightsLimit": 0.08
   },
   "vignette": {
     "intensity": 0.35,
@@ -122,6 +124,8 @@ Color grading properties processed inside the color grading shader pass:
 
 * **`intensity`** *(Float, Range: 0.0 to 1.0)*: Overall intensity of procedural film grain noise. Grain amplitude is luminance-adaptive: strongest across midtones and smoothly suppressed in deep shadows and near-white highlights.
 * **`size`** *(Float, Range: 0.1 to 5.0, **Optional**)*: The size multiplier of individual grain noise flakes. Default: `1.0`.
+* **`shadowsLimit`** *(Float, Range: 0.0 to 0.5, **Optional**)*: Distance from black where grain is fully suppressed. Grain fades smoothly to full strength over the next `0.18` luminance. Larger values keep a wider shadow range clean. Default: `0.04`, matching the legacy `0.04` to `0.22` shadow transition.
+* **`highlightsLimit`** *(Float, Range: 0.0 to 0.3, **Optional**)*: Distance from white where grain is fully suppressed. Grain fades smoothly over the preceding `0.15` luminance. Larger values keep a wider highlight range clean. Default: `0.07`, matching the legacy `0.78` to `0.93` highlight transition.
 
 ---
 
@@ -186,6 +190,7 @@ Phase-based color tuning parameters. Every property is optional when the `style`
 ## 3. Backward Compatibility and Authoring Notes
 
 * New effect properties are optional. Omitting them preserves legacy rendering through neutral defaults.
+* Missing grain tonal limits use the legacy shader boundaries: `shadowsLimit = 0.04` and `highlightsLimit = 0.07`.
 * Use finite JSON numbers. RGB color arrays for `vignette.color` and `halation.color` must contain exactly three values; invalid arrays fall back to their documented defaults.
 * `color.matrix` must contain exactly nine finite numbers in row-major order; otherwise Rana uses the identity matrix.
 * Unknown `filmBorder.style` values resolve to `"none"`.

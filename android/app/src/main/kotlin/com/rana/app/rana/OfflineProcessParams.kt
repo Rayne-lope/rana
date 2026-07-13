@@ -6,6 +6,9 @@ internal val IDENTITY_COLOR_MATRIX = floatArrayOf(
     0f, 0f, 1f
 )
 
+internal const val DEFAULT_GRAIN_SHADOWS_LIMIT = 0.04f
+internal const val DEFAULT_GRAIN_HIGHLIGHTS_LIMIT = 0.07f
+
 /**
  * Parameters for offline image processing.
  */
@@ -42,6 +45,8 @@ data class OfflineProcessParams(
     val undertoneX: Float = 0f,
     val undertoneY: Float = 0f,
     val grainSize: Float = 1f,
+    val grainShadowsLimit: Float = DEFAULT_GRAIN_SHADOWS_LIMIT,
+    val grainHighlightsLimit: Float = DEFAULT_GRAIN_HIGHLIGHTS_LIMIT,
     val softness: Float = 0f,
     val chromaticAberrationIntensity: Float = 0f,
     val fade: Float = 0f,
@@ -94,6 +99,8 @@ internal fun OfflineProcessParams.asMetadataParams(): Map<String, Any?> = mapOf(
     "undertoneX" to undertoneX,
     "undertoneY" to undertoneY,
     "grainSize" to grainSize,
+    "grainShadowsLimit" to grainShadowsLimit,
+    "grainHighlightsLimit" to grainHighlightsLimit,
     "softness" to softness,
     "chromaticAberrationIntensity" to chromaticAberrationIntensity,
     "fade" to fade,
@@ -186,6 +193,12 @@ internal fun offlineProcessParamsFromArguments(
         undertoneX = numberArg("undertoneX"),
         undertoneY = numberArg("undertoneY"),
         grainSize = numberArg("grainSize", 1f),
+        grainShadowsLimit = normalizedGrainShadowsLimit(
+            numberArg("grainShadowsLimit", DEFAULT_GRAIN_SHADOWS_LIMIT)
+        ),
+        grainHighlightsLimit = normalizedGrainHighlightsLimit(
+            numberArg("grainHighlightsLimit", DEFAULT_GRAIN_HIGHLIGHTS_LIMIT)
+        ),
         softness = numberArg("softness"),
         chromaticAberrationIntensity = numberArg("chromaticAberrationIntensity"),
         fade = numberArg("fade"),
@@ -233,6 +246,20 @@ internal fun normalizedVignetteColor(component: Float): Float =
 
 internal fun normalizedVignetteRoundness(roundness: Float): Float =
     if (roundness.isFinite()) roundness.coerceIn(0f, 1f) else 0f
+
+internal fun normalizedGrainShadowsLimit(limit: Float): Float =
+    if (limit.isFinite()) {
+        limit.coerceIn(0f, 0.5f)
+    } else {
+        DEFAULT_GRAIN_SHADOWS_LIMIT
+    }
+
+internal fun normalizedGrainHighlightsLimit(limit: Float): Float =
+    if (limit.isFinite()) {
+        limit.coerceIn(0f, 0.3f)
+    } else {
+        DEFAULT_GRAIN_HIGHLIGHTS_LIMIT
+    }
 
 internal fun canShareHalationBlur(
     bloomIntensity: Float,

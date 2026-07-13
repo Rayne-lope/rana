@@ -819,6 +819,8 @@ class CameraPreviewView(
             undertoneX = processParams.undertoneX,
             undertoneY = processParams.undertoneY,
             grainSize = processParams.grainSize,
+            grainShadowsLimit = processParams.grainShadowsLimit,
+            grainHighlightsLimit = processParams.grainHighlightsLimit,
             softness = processParams.softness,
             chromaticAberrationIntensity =
                 processParams.chromaticAberrationIntensity,

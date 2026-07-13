@@ -421,6 +421,11 @@ class CameraController extends _$CameraController {
     final presetGrain = activePreset?.grain.intensity ?? 0.0;
     final presetDust = activePreset?.effects.dust.intensity ?? 0.0;
     final presetGrainSize = activePreset?.grain.size ?? 1.0;
+    final grainShadowsLimit =
+        activePreset?.grain.shadowsLimit ?? PresetGrain.defaultShadowsLimit;
+    final grainHighlightsLimit =
+        activePreset?.grain.highlightsLimit ??
+        PresetGrain.defaultHighlightsLimit;
     final presetSoftness = activePreset?.effects.softness ?? 0.0;
     final textureVal = style.textureVal ?? style.texture;
     final styleStrength = style.styleStrength;
@@ -507,6 +512,8 @@ class CameraController extends _$CameraController {
       'undertoneX': style.undertoneX,
       'undertoneY': style.undertoneY,
       'grainSize': finalGrainSize,
+      'grainShadowsLimit': grainShadowsLimit,
+      'grainHighlightsLimit': grainHighlightsLimit,
       'softness': finalSoftness,
       'outputQuality': outputQuality.storageValue,
       'presetId': activePreset?.id ?? 'normal',
@@ -651,6 +658,8 @@ class CameraController extends _$CameraController {
     final presetGrain = preset.grain.intensity;
     final presetDust = preset.effects.dust.intensity;
     final presetGrainSize = preset.grain.size ?? 1.0;
+    final grainShadowsLimit = preset.grain.shadowsLimit;
+    final grainHighlightsLimit = preset.grain.highlightsLimit;
     final presetSoftness = preset.effects.softness ?? 0.0;
     final textureVal = effectiveStyle.textureVal ?? effectiveStyle.texture;
     final styleStrength = effectiveStyle.styleStrength;
@@ -720,6 +729,8 @@ class CameraController extends _$CameraController {
       'undertoneX': effectiveStyle.undertoneX,
       'undertoneY': effectiveStyle.undertoneY,
       'grainSize': finalGrainSize,
+      'grainShadowsLimit': grainShadowsLimit,
+      'grainHighlightsLimit': grainHighlightsLimit,
       'softness': finalSoftness,
     };
   }

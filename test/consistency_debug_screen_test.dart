@@ -56,6 +56,8 @@ void main() {
         expect(find.text('styleStrength'), findsOneWidget);
         expect(find.text('undertoneX'), findsOneWidget);
         expect(find.text('undertoneY'), findsOneWidget);
+        expect(find.text('grainShadowsLimit'), findsOneWidget);
+        expect(find.text('grainHighlightsLimit'), findsOneWidget);
         expect(find.text('24.00'), findsNWidgets(2));
         expect(find.text('-18.00'), findsNWidgets(2));
         expect(find.text('36.00'), findsNWidgets(2));
@@ -163,5 +165,7 @@ Map<String, dynamic> _params({
   'undertoneX': undertoneX,
   'undertoneY': undertoneY,
   'grainSize': 1.0,
+  'grainShadowsLimit': 0.04,
+  'grainHighlightsLimit': 0.07,
   'softness': 0.0,
 };

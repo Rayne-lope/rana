@@ -30,6 +30,8 @@ abstract final class AppLogger {
     final sat = params['saturation'] ?? 0.0;
     final contrast = params['contrast'] ?? 0.0;
     final grain = params['grain'] ?? 0.0;
+    final grainShadowsLimit = params['grainShadowsLimit'] ?? 0.04;
+    final grainHighlightsLimit = params['grainHighlightsLimit'] ?? 0.07;
     final vignette = params['vignette'] ?? 0.0;
     final lut = params['lutPath'];
     final strength = params['lutStrength'] ?? 0.0;
@@ -42,7 +44,9 @@ abstract final class AppLogger {
     final lensDistortionStrength = params['lensDistortionStrength'] ?? 0.0;
     final msg =
         '[$stage] temp=$temp sat=$sat contrast=$contrast '
-        'grain=$grain vignette=$vignette lut=$lut strength=$strength '
+        'grain=$grain grainShadowsLimit=$grainShadowsLimit '
+        'grainHighlightsLimit=$grainHighlightsLimit '
+        'vignette=$vignette lut=$lut strength=$strength '
         'lightLeakIntensity=$lightLeakIntensity '
         'lightLeakVariant=$lightLeakVariant dustIntensity=$dustIntensity '
         'bloomThreshold=$bloomThreshold bloomIntensity=$bloomIntensity '

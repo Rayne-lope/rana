@@ -71,6 +71,8 @@ object OfflineGlProcessor {
         val undertoneXLoc: Int,
         val undertoneYLoc: Int,
         val grainSizeLoc: Int,
+        val grainShadowsLimitLoc: Int,
+        val grainHighlightsLimitLoc: Int,
         val softnessLoc: Int,
         val chromaticAberrationIntensityLoc: Int,
         val fadeLoc: Int,
@@ -128,6 +130,8 @@ object OfflineGlProcessor {
         val vignetteRoundnessLoc: Int,
         val timeLoc: Int,
         val grainSizeLoc: Int,
+        val grainShadowsLimitLoc: Int,
+        val grainHighlightsLimitLoc: Int,
         val toneLoc: Int,
         val colorLoc: Int,
         val textureValLoc: Int,
@@ -740,6 +744,14 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.undertoneXLoc, params.undertoneX)
         GLES20.glUniform1f(program.undertoneYLoc, params.undertoneY)
         GLES20.glUniform1f(program.grainSizeLoc, effectScale.grainSize)
+        GLES20.glUniform1f(
+            program.grainShadowsLimitLoc,
+            params.grainShadowsLimit
+        )
+        GLES20.glUniform1f(
+            program.grainHighlightsLimitLoc,
+            params.grainHighlightsLimit
+        )
         GLES20.glUniform1f(program.softnessLoc, params.softness)
         GLES20.glUniform1f(
             program.chromaticAberrationIntensityLoc,
@@ -919,6 +931,14 @@ object OfflineGlProcessor {
         GLES20.glUniform1f(program.undertoneYLoc, params.undertoneY)
         GLES20.glUniform1f(program.timeLoc, 0f)
         GLES20.glUniform1f(program.grainSizeLoc, effectScale.grainSize)
+        GLES20.glUniform1f(
+            program.grainShadowsLimitLoc,
+            params.grainShadowsLimit
+        )
+        GLES20.glUniform1f(
+            program.grainHighlightsLimitLoc,
+            params.grainHighlightsLimit
+        )
         GLES20.glUniform1f(
             program.chromaticAberrationIntensityLoc,
             params.chromaticAberrationIntensity
@@ -1180,6 +1200,14 @@ object OfflineGlProcessor {
             undertoneXLoc = GLES20.glGetUniformLocation(programId, "uUndertoneX"),
             undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY"),
             grainSizeLoc = GLES20.glGetUniformLocation(programId, "uGrainSize"),
+            grainShadowsLimitLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uGrainShadowsLimit"
+            ),
+            grainHighlightsLimitLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uGrainHighlightsLimit"
+            ),
             softnessLoc = GLES20.glGetUniformLocation(programId, "uSoftness"),
             chromaticAberrationIntensityLoc = GLES20.glGetUniformLocation(
                 programId,
@@ -1290,6 +1318,14 @@ object OfflineGlProcessor {
             ),
             timeLoc = GLES20.glGetUniformLocation(programId, "uTime"),
             grainSizeLoc = GLES20.glGetUniformLocation(programId, "uGrainSize"),
+            grainShadowsLimitLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uGrainShadowsLimit"
+            ),
+            grainHighlightsLimitLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uGrainHighlightsLimit"
+            ),
             toneLoc = GLES20.glGetUniformLocation(programId, "uTone"),
             colorLoc = GLES20.glGetUniformLocation(programId, "uColor"),
             textureValLoc = GLES20.glGetUniformLocation(programId, "uTextureVal"),

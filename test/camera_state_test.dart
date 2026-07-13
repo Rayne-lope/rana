@@ -479,6 +479,14 @@ void main() {
       expect(params['contrast'], equals(0.2));
       expect(params['saturation'], equals(0.3));
       expect(params['grain'], equals(0.4));
+      expect(
+        params['grainShadowsLimit'],
+        equals(PresetGrain.defaultShadowsLimit),
+      );
+      expect(
+        params['grainHighlightsLimit'],
+        equals(PresetGrain.defaultHighlightsLimit),
+      );
       expect(params['vignette'], equals(0.5));
       expect(params['vignetteColorR'], equals(0.0));
       expect(params['vignetteColorG'], equals(0.0));
@@ -525,7 +533,12 @@ void main() {
           saturation: 0.3,
           fade: 0.25,
         ),
-        grain: PresetGrain(intensity: 0.4, size: 1.6),
+        grain: PresetGrain(
+          intensity: 0.4,
+          size: 1.6,
+          shadowsLimit: 0.12,
+          highlightsLimit: 0.08,
+        ),
         vignette: PresetVignette(
           intensity: 0.5,
           color: <double>[1, 0.9, 0.8],
@@ -581,12 +594,16 @@ void main() {
         'highlightsTintB',
         'textureVal',
         'grainSize',
+        'grainShadowsLimit',
+        'grainHighlightsLimit',
         'softness',
       ]) {
         expect(captureParams[key], equals(previewParams[key]), reason: key);
       }
       expect(previewParams['textureVal'], 50.0);
       expect(previewParams['grainSize'], closeTo(1.52, 0.0001));
+      expect(previewParams['grainShadowsLimit'], 0.12);
+      expect(previewParams['grainHighlightsLimit'], 0.08);
       expect(previewParams['softness'], closeTo(0.275, 0.0001));
       expect(previewParams['highlightRollOff'], 0.6);
       expect(previewParams['shadowRollOff'], 0.4);

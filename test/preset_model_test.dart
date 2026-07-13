@@ -25,6 +25,8 @@ void main() {
       expect(model.color.matrix, PresetColor.identityMatrix);
       expect(model.grain.intensity, 0.0);
       expect(model.grain.size, 1.0);
+      expect(model.grain.shadowsLimit, PresetGrain.defaultShadowsLimit);
+      expect(model.grain.highlightsLimit, PresetGrain.defaultHighlightsLimit);
       expect(model.vignette.intensity, 0.0);
       expect(model.vignette.color, PresetVignette.defaultColor);
       expect(model.vignette.roundness, 0.0);
@@ -70,6 +72,37 @@ void main() {
           model.effects.filmBorder.style,
           FilmBorderStyle.instant,
           reason: path,
+        );
+      }
+    });
+
+    test('selected film presets use researched grain and lens values', () {
+      const expected = <String, List<double>>{
+        'cinestill_800t': <double>[1.30, 0.12, 0.06, 0.02],
+        'cinestill_50d': <double>[0.65, 0.10, 0.10, 0.01],
+        'cinestill_redrum': <double>[1.60, 0.08, 0.04, 0.06],
+        'kodak_portra_400': <double>[0.85, 0.10, 0.08, 0.02],
+        'kodak_ektar_100': <double>[0.55, 0.10, 0.12, 0.01],
+        'kodak_gold_200': <double>[1.35, 0.05, 0.04, 0.12],
+        'fujifilm_velvia_50': <double>[0.60, 0.18, 0.10, 0.01],
+        'fujifilm_superia_xtra_400': <double>[1.05, 0.08, 0.06, 0.05],
+        'ilford_delta_3200_professional': <double>[2.80, 0.10, 0.04, 0.03],
+        'ilford_hp5_plus_400': <double>[1.50, 0.07, 0.05, 0.04],
+      };
+
+      for (final entry in expected.entries) {
+        final decoded = json.decode(
+          File('assets/presets/${entry.key}.json').readAsStringSync(),
+        );
+        final model = PresetModel.fromJson(decoded as Map<String, dynamic>);
+
+        expect(model.grain.size, entry.value[0], reason: entry.key);
+        expect(model.grain.shadowsLimit, entry.value[1], reason: entry.key);
+        expect(model.grain.highlightsLimit, entry.value[2], reason: entry.key);
+        expect(
+          model.effects.chromaticAberration?.intensity,
+          entry.value[3],
+          reason: entry.key,
         );
       }
     });
@@ -161,7 +194,12 @@ void main() {
           'fade': 0.3,
           'matrix': <dynamic>[1.1, 0.1, 0, 0, 0.9, 0.1, 0, 0.2, 0.8],
         },
-        'grain': <String, dynamic>{'intensity': 0.4, 'size': 1.7},
+        'grain': <String, dynamic>{
+          'intensity': 0.4,
+          'size': 1.7,
+          'shadowsLimit': 0.12,
+          'highlightsLimit': 0.08,
+        },
         'vignette': <String, dynamic>{
           'intensity': 0.2,
           'color': <dynamic>[1.2, 0.9, 0.8],
@@ -200,6 +238,8 @@ void main() {
         0.8,
       ]);
       expect(model.grain.size, 1.7);
+      expect(model.grain.shadowsLimit, 0.12);
+      expect(model.grain.highlightsLimit, 0.08);
       expect(model.vignette.color, <double>[1, 0.9, 0.8]);
       expect(model.vignette.roundness, 0.75);
       expect(model.effects.chromaticAberration?.intensity, 0.15);
@@ -220,9 +260,12 @@ void main() {
       final effects = serialized['effects'] as Map<String, dynamic>;
       final color = serialized['color'] as Map<String, dynamic>;
       final vignette = serialized['vignette'] as Map<String, dynamic>;
+      final grain = serialized['grain'] as Map<String, dynamic>;
       expect(color['matrix'], <double>[1.1, 0.1, 0, 0, 0.9, 0.1, 0, 0.2, 0.8]);
       expect(vignette['color'], <double>[1, 0.9, 0.8]);
       expect(vignette['roundness'], 0.75);
+      expect(grain['shadowsLimit'], 0.12);
+      expect(grain['highlightsLimit'], 0.08);
       expect(effects['softness'], 0.25);
       expect(effects['highlightRollOff'], 0.6);
       expect(effects['shadowRollOff'], 0.4);
@@ -290,6 +333,24 @@ void main() {
 
         expect(model.color.matrix, PresetColor.identityMatrix);
       }
+    });
+
+    test('grain tonal limits are bounded with legacy fallbacks', () {
+      final bounded = PresetGrain.fromJson(const <String, dynamic>{
+        'intensity': 0.4,
+        'shadowsLimit': 0.8,
+        'highlightsLimit': -0.1,
+      });
+      final invalid = PresetGrain.fromJson(const <String, dynamic>{
+        'intensity': 0.4,
+        'shadowsLimit': double.nan,
+        'highlightsLimit': double.infinity,
+      });
+
+      expect(bounded.shadowsLimit, 0.5);
+      expect(bounded.highlightsLimit, 0.0);
+      expect(invalid.shadowsLimit, PresetGrain.defaultShadowsLimit);
+      expect(invalid.highlightsLimit, PresetGrain.defaultHighlightsLimit);
     });
 
     test('invalid halation color resolves to legacy hue', () {

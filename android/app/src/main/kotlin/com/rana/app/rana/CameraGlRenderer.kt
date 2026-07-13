@@ -65,6 +65,8 @@ class CameraGlRenderer(
         val undertoneXLoc: Int,
         val undertoneYLoc: Int,
         val grainSizeLoc: Int,
+        val grainShadowsLimitLoc: Int,
+        val grainHighlightsLimitLoc: Int,
         val softnessLoc: Int,
         val chromaticAberrationIntensityLoc: Int,
         val fadeLoc: Int,
@@ -122,6 +124,8 @@ class CameraGlRenderer(
         val vignetteRoundnessLoc: Int,
         val timeLoc: Int,
         val grainSizeLoc: Int,
+        val grainShadowsLimitLoc: Int,
+        val grainHighlightsLimitLoc: Int,
         val toneLoc: Int,
         val colorLoc: Int,
         val textureValLoc: Int,
@@ -192,6 +196,8 @@ class CameraGlRenderer(
     private var undertoneX = 0f
     private var undertoneY = 0f
     private var grainSize = 1f
+    private var grainShadowsLimit = DEFAULT_GRAIN_SHADOWS_LIMIT
+    private var grainHighlightsLimit = DEFAULT_GRAIN_HIGHLIGHTS_LIMIT
     private var softness = 0f
     private var chromaticAberrationIntensity = 0f
     private var fade = 0f
@@ -334,6 +340,8 @@ class CameraGlRenderer(
         undertoneX: Float,
         undertoneY: Float,
         grainSize: Float,
+        grainShadowsLimit: Float,
+        grainHighlightsLimit: Float,
         softness: Float,
         chromaticAberrationIntensity: Float,
         fade: Float,
@@ -379,6 +387,12 @@ class CameraGlRenderer(
             this.undertoneX = undertoneX
             this.undertoneY = undertoneY
             this.grainSize = grainSize
+            this.grainShadowsLimit = normalizedGrainShadowsLimit(
+                grainShadowsLimit
+            )
+            this.grainHighlightsLimit = normalizedGrainHighlightsLimit(
+                grainHighlightsLimit
+            )
             this.softness = softness
             this.chromaticAberrationIntensity = chromaticAberrationIntensity
             this.fade = fade
@@ -416,7 +430,8 @@ class CameraGlRenderer(
                     "lensDistortionStrength=$lensDistortionStrength " +
                     "tone=$tone color=$color textureVal=$textureVal styleStrength=$styleStrength " +
                     "undertoneX=$undertoneX undertoneY=$undertoneY " +
-                    "grainSize=$grainSize softness=$softness " +
+                    "grainSize=$grainSize grainShadowsLimit=$grainShadowsLimit " +
+                    "grainHighlightsLimit=$grainHighlightsLimit softness=$softness " +
                     "chromaticAberration=$chromaticAberrationIntensity fade=$fade " +
                     "highlightRollOff=$highlightRollOff shadowRollOff=$shadowRollOff " +
                     "shadowsTint=[$shadowsTintR,$shadowsTintG,$shadowsTintB] " +
@@ -638,6 +653,14 @@ class CameraGlRenderer(
             undertoneXLoc = GLES20.glGetUniformLocation(programId, "uUndertoneX"),
             undertoneYLoc = GLES20.glGetUniformLocation(programId, "uUndertoneY"),
             grainSizeLoc = GLES20.glGetUniformLocation(programId, "uGrainSize"),
+            grainShadowsLimitLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uGrainShadowsLimit"
+            ),
+            grainHighlightsLimitLoc = GLES20.glGetUniformLocation(
+                programId,
+                "uGrainHighlightsLimit"
+            ),
             softnessLoc = GLES20.glGetUniformLocation(programId, "uSoftness"),
             chromaticAberrationIntensityLoc = GLES20.glGetUniformLocation(
                 programId,
@@ -763,6 +786,14 @@ class CameraGlRenderer(
                     ),
                     timeLoc = GLES20.glGetUniformLocation(programId, "uTime"),
                     grainSizeLoc = GLES20.glGetUniformLocation(programId, "uGrainSize"),
+                    grainShadowsLimitLoc = GLES20.glGetUniformLocation(
+                        programId,
+                        "uGrainShadowsLimit"
+                    ),
+                    grainHighlightsLimitLoc = GLES20.glGetUniformLocation(
+                        programId,
+                        "uGrainHighlightsLimit"
+                    ),
                     toneLoc = GLES20.glGetUniformLocation(programId, "uTone"),
                     colorLoc = GLES20.glGetUniformLocation(programId, "uColor"),
                     textureValLoc = GLES20.glGetUniformLocation(programId, "uTextureVal"),
@@ -981,6 +1012,14 @@ class CameraGlRenderer(
         GLES20.glUniform1f(singlePassProgram.undertoneXLoc, undertoneX)
         GLES20.glUniform1f(singlePassProgram.undertoneYLoc, undertoneY)
         GLES20.glUniform1f(singlePassProgram.grainSizeLoc, grainSize)
+        GLES20.glUniform1f(
+            singlePassProgram.grainShadowsLimitLoc,
+            grainShadowsLimit
+        )
+        GLES20.glUniform1f(
+            singlePassProgram.grainHighlightsLimitLoc,
+            grainHighlightsLimit
+        )
         GLES20.glUniform1f(singlePassProgram.softnessLoc, softness)
         GLES20.glUniform1f(
             singlePassProgram.chromaticAberrationIntensityLoc,
@@ -1171,6 +1210,14 @@ class CameraGlRenderer(
             (System.currentTimeMillis() - startTimeMs) / 1000f
         )
         GLES20.glUniform1f(composite.grainSizeLoc, grainSize)
+        GLES20.glUniform1f(
+            composite.grainShadowsLimitLoc,
+            grainShadowsLimit
+        )
+        GLES20.glUniform1f(
+            composite.grainHighlightsLimitLoc,
+            grainHighlightsLimit
+        )
         GLES20.glUniform1f(
             composite.chromaticAberrationIntensityLoc,
             chromaticAberrationIntensity

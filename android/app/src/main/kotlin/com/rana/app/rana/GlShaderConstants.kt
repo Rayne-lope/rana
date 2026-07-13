@@ -179,14 +179,14 @@ object GlShaderConstants {
         uniform float uVignetteRoundness;
         uniform float uTime;
         uniform float uGrainSize;
+        uniform float uGrainShadowsLimit;
+        uniform float uGrainHighlightsLimit;
         uniform float uFilmBorderStyle;
         uniform float uOutputAspectRatio;
         uniform float uOutputYFlip;
 
-        const float GRAIN_SHADOW_CUTOFF = 0.04;
-        const float GRAIN_SHADOW_FULL = 0.22;
-        const float GRAIN_HIGHLIGHT_FULL = 0.78;
-        const float GRAIN_HIGHLIGHT_CUTOFF = 0.93;
+        const float GRAIN_SHADOW_TRANSITION = 0.18;
+        const float GRAIN_HIGHLIGHT_TRANSITION = 0.15;
 
         float rand(vec2 co) {
             return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
@@ -211,14 +211,23 @@ object GlShaderConstants {
                 clamp(color, 0.0, 1.0),
                 vec3(0.299, 0.587, 0.114)
             );
+            float shadowCutoff = clamp(uGrainShadowsLimit, 0.0, 0.5);
+            float shadowFull = shadowCutoff + GRAIN_SHADOW_TRANSITION;
+            float highlightCutoff = 1.0 - clamp(
+                uGrainHighlightsLimit,
+                0.0,
+                0.3
+            );
+            float highlightFull =
+                highlightCutoff - GRAIN_HIGHLIGHT_TRANSITION;
             float shadowRamp = smoothstep(
-                GRAIN_SHADOW_CUTOFF,
-                GRAIN_SHADOW_FULL,
+                shadowCutoff,
+                shadowFull,
                 luma
             );
             float highlightRamp = 1.0 - smoothstep(
-                GRAIN_HIGHLIGHT_FULL,
-                GRAIN_HIGHLIGHT_CUTOFF,
+                highlightFull,
+                highlightCutoff,
                 luma
             );
             return shadowRamp * highlightRamp;

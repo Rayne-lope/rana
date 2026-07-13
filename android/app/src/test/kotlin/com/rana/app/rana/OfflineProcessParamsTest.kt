@@ -18,6 +18,8 @@ class OfflineProcessParamsTest {
         assertEquals(0.2f, params.temperature)
         assertEquals(0.4f, params.grain)
         assertEquals(1f, params.grainSize)
+        assertEquals(DEFAULT_GRAIN_SHADOWS_LIMIT, params.grainShadowsLimit)
+        assertEquals(DEFAULT_GRAIN_HIGHLIGHTS_LIMIT, params.grainHighlightsLimit)
         assertEquals(0f, params.chromaticAberrationIntensity)
         assertEquals(0f, params.fade)
         assertEquals(0f, params.highlightRollOff)
@@ -46,6 +48,8 @@ class OfflineProcessParamsTest {
         val params = offlineProcessParamsFromArguments(
             mapOf(
                 "chromaticAberrationIntensity" to 0.15,
+                "grainShadowsLimit" to 0.12,
+                "grainHighlightsLimit" to 0.08,
                 "fade" to 0.25,
                 "highlightRollOff" to 0.6,
                 "shadowRollOff" to 0.4,
@@ -73,6 +77,8 @@ class OfflineProcessParamsTest {
         )
 
         assertEquals(0.15f, params.chromaticAberrationIntensity)
+        assertEquals(0.12f, params.grainShadowsLimit)
+        assertEquals(0.08f, params.grainHighlightsLimit)
         assertEquals(0.25f, params.fade)
         assertEquals(0.6f, params.highlightRollOff)
         assertEquals(0.4f, params.shadowRollOff)
@@ -168,6 +174,8 @@ class OfflineProcessParamsTest {
                 0f, 0.1f, 1f
             ),
             grain = 0.3f,
+            grainShadowsLimit = 0.15f,
+            grainHighlightsLimit = 0.1f,
             vignetteColorR = 1f,
             vignetteColorG = 0.9f,
             vignetteColorB = 0.8f,
@@ -191,6 +199,8 @@ class OfflineProcessParamsTest {
         assertEquals(original.temperature, restored.temperature)
         assertArrayEquals(original.colorMatrix, restored.colorMatrix, 0f)
         assertEquals(original.grain, restored.grain)
+        assertEquals(original.grainShadowsLimit, restored.grainShadowsLimit)
+        assertEquals(original.grainHighlightsLimit, restored.grainHighlightsLimit)
         assertEquals(original.vignetteColorR, restored.vignetteColorR)
         assertEquals(original.vignetteColorG, restored.vignetteColorG)
         assertEquals(original.vignetteColorB, restored.vignetteColorB)
@@ -231,5 +241,21 @@ class OfflineProcessParamsTest {
         assertEquals(0f, normalizedVignetteRoundness(Float.NaN))
         assertEquals(0f, normalizedVignetteRoundness(-1f))
         assertEquals(1f, normalizedVignetteRoundness(2f))
+    }
+
+    @Test
+    fun `grain tonal limits are bounded and reject non finite values`() {
+        assertEquals(0f, normalizedGrainShadowsLimit(-1f))
+        assertEquals(0.5f, normalizedGrainShadowsLimit(1f))
+        assertEquals(
+            DEFAULT_GRAIN_SHADOWS_LIMIT,
+            normalizedGrainShadowsLimit(Float.NaN)
+        )
+        assertEquals(0f, normalizedGrainHighlightsLimit(-1f))
+        assertEquals(0.3f, normalizedGrainHighlightsLimit(1f))
+        assertEquals(
+            DEFAULT_GRAIN_HIGHLIGHTS_LIMIT,
+            normalizedGrainHighlightsLimit(Float.POSITIVE_INFINITY)
+        )
     }
 }

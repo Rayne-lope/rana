@@ -102,13 +102,34 @@ class PresetColor {
 @immutable
 class PresetGrain {
   /// Main constructor.
-  const PresetGrain({required this.intensity, this.size});
+  const PresetGrain({
+    required this.intensity,
+    this.size,
+    this.shadowsLimit = defaultShadowsLimit,
+    this.highlightsLimit = defaultHighlightsLimit,
+  });
 
   /// Factory to parse from a JSON map.
   factory PresetGrain.fromJson(Map<String, dynamic> json) => PresetGrain(
     intensity: (json['intensity'] as num).toDouble(),
     size: (json['size'] as num?)?.toDouble() ?? 1.0,
+    shadowsLimit: _normalizedGrainLimit(
+      json['shadowsLimit'],
+      fallback: defaultShadowsLimit,
+      maximum: 0.5,
+    ),
+    highlightsLimit: _normalizedGrainLimit(
+      json['highlightsLimit'],
+      fallback: defaultHighlightsLimit,
+      maximum: 0.3,
+    ),
   );
+
+  /// Legacy distance from black where grain starts fading in.
+  static const double defaultShadowsLimit = 0.04;
+
+  /// Legacy distance from white where grain finishes fading out.
+  static const double defaultHighlightsLimit = 0.07;
 
   /// The grain intensity parameter.
   final double intensity;
@@ -116,10 +137,18 @@ class PresetGrain {
   /// Grain flake size multiplier.
   final double? size;
 
+  /// Distance from black where grain is fully suppressed.
+  final double shadowsLimit;
+
+  /// Distance from white where grain is fully suppressed.
+  final double highlightsLimit;
+
   /// Converts this instance to a JSON map.
   Map<String, dynamic> toJson() => <String, dynamic>{
     'intensity': intensity,
     'size': size ?? 1.0,
+    'shadowsLimit': shadowsLimit,
+    'highlightsLimit': highlightsLimit,
   };
 
   @override
@@ -127,14 +156,28 @@ class PresetGrain {
     if (identical(this, other)) return true;
     return other is PresetGrain &&
         other.intensity == intensity &&
-        other.size == size;
+        other.size == size &&
+        other.shadowsLimit == shadowsLimit &&
+        other.highlightsLimit == highlightsLimit;
   }
 
   @override
-  int get hashCode => Object.hash(intensity, size);
+  int get hashCode =>
+      Object.hash(intensity, size, shadowsLimit, highlightsLimit);
 
   @override
-  String toString() => 'PresetGrain(intensity: $intensity, size: $size)';
+  String toString() =>
+      'PresetGrain(intensity: $intensity, size: $size, '
+      'shadowsLimit: $shadowsLimit, highlightsLimit: $highlightsLimit)';
+}
+
+double _normalizedGrainLimit(
+  Object? value, {
+  required double fallback,
+  required double maximum,
+}) {
+  final parsed = value is num ? value.toDouble() : fallback;
+  return parsed.isFinite ? parsed.clamp(0.0, maximum) : fallback;
 }
 
 /// Preset vignette parameters.
