@@ -22,6 +22,8 @@ class OfflineProcessParamsTest {
         assertEquals(0f, params.fade)
         assertEquals(0f, params.highlightRollOff)
         assertEquals(0f, params.shadowRollOff)
+        assertEquals(-1f, params.dustOffsetX)
+        assertEquals(-1f, params.dustOffsetY)
         assertArrayEquals(IDENTITY_COLOR_MATRIX, params.colorMatrix, 0f)
         assertEquals(1f, params.halationRadius)
         assertEquals(1f, params.halationColorR)
@@ -153,6 +155,8 @@ class OfflineProcessParamsTest {
                 0f, 0.1f, 1f
             ),
             grain = 0.3f,
+            dustOffsetX = 0.2f,
+            dustOffsetY = 0.7f,
             halationRadius = 1.8f,
             undertoneX = -0.4f,
             undertoneY = 0.25f,
@@ -169,6 +173,8 @@ class OfflineProcessParamsTest {
         assertEquals(original.temperature, restored.temperature)
         assertArrayEquals(original.colorMatrix, restored.colorMatrix, 0f)
         assertEquals(original.grain, restored.grain)
+        assertEquals(original.dustOffsetX, restored.dustOffsetX)
+        assertEquals(original.dustOffsetY, restored.dustOffsetY)
         assertEquals(original.halationRadius, restored.halationRadius)
         assertEquals(original.undertoneX, restored.undertoneX)
         assertEquals(original.undertoneY, restored.undertoneY)

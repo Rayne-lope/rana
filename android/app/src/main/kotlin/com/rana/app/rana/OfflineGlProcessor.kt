@@ -286,8 +286,12 @@ object OfflineGlProcessor {
             glState = acquireRetainedGlState(renderWidth, renderHeight)
             val vertexBuffer = buildFloatBuffer(vertexCoords)
             val textureBuffer = buildFloatBuffer(textureCoords)
-            val dustUVOffsetX = (0..1000).random() / 1000f
-            val dustUVOffsetY = (0..1000).random() / 1000f
+            val dustUVOffsetX = params.dustOffsetX
+                .takeIf { it in 0f..1f }
+                ?: (0..1000).random() / 1000f
+            val dustUVOffsetY = params.dustOffsetY
+                .takeIf { it in 0f..1f }
+                ?: (0..1000).random() / 1000f
 
             val retainedState = glState
                 ?: throw RuntimeException("Missing retained GL state")

@@ -37,7 +37,14 @@ class MainActivity : FlutterActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private val mediaStoreExecutor = Executors.newSingleThreadExecutor()
     private val captureSequence = AtomicInteger(0)
+    private val captureStyleMetadataStore by lazy {
+        CaptureStyleMetadataStore(this)
+    }
+    private val dynamicCaptureRenderer by lazy {
+        DynamicCaptureRenderer(this, captureStyleMetadataStore)
+    }
     private var pendingDeleteResult: MethodChannel.Result? = null
+    private var pendingDeleteUri: Uri? = null
     var activePreviewView: CameraPreviewView? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -574,15 +581,29 @@ class MainActivity : FlutterActivity() {
         if (requestCode != DELETE_MEDIA_REQUEST_CODE) return
 
         val result = pendingDeleteResult ?: return
+        val deletedUri = pendingDeleteUri
         pendingDeleteResult = null
+        pendingDeleteUri = null
         if (resultCode == Activity.RESULT_OK) {
-            result.success(null)
+            mediaStoreExecutor.execute {
+                deletedUri?.let(::removeCaptureStyleData)
+                handler.post { result.success(null) }
+            }
         } else {
             result.error("DELETE_CANCELLED", "Delete request was cancelled", null)
         }
     }
 
     private fun loadCapturedImageBytes(uri: Uri, targetSize: Int? = null): ByteArray {
+        return dynamicCaptureRenderer.loadBytes(uri, targetSize) {
+            loadLegacyCapturedImageBytes(uri, targetSize)
+        }
+    }
+
+    private fun loadLegacyCapturedImageBytes(
+        uri: Uri,
+        targetSize: Int? = null
+    ): ByteArray {
         val safeTargetSize = targetSize ?: 0
         if (safeTargetSize <= 0) {
             return contentResolver.openInputStream(uri)?.use { stream ->
@@ -745,6 +766,15 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun loadGalleryThumbnailBytes(uri: Uri, targetSizePx: Int): ByteArray {
+        return dynamicCaptureRenderer.loadBytes(uri, targetSizePx) {
+            loadLegacyGalleryThumbnailBytes(uri, targetSizePx)
+        }
+    }
+
+    private fun loadLegacyGalleryThumbnailBytes(
+        uri: Uri,
+        targetSizePx: Int
+    ): ByteArray {
         val bitmap = decodeSampledBitmapFromUri(uri, targetSizePx)
         return ByteArrayOutputStream().use { output ->
             if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 88, output)) {
@@ -931,6 +961,7 @@ class MainActivity : FlutterActivity() {
                 }
 
                 val deleted = tryDeleteUri(uri)
+                if (deleted) removeCaptureStyleData(uri)
                 handler.post {
                     if (deleted) {
                         result.success(null)
@@ -942,6 +973,7 @@ class MainActivity : FlutterActivity() {
                 handler.post {
                     requestDeleteWithIntentSender(
                         e.userAction.actionIntent.intentSender,
+                        uri,
                         result
                     )
                 }
@@ -965,11 +997,14 @@ class MainActivity : FlutterActivity() {
             contentResolver,
             listOf(uri)
         ).intentSender
-        handler.post { requestDeleteWithIntentSender(intentSender, result) }
+        handler.post {
+            requestDeleteWithIntentSender(intentSender, uri, result)
+        }
     }
 
     private fun requestDeleteWithIntentSender(
         intentSender: IntentSender,
+        uri: Uri,
         result: MethodChannel.Result
     ) {
         if (pendingDeleteResult != null) {
@@ -978,6 +1013,7 @@ class MainActivity : FlutterActivity() {
         }
 
         pendingDeleteResult = result
+        pendingDeleteUri = uri
         try {
             startIntentSenderForResult(
                 intentSender,
@@ -990,7 +1026,21 @@ class MainActivity : FlutterActivity() {
             )
         } catch (e: Exception) {
             pendingDeleteResult = null
+            pendingDeleteUri = null
             result.error("DELETE_REQUEST_FAILED", e.message, null)
+        }
+    }
+
+    private fun removeCaptureStyleData(uri: Uri) {
+        try {
+            captureStyleMetadataStore.delete(uri.toString())
+            dynamicCaptureRenderer.invalidate(uri.toString())
+        } catch (e: Exception) {
+            android.util.Log.e(
+                "RanaCaptureMetadata",
+                "Unable to remove style metadata for $uri",
+                e
+            )
         }
     }
 

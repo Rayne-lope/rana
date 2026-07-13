@@ -11,7 +11,8 @@ internal data class CaptureStyleMetadata(
     val undertoneX: Float,
     val undertoneY: Float,
     val params: Map<String, Any?>,
-    val createdAtEpochMs: Long
+    val createdAtEpochMs: Long,
+    val updatedAtEpochMs: Long = createdAtEpochMs
 )
 
 internal data class StoredCaptureParameter(
@@ -21,7 +22,7 @@ internal data class StoredCaptureParameter(
 
 internal object CaptureStyleMetadataSchema {
     const val DATABASE_NAME = "rana_capture_styles.db"
-    const val DATABASE_VERSION = 1
+    const val DATABASE_VERSION = 2
     const val CAPTURES_TABLE = "capture_styles"
     const val PARAMS_TABLE = "capture_style_params"
 
@@ -31,7 +32,8 @@ internal object CaptureStyleMetadataSchema {
             preset_id TEXT NOT NULL,
             undertone_x REAL NOT NULL,
             undertone_y REAL NOT NULL,
-            created_at_epoch_ms INTEGER NOT NULL
+            created_at_epoch_ms INTEGER NOT NULL,
+            updated_at_epoch_ms INTEGER NOT NULL
         )
     """
     const val CREATE_PARAMS = """
@@ -121,7 +123,16 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Version 1 is the initial schema. Future versions migrate in place.
+        if (oldVersion < 2) {
+            db.execSQL(
+                "ALTER TABLE capture_styles " +
+                    "ADD COLUMN updated_at_epoch_ms INTEGER NOT NULL DEFAULT 0"
+            )
+            db.execSQL(
+                "UPDATE capture_styles SET updated_at_epoch_ms = " +
+                    "created_at_epoch_ms WHERE updated_at_epoch_ms = 0"
+            )
+        }
     }
 
     fun upsert(metadata: CaptureStyleMetadata) {
@@ -134,6 +145,7 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
                 put("undertone_x", metadata.undertoneX)
                 put("undertone_y", metadata.undertoneY)
                 put("created_at_epoch_ms", metadata.createdAtEpochMs)
+                put("updated_at_epoch_ms", metadata.updatedAtEpochMs)
             }
             db.insertWithOnConflict(
                 CaptureStyleMetadataSchema.CAPTURES_TABLE,
@@ -174,7 +186,8 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
                 "preset_id",
                 "undertone_x",
                 "undertone_y",
-                "created_at_epoch_ms"
+                "created_at_epoch_ms",
+                "updated_at_epoch_ms"
             ),
             "clean_image_uri = ?",
             arrayOf(cleanImageUri),
@@ -190,6 +203,7 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
                 undertoneX = cursor.getFloat(1),
                 undertoneY = cursor.getFloat(2),
                 createdAtEpochMs = cursor.getLong(3),
+                updatedAtEpochMs = cursor.getLong(4),
                 params = emptyMap()
             )
         }

@@ -4,13 +4,9 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Matrix
-import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.SurfaceTexture
-import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CaptureRequest
@@ -49,31 +45,12 @@ import java.io.File
 import java.io.IOException
 import java.io.OutputStream
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 private const val MAX_PENDING_CAPTURE_PIPELINES = 3
-private const val DATE_STAMP_TEXT_HEIGHT_RATIO = 0.045f
-private const val DATE_STAMP_MARGIN_RATIO = 0.05f
-
-internal fun dateStampTextSize(bitmapHeight: Int): Float =
-    bitmapHeight * DATE_STAMP_TEXT_HEIGHT_RATIO
-
-internal fun dateStampMargin(bitmapDimension: Int): Float =
-    bitmapDimension * DATE_STAMP_MARGIN_RATIO
-
-internal fun formatDateStamp(
-    date: Date,
-    timeZone: TimeZone = TimeZone.getDefault()
-): String = SimpleDateFormat("yy MM dd", Locale.US).run {
-    this.timeZone = timeZone
-    format(date)
-}
-
 @OptIn(ExperimentalCamera2Interop::class)
 class CameraPreviewView(
     private val context: Context,
@@ -1090,6 +1067,10 @@ class CameraPreviewView(
                     } else {
                         params
                     }
+                val storedRenderParams = effectiveParams.copy(
+                    dustOffsetX = (0..1000).random() / 1000f,
+                    dustOffsetY = (0..1000).random() / 1000f
+                )
                 inputBitmap = cropCapturedBitmap(
                     decodedBitmap,
                     imageCropRect,
@@ -1143,10 +1124,10 @@ class CameraPreviewView(
                             captureStyleMetadataStore.upsert(
                                 CaptureStyleMetadata(
                                     cleanImageUri = savedOutput.uri.toString(),
-                                    presetId = effectiveParams.presetId,
-                                    undertoneX = effectiveParams.undertoneX,
-                                    undertoneY = effectiveParams.undertoneY,
-                                    params = effectiveParams.asMetadataParams(),
+                                    presetId = storedRenderParams.presetId,
+                                    undertoneX = storedRenderParams.undertoneX,
+                                    undertoneY = storedRenderParams.undertoneY,
+                                    params = storedRenderParams.asMetadataParams(),
                                     createdAtEpochMs = System.currentTimeMillis()
                                 )
                             )
@@ -1322,27 +1303,6 @@ class CameraPreviewView(
             matrix,
             true
         )
-    }
-
-    private fun applyDateStamp(bitmap: Bitmap): Bitmap {
-        val target = if (bitmap.isMutable) {
-            bitmap
-        } else {
-            bitmap.copy(Bitmap.Config.ARGB_8888, true) ?: bitmap
-        }
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(200, 255, 85, 0)
-            textSize = dateStampTextSize(target.height)
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-        }
-        val text = formatDateStamp(Date())
-        val marginX = dateStampMargin(target.width)
-        val marginY = dateStampMargin(target.height)
-        val x = (target.width - marginX - paint.measureText(text))
-            .coerceAtLeast(marginX)
-        val y = target.height - marginY - paint.fontMetrics.bottom
-        Canvas(target).drawText(text, x, y, paint)
-        return target
     }
 
     private fun saveCaptureBitmap(

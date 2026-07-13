@@ -53,6 +53,11 @@ class CaptureStyleMetadataStoreTest {
                 "clean_image_uri TEXT PRIMARY KEY NOT NULL"
             )
         )
+        assertTrue(
+            CaptureStyleMetadataSchema.CREATE_CAPTURES.contains(
+                "updated_at_epoch_ms INTEGER NOT NULL"
+            )
+        )
     }
 
     @Test
