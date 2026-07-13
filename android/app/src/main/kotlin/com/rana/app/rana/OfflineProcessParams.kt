@@ -239,7 +239,7 @@ internal fun normalizedHalationColor(component: Float, fallback: Float): Float =
     if (component.isFinite()) component.coerceIn(0f, 1f) else fallback
 
 internal fun normalizedFilmBorderStyle(style: Int): Int =
-    if (style in 0..2) style else 0
+    if (style in 0..3) style else 0
 
 internal fun normalizedVignetteColor(component: Float): Float =
     if (component.isFinite()) component.coerceIn(0f, 1f) else 0f

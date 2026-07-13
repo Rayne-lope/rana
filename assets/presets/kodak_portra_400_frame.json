@@ -1,0 +1,54 @@
+{
+  "id": "kodak_portra_400_frame",
+  "name": "Kodak Portra 400 Frame",
+  "category": "Classic",
+  "color": {
+    "temperature": 0.1,
+    "contrast": -0.05,
+    "saturation": 0.06
+  },
+  "grain": {
+    "intensity": 0.15,
+    "size": 0.85,
+    "shadowsLimit": 0.10,
+    "highlightsLimit": 0.08
+  },
+  "vignette": {
+    "intensity": 0.04
+  },
+  "lut": null,
+  "overlay": null,
+  "behavior": null,
+  "effects": {
+    "lightLeak": {
+      "intensity": 0.0,
+      "variant": -1
+    },
+    "dust": {
+      "intensity": 0.0
+    },
+    "bloom": {
+      "threshold": 0.84,
+      "intensity": 0.05
+    },
+    "halation": {
+      "intensity": 0.03
+    },
+    "lensDistortion": {
+      "strength": 0.0
+    },
+    "chromaticAberration": {
+      "intensity": 0.02
+    },
+    "filmBorder": {
+      "style": "kodak"
+    }
+  },
+  "style": {
+    "tone": -12.0,
+    "color": -6.0,
+    "styleStrength": 100.0,
+    "undertoneX": -0.18,
+    "undertoneY": 0.16
+  }
+}

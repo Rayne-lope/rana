@@ -226,6 +226,12 @@ class OfflineProcessParamsTest {
             ).filmBorderStyle
         )
         assertEquals(
+            3,
+            offlineProcessParamsFromArguments(
+                mapOf("filmBorderStyle" to 3)
+            ).filmBorderStyle
+        )
+        assertEquals(
             0,
             offlineProcessParamsFromArguments(
                 mapOf("filmBorderStyle" to 99)

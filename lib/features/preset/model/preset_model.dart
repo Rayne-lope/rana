@@ -521,7 +521,10 @@ enum FilmBorderStyle {
   instant('instant', 1),
 
   /// Black 35 mm film edge with sprocket perforations.
-  thirtyFiveMm('35mm', 2);
+  thirtyFiveMm('35mm', 2),
+
+  /// Kodak Portra film frame with yellow print markings.
+  kodak('kodak', 3);
 
   const FilmBorderStyle(this.jsonValue, this.channelValue);
 

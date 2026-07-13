@@ -282,6 +282,99 @@ object GlShaderConstants {
             return 1.0 - smoothstep(-0.003, 0.003, signedDistance);
         }
 
+        float drawChar(float code, vec2 uv) {
+            if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0.0;
+            float col = floor(uv.x * 3.0);
+            float row = floor(uv.y * 5.0);
+            float bitIndex = row * 3.0 + col;
+            return mod(floor(code / pow(2.0, bitIndex)), 2.0);
+        }
+
+        float getPortraChar(float idx) {
+            if (idx < 0.5) return 23925.0; // K
+            if (idx < 1.5) return 31599.0; // O
+            if (idx < 2.5) return 27502.0; // D
+            if (idx < 3.5) return 23530.0; // A
+            if (idx < 4.5) return 23925.0; // K
+            if (idx < 5.5) return 0.0;     // Space
+            if (idx < 6.5) return 18927.0; // P
+            if (idx < 7.5) return 31599.0; // O
+            if (idx < 8.5) return 24047.0; // R
+            if (idx < 9.5) return 9367.0;  // T
+            if (idx < 10.5) return 24047.0; // R
+            if (idx < 11.5) return 23530.0; // A
+            if (idx < 12.5) return 0.0;     // Space
+            if (idx < 13.5) return 5101.0;  // 4
+            if (idx < 14.5) return 31599.0; // 0
+            if (idx < 15.5) return 31599.0; // 0
+            return 0.0;
+        }
+
+        float drawPortraText(vec2 uv) {
+            if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0.0;
+            float numChars = 16.0;
+            float charIdx = floor(uv.x * numChars);
+            float localX = fract(uv.x * numChars);
+            float charWidth = 0.75;
+            float charUvX = localX / charWidth;
+            if (charUvX > 1.0) return 0.0;
+            
+            float charCode = getPortraChar(charIdx);
+            return drawChar(charCode, vec2(charUvX, uv.y));
+        }
+
+        float draw43Text(vec2 uv) {
+            if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0.0;
+            float numChars = 2.0;
+            float charIdx = floor(uv.x * numChars);
+            float localX = fract(uv.x * numChars);
+            float charWidth = 0.75;
+            float charUvX = localX / charWidth;
+            if (charUvX > 1.0) return 0.0;
+            
+            float charCode = 0.0;
+            if (charIdx < 0.5) charCode = 5101.0; // 4
+            else if (charIdx < 1.5) charCode = 29647.0; // 3
+            
+            return drawChar(charCode, vec2(charUvX, uv.y));
+        }
+
+        float draw122Text(vec2 uv) {
+            if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0.0;
+            float numChars = 5.0;
+            float charIdx = floor(uv.x * numChars);
+            float localX = fract(uv.x * numChars);
+            float charWidth = 0.75;
+            float charUvX = localX / charWidth;
+            if (charUvX > 1.0) return 0.0;
+            
+            float charCode = 0.0;
+            if (charIdx < 0.5) charCode = 29874.0; // 1
+            else if (charIdx < 1.5) charCode = 31183.0; // 2
+            else if (charIdx < 2.5) charCode = 0.0; // Space
+            else if (charIdx < 3.5) charCode = 0.0; // Space
+            else if (charIdx < 4.5) charCode = 31183.0; // 2
+            
+            return drawChar(charCode, vec2(charUvX, uv.y));
+        }
+
+        float drawArrow2Text(vec2 uv) {
+            if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 0.0;
+            float numChars = 3.0;
+            float charIdx = floor(uv.x * numChars);
+            float localX = fract(uv.x * numChars);
+            float charWidth = 0.75;
+            float charUvX = localX / charWidth;
+            if (charUvX > 1.0) return 0.0;
+            
+            float charCode = 0.0;
+            if (charIdx < 0.5) charCode = 6105.0; // ▶
+            else if (charIdx < 1.5) charCode = 0.0; // Space
+            else if (charIdx < 2.5) charCode = 31183.0; // 2
+            
+            return drawChar(charCode, vec2(charUvX, uv.y));
+        }
+
         vec3 applyFilmBorder(vec3 color) {
             if (uFilmBorderStyle < 0.5) return color;
 
@@ -320,32 +413,87 @@ object GlShaderConstants {
                 return mix(finalColor, paperColor, paperMask);
             }
 
-            // Keep sprockets on the long edges after device rotation.
-            vec2 filmUv = uOutputAspectRatio >= 1.0
-                ? outputUv
-                : outputUv.yx;
-            float edgeDistance = min(filmUv.y, 1.0 - filmUv.y);
-            float filmMask = 1.0 - smoothstep(0.135, 0.145, edgeDistance);
-            vec2 perforationUv = vec2(fract(filmUv.x * 8.0), filmUv.y);
-            float topHole = roundedBoxMask(
-                perforationUv,
-                vec2(0.5, 0.067),
-                vec2(0.27, 0.035),
-                0.012
-            );
-            float bottomHole = roundedBoxMask(
-                perforationUv,
-                vec2(0.5, 0.933),
-                vec2(0.27, 0.035),
-                0.012
-            );
-            float perforationMask = max(topHole, bottomHole) * filmMask;
-            vec3 framed = mix(color, vec3(0.012, 0.011, 0.010), filmMask);
-            return mix(
-                framed,
-                vec3(0.900, 0.850, 0.700),
-                perforationMask
-            );
+            if (uFilmBorderStyle < 2.5) {
+                // Keep sprockets on the long edges after device rotation.
+                vec2 filmUv = uOutputAspectRatio >= 1.0
+                    ? outputUv
+                    : outputUv.yx;
+                float edgeDistance = min(filmUv.y, 1.0 - filmUv.y);
+                float filmMask = 1.0 - smoothstep(0.135, 0.145, edgeDistance);
+                vec2 perforationUv = vec2(fract(filmUv.x * 8.0), filmUv.y);
+                float topHole = roundedBoxMask(
+                    perforationUv,
+                    vec2(0.5, 0.067),
+                    vec2(0.27, 0.035),
+                    0.012
+                );
+                float bottomHole = roundedBoxMask(
+                    perforationUv,
+                    vec2(0.5, 0.933),
+                    vec2(0.27, 0.035),
+                    0.012
+                );
+                float perforationMask = max(topHole, bottomHole) * filmMask;
+                vec3 framed = mix(color, vec3(0.012, 0.011, 0.010), filmMask);
+                return mix(
+                    framed,
+                    vec3(0.900, 0.850, 0.700),
+                    perforationMask
+                );
+            }
+
+            if (uFilmBorderStyle < 3.5) {
+                // Kodak Portra 120 film border: Left/Right = 0.085, Top/Bottom = 0.05
+                float leftBorder = 1.0 - smoothstep(0.080, 0.085, outputUv.x);
+                float rightBorder = smoothstep(0.915, 0.920, outputUv.x);
+                float topBorder = 1.0 - smoothstep(0.045, 0.050, outputUv.y);
+                float bottomBorder = smoothstep(0.950, 0.955, outputUv.y);
+                float borderMask = max(max(leftBorder, rightBorder), max(topBorder, bottomBorder));
+
+                // Draw text elements
+                float textMask = 0.0;
+                
+                // Box 1: KODAK PORTRA 400 (top-left)
+                vec2 box1Uv = vec2((0.42 - outputUv.y) / 0.30, (0.052 - outputUv.x) / 0.024);
+                textMask = max(textMask, drawPortraText(box1Uv));
+
+                // Box 2: KODAK PORTRA 400 (bottom-left)
+                vec2 box2Uv = vec2((0.88 - outputUv.y) / 0.30, (0.052 - outputUv.x) / 0.024);
+                textMask = max(textMask, drawPortraText(box2Uv));
+
+                // Box 3: 43 (middle-left)
+                vec2 box3Uv = vec2((0.52 - outputUv.y) / 0.04, (0.052 - outputUv.x) / 0.024);
+                textMask = max(textMask, draw43Text(box3Uv));
+
+                // Box 4: 12 2 (bottom-left corner)
+                vec2 box4Uv = vec2((outputUv.x - 0.02) / 0.05, (outputUv.y - 0.962) / 0.02);
+                textMask = max(textMask, draw122Text(box4Uv));
+
+                // Box 5: ▶ 2 (middle-right)
+                vec2 box5Uv = vec2((outputUv.y - 0.48) / 0.04, (outputUv.x - 0.948) / 0.024);
+                textMask = max(textMask, drawArrow2Text(box5Uv));
+
+                // Box 6: ▶ (top-right)
+                vec2 box6Uv = vec2((outputUv.y - 0.04) / 0.02, (outputUv.x - 0.948) / 0.024);
+                textMask = max(textMask, drawChar(6105.0, box6Uv));
+
+                // Inner bevel shadow on the photo
+                float distToLeft = outputUv.x - 0.085;
+                float distToRight = 0.915 - outputUv.x;
+                float distToTop = outputUv.y - 0.050;
+                float distToBottom = 0.950 - outputUv.y;
+                float distToEdge = min(min(distToLeft, distToRight), min(distToTop, distToBottom));
+                
+                float shadowFactor = 1.0 - smoothstep(0.0, 0.012, max(distToEdge, 0.0));
+                vec3 finalColor = mix(color, color * 0.50, shadowFactor * 0.75);
+
+                vec3 blackFrame = vec3(0.012, 0.011, 0.010);
+                vec3 textColor = vec3(0.92, 0.60, 0.12);
+                vec3 borderCol = mix(blackFrame, textColor, textMask * 0.85);
+
+                return mix(finalColor, borderCol, borderMask);
+            }
+            return color;
         }
     """.trimIndent()
 
