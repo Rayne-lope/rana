@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -50,16 +49,34 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   bool _showFlash = false;
   bool _showToast = false;
 
+  ProviderSubscription<CameraState>? _captureFeedbackSubscription;
   Timer? _flashTimer;
   Timer? _toastTimer;
 
-  void _triggerCaptureEffects() {
+  void _handleCaptureFeedback(CameraState? previous, CameraState next) {
+    final imageWasCaptured =
+        previous?.captureStatus == CaptureStatus.capturing &&
+        next.captureStatus == CaptureStatus.idle &&
+        next.captureError == null &&
+        next.isCameraInitialized;
+    if (imageWasCaptured) {
+      _triggerScreenFlash();
+    }
+
+    final captureWasCompleted =
+        next.completedCaptureId != null &&
+        next.completedCaptureId != previous?.completedCaptureId &&
+        next.captureError == null;
+    if (captureWasCompleted) {
+      _triggerCaptureToast();
+    }
+  }
+
+  void _triggerScreenFlash() {
     _flashTimer?.cancel();
-    _toastTimer?.cancel();
 
     setState(() {
       _showFlash = true;
-      _showToast = true;
     });
 
     _flashTimer = Timer(const Duration(milliseconds: 120), () {
@@ -68,6 +85,14 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           _showFlash = false;
         });
       }
+    });
+  }
+
+  void _triggerCaptureToast() {
+    _toastTimer?.cancel();
+
+    setState(() {
+      _showToast = true;
     });
 
     _toastTimer = Timer(const Duration(milliseconds: 900), () {
@@ -103,6 +128,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   @override
   void initState() {
     super.initState();
+    _captureFeedbackSubscription = ref.listenManual<CameraState>(
+      cameraControllerProvider,
+      _handleCaptureFeedback,
+    );
     _focusAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -120,6 +149,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   @override
   void dispose() {
+    _captureFeedbackSubscription?.close();
     _flashTimer?.cancel();
     _toastTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
@@ -249,7 +279,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     }
 
     if (!mounted) return;
-    _triggerCaptureEffects();
     await controller.handleShutterPressed();
   }
 
@@ -345,10 +374,16 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         ),
         if (_showFlash)
           Positioned.fill(
-            child: IgnorePointer(child: Container(color: Colors.white)),
+            child: IgnorePointer(
+              child: Container(
+                key: const ValueKey<String>('capture-screen-flash'),
+                color: Colors.white,
+              ),
+            ),
           ),
         if (_showToast)
           Positioned(
+            key: const ValueKey<String>('capture-completed-toast'),
             bottom: 120,
             left: 0,
             right: 0,

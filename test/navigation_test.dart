@@ -24,6 +24,8 @@ void main() {
     );
     const cameraChannel = MethodChannel('com.rana.app/camera_control');
     var captureCounter = 0;
+    var autoCompleteCapture = true;
+    String? pendingCaptureId;
 
     Future<void> dispatchCameraStatusEvent(Map<String, dynamic> event) async {
       const codec = StandardMethodCodec();
@@ -38,6 +40,8 @@ void main() {
 
     setUp(() {
       captureCounter = 0;
+      autoCompleteCapture = true;
+      pendingCaptureId = null;
       SharedPreferences.setMockInitialValues({});
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(permissionChannel, (
@@ -71,22 +75,25 @@ void main() {
                 };
               case 'beginCapture':
                 final captureId = 'navigation-capture-${++captureCounter}';
-                unawaited(
-                  Future<void>.delayed(Duration.zero).then((_) async {
-                    await dispatchCameraStatusEvent({
-                      'type': 'capture_progress',
-                      'captureId': captureId,
-                      'phase': 'image_captured',
-                      'elapsedMs': 80,
-                    });
-                    await dispatchCameraStatusEvent({
-                      'type': 'capture_completed',
-                      'captureId': captureId,
-                      'uri': 'content://rana/test-photo.jpg',
-                      'elapsedMs': 320,
-                    });
-                  }),
-                );
+                pendingCaptureId = captureId;
+                if (autoCompleteCapture) {
+                  unawaited(
+                    Future<void>.delayed(Duration.zero).then((_) async {
+                      await dispatchCameraStatusEvent({
+                        'type': 'capture_progress',
+                        'captureId': captureId,
+                        'phase': 'image_captured',
+                        'elapsedMs': 80,
+                      });
+                      await dispatchCameraStatusEvent({
+                        'type': 'capture_completed',
+                        'captureId': captureId,
+                        'uri': 'content://rana/test-photo.jpg',
+                        'elapsedMs': 320,
+                      });
+                    }),
+                  );
+                }
                 return {'status': 'capture_started', 'captureId': captureId};
               case 'loadCapturedImageBytes':
                 return testImageBytes;
@@ -189,6 +196,101 @@ void main() {
           matching: find.byType(Image),
         ),
         findsOneWidget,
+      );
+    });
+
+    testWidgets('capture feedback follows native capture events', (
+      WidgetTester tester,
+    ) async {
+      autoCompleteCapture = false;
+      await tester.pumpWidget(const ProviderScope(child: RanaApp()));
+      await tester.pump(const Duration(milliseconds: 1300));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('camera-shutter-button')),
+      );
+      await tester.pump();
+
+      expect(pendingCaptureId, isNotNull);
+      expect(
+        find.byKey(const ValueKey<String>('capture-screen-flash')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('capture-completed-toast')),
+        findsNothing,
+      );
+
+      await dispatchCameraStatusEvent({
+        'type': 'capture_progress',
+        'captureId': pendingCaptureId,
+        'phase': 'image_captured',
+        'elapsedMs': 80,
+      });
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('capture-screen-flash')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('capture-completed-toast')),
+        findsNothing,
+      );
+
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(
+        find.byKey(const ValueKey<String>('capture-screen-flash')),
+        findsNothing,
+      );
+
+      await dispatchCameraStatusEvent({
+        'type': 'capture_completed',
+        'captureId': pendingCaptureId,
+        'uri': 'content://rana/test-photo.jpg',
+        'elapsedMs': 320,
+      });
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('capture-completed-toast')),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(milliseconds: 900));
+      expect(
+        find.byKey(const ValueKey<String>('capture-completed-toast')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('failed capture does not show success feedback', (
+      WidgetTester tester,
+    ) async {
+      autoCompleteCapture = false;
+      await tester.pumpWidget(const ProviderScope(child: RanaApp()));
+      await tester.pump(const Duration(milliseconds: 1300));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('camera-shutter-button')),
+      );
+      await tester.pump();
+      await dispatchCameraStatusEvent({
+        'type': 'capture_failed',
+        'captureId': pendingCaptureId,
+        'message': 'CameraX capture failed',
+        'elapsedMs': 80,
+      });
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('capture-screen-flash')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('capture-completed-toast')),
+        findsNothing,
       );
     });
 
