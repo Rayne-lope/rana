@@ -47,6 +47,10 @@ internal fun dynamicRenderCacheKey(
     metadataUpdatedAt: Long
 ): String = "$uri|$targetSize|$metadataUpdatedAt"
 
+internal fun shouldRenderCaptureDynamically(
+    metadata: CaptureStyleMetadata
+): Boolean = !metadata.mediaIsRendered
+
 internal class DynamicCaptureRenderer(
     context: Context,
     private val metadataStore: CaptureStyleMetadataStore
@@ -69,6 +73,9 @@ internal class DynamicCaptureRenderer(
             Log.e("DynamicCaptureRenderer", "Metadata lookup failed for $uri", e)
             null
         } ?: return loadLegacyBytes()
+        if (!shouldRenderCaptureDynamically(metadata)) {
+            return loadLegacyBytes()
+        }
 
         val targetSize = dynamicRenderTargetSize(requestedTargetSize)
         val cacheKey = dynamicRenderCacheKey(

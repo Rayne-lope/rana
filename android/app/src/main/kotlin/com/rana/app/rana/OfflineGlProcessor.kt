@@ -223,6 +223,7 @@ object OfflineGlProcessor {
      * The input bitmap is recycled after it is uploaded to GL, or during
      * cleanup if processing fails before upload.
      */
+    @Synchronized
     fun processImage(
         context: android.content.Context,
         inputBitmap: Bitmap,

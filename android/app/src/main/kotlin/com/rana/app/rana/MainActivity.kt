@@ -40,6 +40,7 @@ class MainActivity : FlutterActivity() {
     private val captureStyleMetadataStore by lazy {
         CaptureStyleMetadataStore(this)
     }
+    private val captureSourceStore by lazy { CaptureSourceStore(this) }
     private val dynamicCaptureRenderer by lazy {
         DynamicCaptureRenderer(this, captureStyleMetadataStore)
     }
@@ -50,6 +51,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         cleanupShareCache()
+        mediaStoreExecutor.execute(::pruneMissingCaptureData)
 
         // Register the camera preview platform view
         flutterEngine.platformViewsController.registry.registerViewFactory(
@@ -657,6 +659,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun listGalleryMedia(): List<Map<String, Any?>> {
+        pruneMissingCaptureData()
         val includeRelativePath = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
         val projection = if (includeRelativePath) {
             arrayOf(
@@ -1033,12 +1036,56 @@ class MainActivity : FlutterActivity() {
 
     private fun removeCaptureStyleData(uri: Uri) {
         try {
+            val metadata = captureStyleMetadataStore.find(uri.toString())
             captureStyleMetadataStore.delete(uri.toString())
             dynamicCaptureRenderer.invalidate(uri.toString())
+            captureSourceStore.delete(metadata?.sourceImagePath)
         } catch (e: Exception) {
             android.util.Log.e(
                 "RanaCaptureMetadata",
                 "Unable to remove style metadata for $uri",
+                e
+            )
+        }
+    }
+
+    private fun pruneMissingCaptureData() {
+        try {
+            val missing = missingCaptureMedia(
+                captureStyleMetadataStore.listAll()
+            ) { mediaUri ->
+                try {
+                    contentResolver.query(
+                        Uri.parse(mediaUri),
+                        arrayOf(MediaStore.Images.Media._ID),
+                        null,
+                        null,
+                        null
+                    )?.use { cursor -> cursor.moveToFirst() }
+                } catch (e: Exception) {
+                    android.util.Log.w(
+                        "RanaCaptureMetadata",
+                        "Unable to verify capture media $mediaUri",
+                        e
+                    )
+                    null
+                }
+            }
+            missing.forEach { metadata ->
+                captureSourceStore.delete(metadata.sourceImagePath)
+                captureStyleMetadataStore.delete(metadata.mediaUri)
+                dynamicCaptureRenderer.invalidate(metadata.mediaUri)
+            }
+            if (missing.isNotEmpty()) {
+                android.util.Log.i(
+                    "RanaCaptureMetadata",
+                    "Pruned ${missing.size} missing capture records"
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(
+                "RanaCaptureMetadata",
+                "Unable to prune missing capture records",
                 e
             )
         }

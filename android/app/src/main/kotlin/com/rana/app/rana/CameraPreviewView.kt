@@ -45,6 +45,7 @@ import java.io.File
 import java.io.IOException
 import java.io.OutputStream
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
@@ -109,6 +110,7 @@ class CameraPreviewView(
     private val captureExecutor = Executors.newSingleThreadExecutor()
     private val processingExecutor = Executors.newSingleThreadExecutor()
     private val captureStyleMetadataStore = CaptureStyleMetadataStore(context)
+    private val captureSourceStore = CaptureSourceStore(context)
     private val isCapturing = AtomicBoolean(false)
     private val capturePipelineLimiter =
         CapturePipelineLimiter(MAX_PENDING_CAPTURE_PIPELINES)
@@ -1048,6 +1050,9 @@ class CameraPreviewView(
     ) {
         var decodedBitmap: Bitmap? = null
         var inputBitmap: Bitmap? = null
+        var processedBitmap: Bitmap? = null
+        var sourceImagePath: String? = null
+        var sourceLinkedToMetadata = false
         var savedUri: Uri? = null
         var qualityMetadata: CaptureQualityMetadata? = null
         var errorCode: String? = null
@@ -1117,34 +1122,79 @@ class CameraPreviewView(
                     captureZoomRatio
                 )
 
-                val savedOutput = saveCaptureBitmap(
+                val capturedAtEpochMs = System.currentTimeMillis()
+                sourceImagePath = captureSourceStore.saveBitmap(
                     inputBitmap,
+                    "$effectiveCaptureId-$capturedAtEpochMs"
+                )
+                markProgress(
+                    if (sourceImagePath == null) {
+                        "clean_source_unavailable"
+                    } else {
+                        "clean_source_saved"
+                    }
+                )
+
+                processedBitmap = OfflineGlProcessor.processImage(
+                    context,
+                    inputBitmap,
+                    storedRenderParams
+                )
+                inputBitmap = null
+                markProgress("gl_process_done")
+                CameraQualityAudit.logBitmapStage(
+                    viewId,
+                    "processed",
+                    processedBitmap,
+                    captureZoomRatio
+                )
+                if (processedBitmap == null) {
+                    errorCode = "PROCESS_FAILED"
+                    errorMessage = "OfflineGlProcessor returned null"
+                    throw IOException(errorMessage)
+                }
+                if (storedRenderParams.dateStampEnable) {
+                    val stampedBitmap = applyDateStamp(
+                        processedBitmap,
+                        Date(capturedAtEpochMs)
+                    )
+                    if (stampedBitmap !== processedBitmap) {
+                        processedBitmap.safeRecycle()
+                    }
+                    processedBitmap = stampedBitmap
+                }
+
+                val savedOutput = saveCaptureBitmap(
+                    processedBitmap,
                     captureZoomRatio,
                     params
                 )
                 if (savedOutput == null) {
                     errorCode = "SAVE_FAILED"
-                    errorMessage = "Unable to save clean capture"
+                    errorMessage = "Unable to save rendered capture"
                 } else {
-                    commitNonDestructiveCapture(
+                    val metadataPersisted = commitRenderedCapture(
                         persistMetadata = {
                             captureStyleMetadataStore.upsert(
                                 CaptureStyleMetadata(
-                                    cleanImageUri = savedOutput.uri.toString(),
+                                    mediaUri = savedOutput.uri.toString(),
+                                    sourceImagePath = sourceImagePath,
+                                    mediaIsRendered = true,
                                     presetId = storedRenderParams.presetId,
                                     undertoneX = storedRenderParams.undertoneX,
                                     undertoneY = storedRenderParams.undertoneY,
                                     params = storedRenderParams.asMetadataParams(),
-                                    createdAtEpochMs = System.currentTimeMillis()
+                                    createdAtEpochMs = capturedAtEpochMs
                                 )
                             )
                             markProgress("metadata_saved")
                         },
                         publishMedia = { publishCapture(savedOutput.uri) },
-                        rollbackMetadata = {
+                        discardSidecar = {
                             captureStyleMetadataStore.delete(
                                 savedOutput.uri.toString()
                             )
+                            captureSourceStore.delete(sourceImagePath)
                         },
                         rollbackMedia = {
                             context.contentResolver.delete(
@@ -1152,15 +1202,23 @@ class CameraPreviewView(
                                 null,
                                 null
                             )
+                        },
+                        onSidecarFailure = { failure ->
+                            android.util.Log.e(
+                                "RanaCaptureMetadata",
+                                "Metadata unavailable; preserving rendered capture",
+                                failure
+                            )
                         }
                     )
+                    sourceLinkedToMetadata = metadataPersisted && sourceImagePath != null
                     savedUri = savedOutput.uri
                     qualityMetadata = qualityMetadata?.copy(
                         requestedOutputQuality = params.outputQuality.channelValue,
                         actualOutputFormat = savedOutput.profile.extension,
                         outputMimeType = savedOutput.profile.mimeType,
-                        outputWidth = inputBitmap.width,
-                        outputHeight = inputBitmap.height,
+                        outputWidth = processedBitmap.width,
+                        outputHeight = processedBitmap.height,
                         fileSizeBytes = savedOutput.fileSizeBytes,
                         fallbackReason = savedOutput.fallbackReason
                     )
@@ -1171,11 +1229,15 @@ class CameraPreviewView(
             errorCode = "CAPTURE_OOM"
             errorMessage = oom.message ?: "Out of memory during capture"
         } catch (e: Exception) {
-            errorCode = "CAPTURE_FAILED"
-            errorMessage = e.message ?: "Capture failed"
+            errorCode = errorCode ?: "CAPTURE_FAILED"
+            errorMessage = errorMessage ?: e.message ?: "Capture failed"
         } finally {
             decodedBitmap?.safeRecycle()
             inputBitmap?.safeRecycle()
+            processedBitmap?.safeRecycle()
+            if (!sourceLinkedToMetadata) {
+                captureSourceStore.delete(sourceImagePath)
+            }
             capturePipelineLimiter.release()
         }
 

@@ -1,6 +1,7 @@
 package com.rana.app.rana
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -39,10 +40,11 @@ class CaptureStyleMetadataStoreTest {
     }
 
     @Test
-    fun `schema cascades parameter deletion from clean capture`() {
+    fun `version three schema distinguishes rendered media and private source`() {
+        assertEquals(3, CaptureStyleMetadataSchema.DATABASE_VERSION)
         assertTrue(
             CaptureStyleMetadataSchema.CREATE_PARAMS.contains(
-                "FOREIGN KEY (clean_image_uri)"
+                "FOREIGN KEY (media_uri)"
             )
         )
         assertTrue(
@@ -50,42 +52,84 @@ class CaptureStyleMetadataStoreTest {
         )
         assertTrue(
             CaptureStyleMetadataSchema.CREATE_CAPTURES.contains(
-                "clean_image_uri TEXT PRIMARY KEY NOT NULL"
+                "media_uri TEXT PRIMARY KEY NOT NULL"
             )
         )
         assertTrue(
             CaptureStyleMetadataSchema.CREATE_CAPTURES.contains(
-                "updated_at_epoch_ms INTEGER NOT NULL"
+                "source_image_path TEXT"
+            )
+        )
+        assertTrue(
+            CaptureStyleMetadataSchema.CREATE_CAPTURES.contains(
+                "media_is_rendered INTEGER NOT NULL"
             )
         )
     }
 
     @Test
-    fun `capture commit persists metadata before publishing media`() {
+    fun `version three migration preserves legacy uri as unrendered media`() {
+        val migration = CaptureStyleMetadataSchema.MIGRATE_V2_TO_V3.joinToString("\n")
+
+        assertTrue(migration.contains("clean_image_uri"))
+        assertTrue(migration.contains("media_uri"))
+        assertTrue(migration.contains("source_image_path"))
+        assertTrue(migration.contains("media_is_rendered"))
+        assertTrue(Regex("NULL,\\s+0,").containsMatchIn(migration))
+    }
+
+    @Test
+    fun `rendered capture persists metadata before publishing media`() {
         val events = mutableListOf<String>()
 
-        commitNonDestructiveCapture(
+        val metadataPersisted = commitRenderedCapture(
             persistMetadata = { events += "metadata" },
             publishMedia = { events += "publish" },
-            rollbackMetadata = { events += "rollback_metadata" },
+            discardSidecar = { events += "discard_sidecar" },
             rollbackMedia = { events += "rollback_media" }
         )
 
+        assertTrue(metadataPersisted)
         assertEquals(listOf("metadata", "publish"), events)
     }
 
     @Test
-    fun `capture commit rolls back both stores when publish fails`() {
+    fun `sidecar failure still publishes flattened rendered media`() {
+        val events = mutableListOf<String>()
+
+        val metadataPersisted = commitRenderedCapture(
+            persistMetadata = {
+                events += "metadata"
+                error("metadata failed")
+            },
+            publishMedia = { events += "publish" },
+            discardSidecar = { events += "discard_sidecar" },
+            rollbackMedia = { events += "rollback_media" },
+            onSidecarFailure = {
+                events += "sidecar_failure"
+                error("logging failed")
+            }
+        )
+
+        assertFalse(metadataPersisted)
+        assertEquals(
+            listOf("metadata", "sidecar_failure", "discard_sidecar", "publish"),
+            events
+        )
+    }
+
+    @Test
+    fun `publish failure rolls back sidecar and rendered media`() {
         val events = mutableListOf<String>()
 
         runCatching {
-            commitNonDestructiveCapture(
+            commitRenderedCapture(
                 persistMetadata = { events += "metadata" },
                 publishMedia = {
                     events += "publish"
                     error("publish failed")
                 },
-                rollbackMetadata = { events += "rollback_metadata" },
+                discardSidecar = { events += "discard_sidecar" },
                 rollbackMedia = { events += "rollback_media" }
             )
         }
@@ -94,7 +138,7 @@ class CaptureStyleMetadataStoreTest {
             listOf(
                 "metadata",
                 "publish",
-                "rollback_metadata",
+                "discard_sidecar",
                 "rollback_media"
             ),
             events

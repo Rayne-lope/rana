@@ -6,7 +6,9 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
 internal data class CaptureStyleMetadata(
-    val cleanImageUri: String,
+    val mediaUri: String,
+    val sourceImagePath: String? = null,
+    val mediaIsRendered: Boolean = false,
     val presetId: String,
     val undertoneX: Float,
     val undertoneY: Float,
@@ -22,13 +24,18 @@ internal data class StoredCaptureParameter(
 
 internal object CaptureStyleMetadataSchema {
     const val DATABASE_NAME = "rana_capture_styles.db"
-    const val DATABASE_VERSION = 2
+    const val DATABASE_VERSION = 3
     const val CAPTURES_TABLE = "capture_styles"
     const val PARAMS_TABLE = "capture_style_params"
+    private const val LEGACY_CAPTURES_TABLE = "capture_styles_v2"
+    private const val LEGACY_PARAMS_TABLE = "capture_style_params_v2"
 
     const val CREATE_CAPTURES = """
         CREATE TABLE capture_styles (
-            clean_image_uri TEXT PRIMARY KEY NOT NULL,
+            media_uri TEXT PRIMARY KEY NOT NULL,
+            source_image_path TEXT,
+            media_is_rendered INTEGER NOT NULL DEFAULT 0
+                CHECK (media_is_rendered IN (0, 1)),
             preset_id TEXT NOT NULL,
             undertone_x REAL NOT NULL,
             undertone_y REAL NOT NULL,
@@ -38,16 +45,61 @@ internal object CaptureStyleMetadataSchema {
     """
     const val CREATE_PARAMS = """
         CREATE TABLE capture_style_params (
-            clean_image_uri TEXT NOT NULL,
+            media_uri TEXT NOT NULL,
             param_key TEXT NOT NULL,
             value_type TEXT NOT NULL,
             value_text TEXT,
-            PRIMARY KEY (clean_image_uri, param_key),
-            FOREIGN KEY (clean_image_uri)
-                REFERENCES capture_styles(clean_image_uri)
+            PRIMARY KEY (media_uri, param_key),
+            FOREIGN KEY (media_uri)
+                REFERENCES capture_styles(media_uri)
                 ON DELETE CASCADE
         )
     """
+
+    val MIGRATE_V2_TO_V3 = listOf(
+        "ALTER TABLE $PARAMS_TABLE RENAME TO $LEGACY_PARAMS_TABLE",
+        "ALTER TABLE $CAPTURES_TABLE RENAME TO $LEGACY_CAPTURES_TABLE",
+        CREATE_CAPTURES,
+        CREATE_PARAMS,
+        """
+            INSERT INTO $CAPTURES_TABLE (
+                media_uri,
+                source_image_path,
+                media_is_rendered,
+                preset_id,
+                undertone_x,
+                undertone_y,
+                created_at_epoch_ms,
+                updated_at_epoch_ms
+            )
+            SELECT
+                clean_image_uri,
+                NULL,
+                0,
+                preset_id,
+                undertone_x,
+                undertone_y,
+                created_at_epoch_ms,
+                updated_at_epoch_ms
+            FROM $LEGACY_CAPTURES_TABLE
+        """.trimIndent(),
+        """
+            INSERT INTO $PARAMS_TABLE (
+                media_uri,
+                param_key,
+                value_type,
+                value_text
+            )
+            SELECT
+                clean_image_uri,
+                param_key,
+                value_type,
+                value_text
+            FROM $LEGACY_PARAMS_TABLE
+        """.trimIndent(),
+        "DROP TABLE $LEGACY_PARAMS_TABLE",
+        "DROP TABLE $LEGACY_CAPTURES_TABLE"
+    )
 }
 
 internal fun encodeCaptureParameter(value: Any?): StoredCaptureParameter? {
@@ -90,17 +142,26 @@ internal fun decodeCaptureParameter(
     else -> null
 }
 
-internal fun commitNonDestructiveCapture(
+internal fun commitRenderedCapture(
     persistMetadata: () -> Unit,
     publishMedia: () -> Unit,
-    rollbackMetadata: () -> Unit,
-    rollbackMedia: () -> Unit
-) {
+    discardSidecar: () -> Unit,
+    rollbackMedia: () -> Unit,
+    onSidecarFailure: (Throwable) -> Unit = {}
+): Boolean {
+    var metadataPersisted = false
     try {
-        persistMetadata()
+        try {
+            persistMetadata()
+            metadataPersisted = true
+        } catch (failure: Throwable) {
+            runCatching { onSidecarFailure(failure) }
+            runCatching(discardSidecar)
+        }
         publishMedia()
+        return metadataPersisted
     } catch (failure: Throwable) {
-        runCatching(rollbackMetadata)
+        runCatching(discardSidecar)
         runCatching(rollbackMedia)
         throw failure
     }
@@ -133,6 +194,9 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
                     "created_at_epoch_ms WHERE updated_at_epoch_ms = 0"
             )
         }
+        if (oldVersion < 3) {
+            CaptureStyleMetadataSchema.MIGRATE_V2_TO_V3.forEach(db::execSQL)
+        }
     }
 
     fun upsert(metadata: CaptureStyleMetadata) {
@@ -140,7 +204,9 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
         db.beginTransaction()
         try {
             val captureValues = ContentValues().apply {
-                put("clean_image_uri", metadata.cleanImageUri)
+                put("media_uri", metadata.mediaUri)
+                put("source_image_path", metadata.sourceImagePath)
+                put("media_is_rendered", if (metadata.mediaIsRendered) 1 else 0)
                 put("preset_id", metadata.presetId)
                 put("undertone_x", metadata.undertoneX)
                 put("undertone_y", metadata.undertoneY)
@@ -155,13 +221,13 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
             )
             db.delete(
                 CaptureStyleMetadataSchema.PARAMS_TABLE,
-                "clean_image_uri = ?",
-                arrayOf(metadata.cleanImageUri)
+                "media_uri = ?",
+                arrayOf(metadata.mediaUri)
             )
             metadata.params.forEach { (key, value) ->
                 val stored = encodeCaptureParameter(value) ?: return@forEach
                 val paramValues = ContentValues().apply {
-                    put("clean_image_uri", metadata.cleanImageUri)
+                    put("media_uri", metadata.mediaUri)
                     put("param_key", key)
                     put("value_type", stored.type)
                     put("value_text", stored.value)
@@ -178,19 +244,21 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
         }
     }
 
-    fun find(cleanImageUri: String): CaptureStyleMetadata? {
+    fun find(mediaUri: String): CaptureStyleMetadata? {
         val db = readableDatabase
         val core = db.query(
             CaptureStyleMetadataSchema.CAPTURES_TABLE,
             arrayOf(
+                "source_image_path",
+                "media_is_rendered",
                 "preset_id",
                 "undertone_x",
                 "undertone_y",
                 "created_at_epoch_ms",
                 "updated_at_epoch_ms"
             ),
-            "clean_image_uri = ?",
-            arrayOf(cleanImageUri),
+            "media_uri = ?",
+            arrayOf(mediaUri),
             null,
             null,
             null,
@@ -198,12 +266,14 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
         ).use { cursor ->
             if (!cursor.moveToFirst()) return null
             CaptureStyleMetadata(
-                cleanImageUri = cleanImageUri,
-                presetId = cursor.getString(0),
-                undertoneX = cursor.getFloat(1),
-                undertoneY = cursor.getFloat(2),
-                createdAtEpochMs = cursor.getLong(3),
-                updatedAtEpochMs = cursor.getLong(4),
+                mediaUri = mediaUri,
+                sourceImagePath = if (cursor.isNull(0)) null else cursor.getString(0),
+                mediaIsRendered = cursor.getInt(1) != 0,
+                presetId = cursor.getString(2),
+                undertoneX = cursor.getFloat(3),
+                undertoneY = cursor.getFloat(4),
+                createdAtEpochMs = cursor.getLong(5),
+                updatedAtEpochMs = cursor.getLong(6),
                 params = emptyMap()
             )
         }
@@ -212,8 +282,8 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
         db.query(
             CaptureStyleMetadataSchema.PARAMS_TABLE,
             arrayOf("param_key", "value_type", "value_text"),
-            "clean_image_uri = ?",
-            arrayOf(cleanImageUri),
+            "media_uri = ?",
+            arrayOf(mediaUri),
             null,
             null,
             "param_key ASC"
@@ -230,11 +300,48 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
         return core.copy(params = params)
     }
 
-    fun delete(cleanImageUri: String) {
+    fun listAll(): List<CaptureStyleMetadata> {
+        val metadata = mutableListOf<CaptureStyleMetadata>()
+        readableDatabase.query(
+            CaptureStyleMetadataSchema.CAPTURES_TABLE,
+            arrayOf(
+                "media_uri",
+                "source_image_path",
+                "media_is_rendered",
+                "preset_id",
+                "undertone_x",
+                "undertone_y",
+                "created_at_epoch_ms",
+                "updated_at_epoch_ms"
+            ),
+            null,
+            null,
+            null,
+            null,
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                metadata += CaptureStyleMetadata(
+                    mediaUri = cursor.getString(0),
+                    sourceImagePath = if (cursor.isNull(1)) null else cursor.getString(1),
+                    mediaIsRendered = cursor.getInt(2) != 0,
+                    presetId = cursor.getString(3),
+                    undertoneX = cursor.getFloat(4),
+                    undertoneY = cursor.getFloat(5),
+                    createdAtEpochMs = cursor.getLong(6),
+                    updatedAtEpochMs = cursor.getLong(7),
+                    params = emptyMap()
+                )
+            }
+        }
+        return metadata
+    }
+
+    fun delete(mediaUri: String) {
         writableDatabase.delete(
             CaptureStyleMetadataSchema.CAPTURES_TABLE,
-            "clean_image_uri = ?",
-            arrayOf(cleanImageUri)
+            "media_uri = ?",
+            arrayOf(mediaUri)
         )
     }
 }

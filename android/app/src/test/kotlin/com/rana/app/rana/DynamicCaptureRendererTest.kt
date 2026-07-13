@@ -1,7 +1,9 @@
 package com.rana.app.rana
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DynamicCaptureRendererTest {
@@ -35,4 +37,24 @@ class DynamicCaptureRendererTest {
             dynamicRenderCacheKey("content://capture/1", 360, 101)
         )
     }
+
+    @Test
+    fun `legacy clean media renders dynamically while new media stays flattened`() {
+        val legacy = captureMetadata(mediaIsRendered = false)
+        val rendered = captureMetadata(mediaIsRendered = true)
+
+        assertTrue(shouldRenderCaptureDynamically(legacy))
+        assertFalse(shouldRenderCaptureDynamically(rendered))
+    }
+
+    private fun captureMetadata(mediaIsRendered: Boolean) = CaptureStyleMetadata(
+        mediaUri = "content://capture/1",
+        sourceImagePath = null,
+        mediaIsRendered = mediaIsRendered,
+        presetId = "preset",
+        undertoneX = 0f,
+        undertoneY = 0f,
+        params = emptyMap(),
+        createdAtEpochMs = 100L
+    )
 }
