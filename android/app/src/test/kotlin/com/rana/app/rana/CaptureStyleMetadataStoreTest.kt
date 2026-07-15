@@ -40,8 +40,8 @@ class CaptureStyleMetadataStoreTest {
     }
 
     @Test
-    fun `version three schema distinguishes rendered media and private source`() {
-        assertEquals(3, CaptureStyleMetadataSchema.DATABASE_VERSION)
+    fun `version four schema distinguishes rendered media private source and film roll`() {
+        assertEquals(4, CaptureStyleMetadataSchema.DATABASE_VERSION)
         assertTrue(
             CaptureStyleMetadataSchema.CREATE_PARAMS.contains(
                 "FOREIGN KEY (media_uri)"
@@ -65,6 +65,9 @@ class CaptureStyleMetadataStoreTest {
                 "media_is_rendered INTEGER NOT NULL"
             )
         )
+        assertTrue(
+            CaptureStyleMetadataSchema.CREATE_CAPTURES.contains("film_roll_id TEXT")
+        )
     }
 
     @Test
@@ -76,6 +79,14 @@ class CaptureStyleMetadataStoreTest {
         assertTrue(migration.contains("source_image_path"))
         assertTrue(migration.contains("media_is_rendered"))
         assertTrue(Regex("NULL,\\s+0,").containsMatchIn(migration))
+    }
+
+    @Test
+    fun `version four migration adds nullable film roll id`() {
+        val migration = CaptureStyleMetadataSchema.MIGRATE_V3_TO_V4.joinToString("\\n")
+
+        assertTrue(migration.contains("ALTER TABLE capture_styles"))
+        assertTrue(migration.contains("ADD COLUMN film_roll_id TEXT"))
     }
 
     @Test

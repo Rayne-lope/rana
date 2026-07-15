@@ -7,7 +7,7 @@ part of 'film_roll_controller.dart';
 // **************************************************************************
 
 String _$filmRollControllerHash() =>
-    r'fa354d7f3a83c1ac5152130c4ec4f996cbe6f684';
+    r'919204dc7baaa12bf98b2453005575a0b60f1b36';
 
 /// Controller for the Film Roll feature.
 ///
@@ -15,7 +15,8 @@ String _$filmRollControllerHash() =>
 ///  - Only one active roll at a time ([startRoll] is a no-op if one exists).
 ///  - [recordExposure] must only be called from the camera controller's
 ///    `_handleCaptureCompleted` — never on shutter press.
-///  - [abandonRoll] removes the roll record; already-saved photos stay in Gallery.
+///  - [abandonRoll] removes the roll record; already-saved photos stay in
+///    Gallery.
 ///
 /// Copied from [FilmRollController].
 @ProviderFor(FilmRollController)

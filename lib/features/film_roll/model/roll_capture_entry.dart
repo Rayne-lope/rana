@@ -1,5 +1,33 @@
 import 'package:flutter/foundation.dart';
 
+/// Ephemeral reservation for one native capture started while a roll is active.
+///
+/// Reservations are never persisted. They prevent concurrent processing from
+/// accepting more shots than the roll permits, while still allowing a failed
+/// native capture to release its reserved exposure.
+@immutable
+class FilmRollExposureReservation {
+  const FilmRollExposureReservation({
+    required this.id,
+    required this.filmRollId,
+  });
+
+  /// Unique request-local identifier.
+  final String id;
+
+  /// Roll to which the in-flight capture belongs.
+  final String filmRollId;
+
+  @override
+  bool operator ==(Object other) =>
+      other is FilmRollExposureReservation &&
+      other.id == id &&
+      other.filmRollId == filmRollId;
+
+  @override
+  int get hashCode => Object.hash(id, filmRollId);
+}
+
 /// Associates a single captured image URI with a film roll.
 ///
 /// Used by the Gallery Rolls view to group [GalleryMediaItem]s under a roll

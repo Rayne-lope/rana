@@ -41,7 +41,8 @@ internal object CaptureStyleMetadataSchema {
             undertone_x REAL NOT NULL,
             undertone_y REAL NOT NULL,
             created_at_epoch_ms INTEGER NOT NULL,
-            updated_at_epoch_ms INTEGER NOT NULL
+            updated_at_epoch_ms INTEGER NOT NULL,
+            film_roll_id TEXT
         )
     """
     const val CREATE_PARAMS = """

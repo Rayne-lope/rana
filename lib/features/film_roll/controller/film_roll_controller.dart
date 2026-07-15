@@ -2,8 +2,10 @@ import 'dart:math';
 
 import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/film_roll/model/film_roll.dart';
+import 'package:rana/features/film_roll/model/roll_capture_entry.dart';
 import 'package:rana/features/film_roll/repository/film_roll_repository.dart';
 import 'package:rana/features/film_roll/state/film_roll_state.dart';
+import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'film_roll_controller.g.dart';
@@ -29,16 +31,19 @@ String _generateUuid() {
 ///  - Only one active roll at a time ([startRoll] is a no-op if one exists).
 ///  - [recordExposure] must only be called from the camera controller's
 ///    `_handleCaptureCompleted` — never on shutter press.
-///  - [abandonRoll] removes the roll record; already-saved photos stay in Gallery.
+///  - [abandonRoll] removes the roll record; already-saved photos stay in
+///    Gallery.
 @Riverpod(keepAlive: true)
 class FilmRollController extends _$FilmRollController {
   late final FilmRollRepository _repository;
+  late final Future<void> _restoration;
+  Future<void> _exposureQueue = Future<void>.value();
+  final Set<String> _processedCaptureIds = <String>{};
 
   @override
   FilmRollState build() {
     _repository = ref.watch(filmRollRepositoryProvider);
-    // Restore active roll on startup.
-    Future.microtask(_restoreActiveRoll);
+    _restoration = Future<void>.microtask(_restoreActiveRoll);
     return FilmRollState.initial();
   }
 
@@ -49,6 +54,7 @@ class FilmRollController extends _$FilmRollController {
   /// No-op (returns false) if a roll is already active.
   Future<bool> startRoll({
     required String presetId,
+    required RanaStyle lockedStyle,
     required FilmRollSize size,
     required String aspectRatioPlatformValue,
   }) async {
@@ -63,6 +69,7 @@ class FilmRollController extends _$FilmRollController {
     final roll = FilmRoll(
       id: _generateUuid(),
       presetId: presetId,
+      lockedStyle: lockedStyle,
       aspectRatioPlatformValue: aspectRatioPlatformValue,
       size: size,
       exposuresTaken: 0,
@@ -71,7 +78,7 @@ class FilmRollController extends _$FilmRollController {
     );
 
     await _repository.save(roll);
-    state = state.copyWith(activeRoll: roll);
+    state = state.copyWith(activeRoll: roll, latestCompletedRoll: null);
     AppLogger.i(
       'FilmRollController',
       'Roll started: id=${roll.id} preset=$presetId '
@@ -80,15 +87,62 @@ class FilmRollController extends _$FilmRollController {
     return true;
   }
 
-  /// Records a successfully saved exposure.
+  /// Waits for persisted active-roll restoration after app startup.
+  Future<void> waitUntilRestored() => _restoration;
+
+  /// Reserves capacity before a native capture begins.
+  ///
+  /// The reservation is released if native capture fails and committed only
+  /// when its matching completion event includes a MediaStore URI.
+  FilmRollExposureReservation? reserveExposure() {
+    final current = state.activeRoll;
+    if (current == null || !current.isActive || state.cannotReserveExposure) {
+      return null;
+    }
+
+    final reservation = FilmRollExposureReservation(
+      id: _generateUuid(),
+      filmRollId: current.id,
+    );
+    state = state.copyWith(
+      pendingExposureReservations: <String, String>{
+        ...state.pendingExposureReservations,
+        reservation.id: reservation.filmRollId,
+      },
+    );
+    return reservation;
+  }
+
+  /// Releases a reservation after the matching native capture fails.
+  Future<void> releaseExposure(FilmRollExposureReservation reservation) =>
+      _enqueueExposure(() async {
+        _removeReservation(reservation);
+      });
+
+  /// Records a successfully saved exposure for [reservation].
   ///
   /// **MUST be called only after native `capture_completed` confirms the image
-  /// URI.** A failed capture must never reach this method.
+  /// URI.** A failed capture must never reach this method. [captureId] makes
+  /// duplicate native completion events idempotent.
   ///
   /// Returns the updated [FilmRoll], or null if no roll is active.
-  Future<FilmRoll?> recordExposure(String mediaUri) async {
+  Future<FilmRoll?> recordExposure({
+    required String captureId,
+    required FilmRollExposureReservation reservation,
+    required String mediaUri,
+  }) => _enqueueExposure(() async {
+    if (!_processedCaptureIds.add(captureId)) return null;
+
+    final reservedRollId = state.pendingExposureReservations[reservation.id];
+    _removeReservation(reservation);
     final current = state.activeRoll;
-    if (current == null || !current.isActive) return null;
+    if (reservedRollId == null ||
+        current == null ||
+        !current.isActive ||
+        current.id != reservation.filmRollId ||
+        reservedRollId != current.id) {
+      return null;
+    }
 
     final next = current.copyWith(
       exposuresTaken: current.exposuresTaken + 1,
@@ -101,21 +155,49 @@ class FilmRollController extends _$FilmRollController {
           'shot=${next.exposuresTaken}/${next.size.count} uri=$mediaUri',
     );
 
-    await _repository.save(next);
-    state = state.copyWith(activeRoll: next);
-    return next;
-  }
+    if (!next.isFull) {
+      await _repository.save(next);
+      state = state.copyWith(activeRoll: next);
+      return next;
+    }
 
-  /// Marks the active roll as [FilmRollStatus.completed] and moves it to history.
-  Future<void> endRoll() async {
+    final completed = next.copyWith(
+      status: FilmRollStatus.completed,
+      completedAt: DateTime.now(),
+    );
+    await _repository.save(completed);
+    final history = await _repository.loadAll();
+    state = state.copyWith(
+      activeRoll: null,
+      history: history,
+      latestCompletedRoll: completed,
+      loadStatus: FilmRollLoadStatus.loaded,
+    );
+    return completed;
+  });
+
+  /// Marks the active roll as [FilmRollStatus.completed] and moves it to
+  /// history.
+  Future<bool> endRoll() async {
+    if (state.pendingExposureCount > 0) return false;
     await _finaliseRoll(FilmRollStatus.completed);
+    return true;
   }
 
-  /// Marks the active roll as [FilmRollStatus.abandoned] and moves it to history.
+  /// Removes the active roll grouping without affecting saved photos.
   ///
   /// All already-saved photos remain individually accessible in the Gallery.
-  Future<void> abandonRoll() async {
-    await _finaliseRoll(FilmRollStatus.abandoned);
+  Future<bool> abandonRoll() async {
+    if (state.pendingExposureCount > 0) return false;
+    final current = state.activeRoll;
+    if (current == null) return false;
+    await _repository.delete(current.id);
+    state = state.copyWith(
+      activeRoll: null,
+      pendingExposureReservations: const <String, String>{},
+    );
+    AppLogger.i('FilmRollController', 'Roll abandoned: id=${current.id}');
+    return true;
   }
 
   /// Loads the roll history from the repository into [FilmRollState.history].
@@ -129,7 +211,12 @@ class FilmRollController extends _$FilmRollController {
         errorMessage: null,
       );
     } on Object catch (e, stack) {
-      AppLogger.e('FilmRollController', 'Failed to load roll history', e, stack);
+      AppLogger.e(
+        'FilmRollController',
+        'Failed to load roll history',
+        e,
+        stack,
+      );
       state = state.copyWith(
         loadStatus: FilmRollLoadStatus.error,
         errorMessage: e.toString(),
@@ -177,6 +264,10 @@ class FilmRollController extends _$FilmRollController {
     state = state.copyWith(
       activeRoll: null,
       history: updatedHistory,
+      latestCompletedRoll: finalStatus == FilmRollStatus.completed
+          ? finalRoll
+          : state.latestCompletedRoll,
+      pendingExposureReservations: const <String, String>{},
       loadStatus: FilmRollLoadStatus.loaded,
     );
 
@@ -186,5 +277,35 @@ class FilmRollController extends _$FilmRollController {
           'status=${finalStatus.name} '
           'shots=${finalRoll.exposuresTaken}/${finalRoll.size.count}',
     );
+  }
+
+  void acknowledgeLatestCompletion() {
+    state = state.copyWith(latestCompletedRoll: null);
+  }
+
+  Future<T> _enqueueExposure<T>(Future<T> Function() operation) {
+    final next = _exposureQueue.then((_) => operation());
+    _exposureQueue = next.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stackTrace) {
+        AppLogger.e(
+          'FilmRollController',
+          'Exposure update failed',
+          error,
+          stackTrace,
+        );
+      },
+    );
+    return next;
+  }
+
+  void _removeReservation(FilmRollExposureReservation reservation) {
+    if (!state.pendingExposureReservations.containsKey(reservation.id)) {
+      return;
+    }
+    final reservations = Map<String, String>.from(
+      state.pendingExposureReservations,
+    )..remove(reservation.id);
+    state = state.copyWith(pendingExposureReservations: reservations);
   }
 }

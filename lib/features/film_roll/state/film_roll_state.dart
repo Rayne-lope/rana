@@ -12,6 +12,8 @@ class FilmRollState {
     required this.activeRoll,
     required this.history,
     required this.loadStatus,
+    required this.pendingExposureReservations,
+    this.latestCompletedRoll,
     this.errorMessage,
   });
 
@@ -20,16 +22,26 @@ class FilmRollState {
     activeRoll: null,
     history: [],
     loadStatus: FilmRollLoadStatus.initial,
+    pendingExposureReservations: {},
   );
 
   /// The currently active roll, or null if no roll is loaded.
   final FilmRoll? activeRoll;
 
-  /// All completed and abandoned rolls, newest first.
+  /// Completed rolls retained for the Rolls archive, newest first.
   final List<FilmRoll> history;
 
   /// Current load status for the history list.
   final FilmRollLoadStatus loadStatus;
+
+  /// In-flight capture reservations, keyed by reservation id.
+  ///
+  /// Values are roll IDs so a completion can only update the roll that was
+  /// active when capture began.
+  final Map<String, String> pendingExposureReservations;
+
+  /// Most recent automatically completed roll for the Phase 4 completion UI.
+  final FilmRoll? latestCompletedRoll;
 
   /// Error message if [loadStatus] is [FilmRollLoadStatus.error].
   final String? errorMessage;
@@ -42,11 +54,23 @@ class FilmRollState {
   /// True when the active roll is full and no more exposures can be taken.
   bool get isActiveRollFull => activeRoll != null && activeRoll!.isFull;
 
+  /// Number of native captures still being processed for the active roll.
+  int get pendingExposureCount => pendingExposureReservations.length;
+
+  /// True when a further capture would exceed the active roll's capacity.
+  bool get cannotReserveExposure =>
+      activeRoll == null ||
+      !activeRoll!.isActive ||
+      activeRoll!.exposuresTaken + pendingExposureCount >=
+          activeRoll!.size.count;
+
   /// Returns a copy with the specified fields replaced.
   FilmRollState copyWith({
     Object? activeRoll = _unset,
     List<FilmRoll>? history,
     FilmRollLoadStatus? loadStatus,
+    Map<String, String>? pendingExposureReservations,
+    Object? latestCompletedRoll = _unset,
     Object? errorMessage = _unset,
   }) => FilmRollState(
     activeRoll: identical(activeRoll, _unset)
@@ -54,6 +78,11 @@ class FilmRollState {
         : activeRoll as FilmRoll?,
     history: history ?? this.history,
     loadStatus: loadStatus ?? this.loadStatus,
+    pendingExposureReservations:
+        pendingExposureReservations ?? this.pendingExposureReservations,
+    latestCompletedRoll: identical(latestCompletedRoll, _unset)
+        ? this.latestCompletedRoll
+        : latestCompletedRoll as FilmRoll?,
     errorMessage: identical(errorMessage, _unset)
         ? this.errorMessage
         : errorMessage as String?,
@@ -68,6 +97,11 @@ class FilmRollState {
         other.activeRoll == activeRoll &&
         listEquals(other.history, history) &&
         other.loadStatus == loadStatus &&
+        mapEquals(
+          other.pendingExposureReservations,
+          pendingExposureReservations,
+        ) &&
+        other.latestCompletedRoll == latestCompletedRoll &&
         other.errorMessage == errorMessage;
   }
 
@@ -76,6 +110,8 @@ class FilmRollState {
     activeRoll,
     Object.hashAll(history),
     loadStatus,
+    Object.hashAll(pendingExposureReservations.entries),
+    latestCompletedRoll,
     errorMessage,
   );
 
@@ -83,6 +119,7 @@ class FilmRollState {
   String toString() =>
       'FilmRollState(activeRoll: $activeRoll, '
       'history: ${history.length} rolls, '
+      'pending: $pendingExposureCount, '
       'loadStatus: ${loadStatus.name}, '
       'errorMessage: $errorMessage)';
 }

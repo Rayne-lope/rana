@@ -7,6 +7,7 @@ import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/debug/provider/consistency_debug_provider.dart';
 import 'package:rana/features/film_roll/controller/film_roll_controller.dart';
+import 'package:rana/features/film_roll/model/roll_capture_entry.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:rana/features/preset/model/rana_style_mood.dart';
@@ -28,6 +29,9 @@ class CameraController extends _$CameraController {
   double? _pendingZoomRatio;
   int _zoomGeneration = 0;
   final Set<String> _pendingCaptureIds = <String>{};
+  final Map<String, FilmRollExposureReservation> _rollReservations =
+      <String, FilmRollExposureReservation>{};
+  bool _isActiveRollRecipeReady = true;
   String? _acquiringCaptureId;
   static const _zoomDispatchInterval = Duration(milliseconds: 16);
 
@@ -47,6 +51,7 @@ class CameraController extends _$CameraController {
       _zoomDispatchTimer?.cancel();
       _zoomDispatchTimer = null;
       _pendingCaptureIds.clear();
+      _rollReservations.clear();
       _acquiringCaptureId = null;
     });
 
@@ -96,7 +101,10 @@ class CameraController extends _$CameraController {
       } on Object catch (e) {
         state = state.copyWith(errorMessage: e.toString());
       }
-      await reapplyActivePreviewParams();
+      final restoredRollApplied = await _restoreActiveRollConfiguration();
+      if (!restoredRollApplied) {
+        await reapplyActivePreviewParams();
+      }
     } on Object catch (e) {
       state = state.copyWith(
         isCameraInitialized: false,
@@ -149,6 +157,7 @@ class CameraController extends _$CameraController {
   /// Updates the active aspect ratio for both Flutter and native preview.
   Future<void> setAspectRatio(CameraAspectRatio aspectRatio) async {
     if (state.isSelfTimerRunning) return;
+    if (_blockWhenRollLocked('aspect ratio')) return;
     if (!state.isCameraInitialized) {
       state = state.copyWith(aspectRatio: aspectRatio);
       return;
@@ -175,24 +184,18 @@ class CameraController extends _$CameraController {
   /// duration of the roll. The caller should surface an error to the user.
   Future<void> selectPreset(PresetModel preset) async {
     if (state.isSelfTimerRunning) return;
+    if (_blockWhenRollLocked('preset')) return;
 
-    // Guard: preset is locked while a roll is active.
-    final rollState = ref.read(filmRollControllerProvider);
-    if (rollState.hasActiveRoll && preset.id != state.activePresetId) {
-      state = state.copyWith(
-        errorMessage:
-            'Preset locked — end or abandon the current roll to switch.',
-      );
-      AppLogger.w(
-        'CameraController',
-        'selectPreset blocked: roll ${rollState.activeRoll!.id} is active',
-      );
-      return;
-    }
+    await _applyPreset(preset, style: preset.style ?? const RanaStyle());
+  }
 
+  Future<void> _applyPreset(
+    PresetModel preset, {
+    required RanaStyle style,
+  }) async {
     try {
       final isNewPreset = state.activePresetId != preset.id;
-      final effectiveStyle = _clampStyle(preset.style ?? const RanaStyle());
+      final effectiveStyle = _clampStyle(style);
       final targetVariant = preset.effects.lightLeak.variant;
       if (targetVariant == -1) {
         if (isNewPreset || _currentPreviewVariant == null) {
@@ -221,6 +224,7 @@ class CameraController extends _$CameraController {
   /// Updates the active Rana Style and pushes it to the preview renderer.
   Future<void> updateActiveStyle(RanaStyle style) async {
     if (state.isSelfTimerRunning) return;
+    if (_blockWhenRollLocked('style')) return;
     final clampedStyle = _clampStyle(style);
     state = state.copyWith(activeStyle: clampedStyle);
 
@@ -244,6 +248,7 @@ class CameraController extends _$CameraController {
   /// Applies a quick preset-aware Mood on top of the selected preset style.
   Future<void> applyStyleMood(RanaStyleMood mood) async {
     if (state.isSelfTimerRunning) return;
+    if (_blockWhenRollLocked('style')) return;
     final activePreset = _activePreset();
     if (activePreset == null) {
       return;
@@ -290,16 +295,19 @@ class CameraController extends _$CameraController {
     if (state.captureStatus != CaptureStatus.idle) return;
     if (state.isSelfTimerRunning) return;
 
-    // Block shutter when the active roll is full.
+    // Reserve capacity before native capture so in-flight processing cannot
+    // accept a thirteenth shot for a twelve-shot roll.
     final rollState = ref.read(filmRollControllerProvider);
-    if (rollState.isActiveRollFull) {
+    if (rollState.hasActiveRoll && rollState.cannotReserveExposure) {
       state = state.copyWith(
         errorMessage: 'Roll complete — end the roll before shooting.',
       );
       AppLogger.w(
         'CameraController',
         'Shutter blocked: active roll is full '
-            '(${rollState.activeRoll!.exposuresTaken}/${rollState.activeRoll!.size.count})',
+            '(${rollState.activeRoll!.exposuresTaken} '
+            '+ ${rollState.pendingExposureCount} pending '
+            '/ ${rollState.activeRoll!.size.count})',
       );
       return;
     }
@@ -318,11 +326,31 @@ class CameraController extends _$CameraController {
       return;
     }
 
+    final filmRollController = ref.read(filmRollControllerProvider.notifier);
+    final rollState = ref.read(filmRollControllerProvider);
+    if (rollState.hasActiveRoll && !_isActiveRollRecipeReady) {
+      state = state.copyWith(
+        errorMessage:
+            'The active Film Roll recipe is still restoring. '
+            'Try again in a moment.',
+      );
+      return;
+    }
+    if (rollState.hasActiveRoll && rollState.cannotReserveExposure) {
+      state = state.copyWith(
+        errorMessage: 'Roll complete — end the roll before shooting.',
+      );
+      return;
+    }
+    final reservation = filmRollController.reserveExposure();
+
     cancelSelfTimer();
     final startedAt = DateTime.now();
     AppLogger.i('RanaCaptureTimeline', 'event=shutter_tap elapsedMs=0');
 
-    final captureParams = _buildCaptureParams();
+    final captureParams = _buildCaptureParams(
+      filmRollId: reservation?.filmRollId,
+    );
     final activePreviewParams = ref
         .read(consistencyDebugProvider)
         .lastPreviewParams;
@@ -357,6 +385,9 @@ class CameraController extends _$CameraController {
         'captureId=$captureId event=native_accepted elapsedMs=$elapsedMs',
       );
       _pendingCaptureIds.add(captureId);
+      if (reservation != null) {
+        _rollReservations[captureId] = reservation;
+      }
       _acquiringCaptureId = captureId;
       state = state.copyWith(
         captureStatus: CaptureStatus.capturing,
@@ -364,6 +395,9 @@ class CameraController extends _$CameraController {
         captureElapsedMs: elapsedMs,
       );
     } on Object catch (e) {
+      if (reservation != null) {
+        unawaited(filmRollController.releaseExposure(reservation));
+      }
       state = state.copyWith(
         captureStatus: CaptureStatus.idle,
         captureError: e.toString(),
@@ -444,7 +478,7 @@ class CameraController extends _$CameraController {
     });
   }
 
-  Map<String, dynamic> _buildCaptureParams() {
+  Map<String, dynamic> _buildCaptureParams({String? filmRollId}) {
     final activePreset = _activePreset();
     final style = activePreset != null ? state.activeStyle : const RanaStyle();
 
@@ -553,7 +587,7 @@ class CameraController extends _$CameraController {
       'isStyleModified': isStyleModified,
       // Film Roll: pass the active roll ID so the Android side can store
       // it against the capture in the metadata DB.
-      'filmRollId': ref.read(filmRollControllerProvider).activeRoll?.id,
+      'filmRollId': filmRollId,
     };
   }
 
@@ -628,6 +662,7 @@ class CameraController extends _$CameraController {
       _acquiringCaptureId = null;
     }
     final imageUri = event['uri'] as String?;
+    final reservation = _rollReservations.remove(captureId);
     final elapsedMs = _readInt(event, 'elapsedMs', state.captureElapsedMs);
     AppLogger.i(
       'RanaCaptureTimeline',
@@ -650,13 +685,23 @@ class CameraController extends _$CameraController {
     );
     _randomizeNextVariantForPreview();
 
-    // Film Roll: record the exposure ONLY after the image URI is confirmed.
-    // A failed capture never reaches here, satisfying the core domain rule.
-    if (imageUri != null) {
+    // Commit only the reservation made for this native capture. Starting a
+    // later roll must never retroactively claim an earlier photo.
+    if (imageUri != null && reservation != null) {
       unawaited(
         ref
             .read(filmRollControllerProvider.notifier)
-            .recordExposure(imageUri),
+            .recordExposure(
+              captureId: captureId,
+              reservation: reservation,
+              mediaUri: imageUri,
+            ),
+      );
+    } else if (reservation != null) {
+      unawaited(
+        ref
+            .read(filmRollControllerProvider.notifier)
+            .releaseExposure(reservation),
       );
     }
   }
@@ -668,6 +713,14 @@ class CameraController extends _$CameraController {
     }
     if (_acquiringCaptureId == captureId) {
       _acquiringCaptureId = null;
+    }
+    final reservation = _rollReservations.remove(captureId);
+    if (reservation != null) {
+      unawaited(
+        ref
+            .read(filmRollControllerProvider.notifier)
+            .releaseExposure(reservation),
+      );
     }
     final elapsedMs = _readInt(event, 'elapsedMs', state.captureElapsedMs);
     final message =
@@ -690,6 +743,66 @@ class CameraController extends _$CameraController {
       captureError: message,
       errorMessage: message,
     );
+  }
+
+  bool _blockWhenRollLocked(String setting) {
+    final rollState = ref.read(filmRollControllerProvider);
+    final roll = rollState.activeRoll;
+    if (roll == null || !roll.isActive) return false;
+
+    state = state.copyWith(
+      errorMessage:
+          'Film Roll recipe locked — end or abandon the current roll '
+          'before changing $setting.',
+    );
+    AppLogger.w(
+      'CameraController',
+      'Film Roll setting blocked: roll=${roll.id} setting=$setting',
+    );
+    return true;
+  }
+
+  Future<bool> _restoreActiveRollConfiguration() async {
+    final rollController = ref.read(filmRollControllerProvider.notifier);
+    await rollController.waitUntilRestored();
+    final roll = ref.read(filmRollControllerProvider).activeRoll;
+    if (roll == null || !roll.isActive) {
+      _isActiveRollRecipeReady = true;
+      return false;
+    }
+    _isActiveRollRecipeReady = false;
+
+    final aspectRatio = CameraAspectRatio.values.firstWhere(
+      (ratio) => ratio.platformValue == roll.aspectRatioPlatformValue,
+      orElse: () => CameraAspectRatio.portrait34,
+    );
+
+    try {
+      final aspectResult = await _platformService.setAspectRatio(
+        aspectRatio.platformValue,
+      );
+      state = _withZoomState(
+        state.copyWith(aspectRatio: aspectRatio),
+        aspectResult,
+        fallbackZoomRatio: state.zoomRatio,
+      );
+
+      final presets = await ref.read(presetsProvider.future);
+      final preset = presets
+          .where((item) => item.id == roll.presetId)
+          .firstOrNull;
+      if (preset == null) {
+        state = state.copyWith(
+          errorMessage: 'The recipe for the active Film Roll is unavailable.',
+        );
+        return true;
+      }
+      await _applyPreset(preset, style: roll.lockedStyle);
+      _isActiveRollRecipeReady = true;
+    } on Object catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+    return true;
   }
 
   Map<String, dynamic> _buildPreviewParams(
@@ -833,6 +946,12 @@ class CameraController extends _$CameraController {
       unawaited(_statusSubscription?.cancel());
       _statusSubscription = null;
       _pendingCaptureIds.clear();
+      final outstandingReservations = _rollReservations.values.toList();
+      _rollReservations.clear();
+      final filmRollController = ref.read(filmRollControllerProvider.notifier);
+      for (final reservation in outstandingReservations) {
+        unawaited(filmRollController.releaseExposure(reservation));
+      }
       _acquiringCaptureId = null;
       await _platformService.releaseCamera();
       state = state.copyWith(

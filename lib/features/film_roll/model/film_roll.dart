@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:rana/features/preset/model/rana_style.dart';
 
 // ── Domain rules ────────────────────────────────────────────────────────────
 //
@@ -11,8 +12,7 @@ import 'package:flutter/foundation.dart';
 //     must end or abandon the roll before switching either.
 //  4. Abandoning a roll keeps all already-saved photos individually visible in
 //     the Gallery; only the roll-grouping record is removed.
-//  5. A full roll (exposuresTaken >= size.count) blocks further shutter presses
-//     until the user explicitly ends the roll.
+//  5. A full roll automatically completes after its final saved exposure.
 // ────────────────────────────────────────────────────────────────────────────
 
 /// Number of exposures available on a film roll.
@@ -65,6 +65,7 @@ class FilmRoll {
   const FilmRoll({
     required this.id,
     required this.presetId,
+    required this.lockedStyle,
     required this.aspectRatioPlatformValue,
     required this.size,
     required this.exposuresTaken,
@@ -78,6 +79,9 @@ class FilmRoll {
   factory FilmRoll.fromJson(Map<String, dynamic> json) => FilmRoll(
     id: json['id'] as String,
     presetId: json['presetId'] as String,
+    lockedStyle: json['lockedStyle'] is Map<String, dynamic>
+        ? RanaStyle.fromJson(json['lockedStyle'] as Map<String, dynamic>)
+        : const RanaStyle(),
     aspectRatioPlatformValue:
         json['aspectRatioPlatformValue'] as String? ?? 'portrait_3_4',
     size: FilmRollSize.fromCount((json['size'] as num?)?.toInt() ?? 36),
@@ -95,6 +99,12 @@ class FilmRoll {
 
   /// Preset ID locked at roll-start time.
   final String presetId;
+
+  /// Custom style values frozen with [presetId] when the roll was loaded.
+  ///
+  /// The value is stored rather than reconstructed from the current editor
+  /// state so an app restart cannot change the recipe of an active roll.
+  final RanaStyle lockedStyle;
 
   /// Platform aspect-ratio value locked at roll-start time
   /// (e.g. `'portrait_3_4'`, `'square_1_1'`, `'portrait_9_16'`).
@@ -139,6 +149,7 @@ class FilmRoll {
   Map<String, dynamic> toJson() => <String, dynamic>{
     'id': id,
     'presetId': presetId,
+    'lockedStyle': lockedStyle.toJson(),
     'aspectRatioPlatformValue': aspectRatioPlatformValue,
     'size': size.count,
     'exposuresTaken': exposuresTaken,
@@ -152,6 +163,7 @@ class FilmRoll {
   FilmRoll copyWith({
     String? id,
     String? presetId,
+    RanaStyle? lockedStyle,
     String? aspectRatioPlatformValue,
     FilmRollSize? size,
     int? exposuresTaken,
@@ -162,6 +174,7 @@ class FilmRoll {
   }) => FilmRoll(
     id: id ?? this.id,
     presetId: presetId ?? this.presetId,
+    lockedStyle: lockedStyle ?? this.lockedStyle,
     aspectRatioPlatformValue:
         aspectRatioPlatformValue ?? this.aspectRatioPlatformValue,
     size: size ?? this.size,
@@ -182,6 +195,7 @@ class FilmRoll {
     return other is FilmRoll &&
         other.id == id &&
         other.presetId == presetId &&
+        other.lockedStyle == lockedStyle &&
         other.aspectRatioPlatformValue == aspectRatioPlatformValue &&
         other.size == size &&
         other.exposuresTaken == exposuresTaken &&
@@ -195,6 +209,7 @@ class FilmRoll {
   int get hashCode => Object.hash(
     id,
     presetId,
+    lockedStyle,
     aspectRatioPlatformValue,
     size,
     exposuresTaken,
@@ -207,6 +222,7 @@ class FilmRoll {
   @override
   String toString() =>
       'FilmRoll(id: $id, presetId: $presetId, '
+      'lockedStyle: $lockedStyle, '
       'aspectRatio: $aspectRatioPlatformValue, '
       'size: ${size.count}, exposuresTaken: $exposuresTaken, '
       'status: ${status.name}, startedAt: $startedAt, '

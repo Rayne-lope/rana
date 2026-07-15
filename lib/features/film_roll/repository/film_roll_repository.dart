@@ -11,7 +11,7 @@ abstract interface class FilmRollRepository {
   /// Loads the currently active roll, or null if there is none.
   Future<FilmRoll?> loadActive();
 
-  /// Loads all completed and abandoned rolls, newest first.
+  /// Loads archived completed rolls, newest first.
   Future<List<FilmRoll>> loadAll();
 
   /// Saves (inserts or updates) a roll.
@@ -25,7 +25,7 @@ abstract interface class FilmRollRepository {
 ///
 /// Storage keys:
 ///   `rana.film_roll.active`  — single JSON object for the active roll.
-///   `rana.film_rolls.v1`     — JSON array of all completed/abandoned rolls.
+///   `rana.film_rolls.v1`     — JSON array of completed rolls.
 class SharedPreferencesFilmRollRepository implements FilmRollRepository {
   /// Main constructor.
   const SharedPreferencesFilmRollRepository();
@@ -61,7 +61,13 @@ class SharedPreferencesFilmRollRepository implements FilmRollRepository {
       final rolls = <FilmRoll>[];
       for (final item in decoded) {
         if (item is Map<String, dynamic>) {
-          rolls.add(FilmRoll.fromJson(item));
+          final roll = FilmRoll.fromJson(item);
+          // Older development builds persisted abandoned rolls. They are no
+          // longer groupable after the user confirmed that abandon hides a
+          // roll while preserving the underlying photos.
+          if (roll.status == FilmRollStatus.completed) {
+            rolls.add(roll);
+          }
         }
       }
       // Newest first.
@@ -114,8 +120,7 @@ class SharedPreferencesFilmRollRepository implements FilmRollRepository {
     final activeRaw = prefs.getString(_activeKey);
     if (activeRaw != null) {
       final dynamic activeDecoded = json.decode(activeRaw);
-      if (activeDecoded is Map<String, dynamic> &&
-          activeDecoded['id'] == id) {
+      if (activeDecoded is Map<String, dynamic> && activeDecoded['id'] == id) {
         await prefs.remove(_activeKey);
         return;
       }
@@ -123,7 +128,10 @@ class SharedPreferencesFilmRollRepository implements FilmRollRepository {
 
     // Remove from history.
     final history = await loadAll();
-    final next = [for (final roll in history) if (roll.id != id) roll];
+    final next = [
+      for (final roll in history)
+        if (roll.id != id) roll,
+    ];
     await prefs.setString(
       _historyKey,
       json.encode(next.map((r) => r.toJson()).toList()),

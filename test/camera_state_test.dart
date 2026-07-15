@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/services.dart';
@@ -7,12 +8,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rana/core/providers/preset_provider.dart';
 import 'package:rana/features/camera/controller/camera_controller.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
+import 'package:rana/features/film_roll/controller/film_roll_controller.dart';
+import 'package:rana/features/film_roll/model/film_roll.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:rana/features/preset/model/rana_style_mood.dart';
 import 'package:rana/features/preset/repository/preset_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -436,6 +438,150 @@ void main() {
       expect(state.zoomRatio, equals(2));
       expect(log.first.method, equals('setAspectRatio'));
     });
+
+    test(
+      'active Film Roll locks preset aspect ratio and style changes',
+      () async {
+        const normal = PresetModel(
+          id: 'normal',
+          name: 'Normal',
+          category: 'Classic',
+          color: PresetColor(temperature: 0, contrast: 0, saturation: 0),
+          grain: PresetGrain(intensity: 0),
+          vignette: PresetVignette(intensity: 0),
+        );
+        const alternate = PresetModel(
+          id: 'alternate',
+          name: 'Alternate',
+          category: 'Classic',
+          color: PresetColor(temperature: 0.2, contrast: 0, saturation: 0),
+          grain: PresetGrain(intensity: 0.1),
+          vignette: PresetVignette(intensity: 0),
+        );
+        final container = ProviderContainer(
+          overrides: [
+            presetRepositoryProvider.overrideWithValue(
+              const _FakePresetRepository([normal, alternate]),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(presetsProvider.future);
+        final controller = container.read(cameraControllerProvider.notifier);
+        await controller.initialize();
+        await controller.selectPreset(normal);
+        final rollController = container.read(
+          filmRollControllerProvider.notifier,
+        );
+        await rollController.waitUntilRestored();
+        await rollController.startRoll(
+          presetId: normal.id,
+          lockedStyle: const RanaStyle(tone: 8, color: -4),
+          size: FilmRollSize.twelve,
+          aspectRatioPlatformValue: CameraAspectRatio.portrait34.platformValue,
+        );
+        log.clear();
+
+        await controller.setAspectRatio(CameraAspectRatio.square11);
+        await controller.selectPreset(alternate);
+        await controller.updateActiveStyle(const RanaStyle(tone: 44));
+        await controller.applyStyleMood(RanaStyleMood.coolRose);
+        await controller.resetActiveStyle();
+
+        final state = container.read(cameraControllerProvider);
+        expect(state.aspectRatio, CameraAspectRatio.portrait34);
+        expect(state.activePresetId, normal.id);
+        expect(state.activeStyle, const RanaStyle());
+        expect(log, isEmpty);
+        expect(state.errorMessage, contains('Film Roll recipe locked'));
+      },
+    );
+
+    test(
+      'restores the active Film Roll recipe before enabling capture',
+      () async {
+        const preset = PresetModel(
+          id: 'portra',
+          name: 'Portra',
+          category: 'Classic',
+          color: PresetColor(temperature: 0.2, contrast: 0.1, saturation: 0.1),
+          grain: PresetGrain(intensity: 0.1),
+          vignette: PresetVignette(intensity: 0.05),
+        );
+        const lockedStyle = RanaStyle(tone: 21, color: -9, texture: 34);
+        final roll = FilmRoll(
+          id: 'restored-roll',
+          presetId: preset.id,
+          lockedStyle: lockedStyle,
+          aspectRatioPlatformValue: CameraAspectRatio.square11.platformValue,
+          size: FilmRollSize.twelve,
+          exposuresTaken: 4,
+          status: FilmRollStatus.active,
+          startedAt: DateTime.utc(2026, 7, 15, 16),
+        );
+        SharedPreferences.setMockInitialValues({
+          'rana.film_roll.active': json.encode(roll.toJson()),
+        });
+        final container = ProviderContainer(
+          overrides: [
+            presetRepositoryProvider.overrideWithValue(
+              const _FakePresetRepository([preset]),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(presetsProvider.future);
+        final controller = container.read(cameraControllerProvider.notifier);
+        await controller.initialize();
+
+        final state = container.read(cameraControllerProvider);
+        expect(state.activePresetId, preset.id);
+        expect(state.activeStyle, lockedStyle);
+        expect(state.aspectRatio, CameraAspectRatio.square11);
+        expect(container.read(filmRollControllerProvider).activeRoll, roll);
+      },
+    );
+
+    test(
+      'Film Roll capture reserves and commits the originating roll',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        final controller = container.read(cameraControllerProvider.notifier);
+        await controller.initialize();
+        final rollController = container.read(
+          filmRollControllerProvider.notifier,
+        );
+        await rollController.waitUntilRestored();
+        await rollController.startRoll(
+          presetId: 'normal',
+          lockedStyle: const RanaStyle(),
+          size: FilmRollSize.twelve,
+          aspectRatioPlatformValue: CameraAspectRatio.portrait34.platformValue,
+        );
+        final rollId = container
+            .read(filmRollControllerProvider)
+            .activeRoll!
+            .id;
+        log.clear();
+
+        await controller.handleShutterPressed();
+        final captureArgs =
+            log.firstWhere((call) => call.method == 'beginCapture').arguments
+                as Map<dynamic, dynamic>;
+        expect(captureArgs['filmRollId'], rollId);
+        await drainCaptureEvents();
+
+        final roll = container.read(filmRollControllerProvider).activeRoll!;
+        expect(roll.exposuresTaken, 1);
+        expect(
+          container.read(filmRollControllerProvider).pendingExposureCount,
+          0,
+        );
+      },
+    );
 
     test('setZoomRatio no-ops while self timer is running', () async {
       final container = ProviderContainer();
