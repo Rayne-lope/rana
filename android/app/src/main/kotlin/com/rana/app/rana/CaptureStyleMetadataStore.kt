@@ -14,7 +14,8 @@ internal data class CaptureStyleMetadata(
     val undertoneY: Float,
     val params: Map<String, Any?>,
     val createdAtEpochMs: Long,
-    val updatedAtEpochMs: Long = createdAtEpochMs
+    val updatedAtEpochMs: Long = createdAtEpochMs,
+    val filmRollId: String? = null
 )
 
 internal data class StoredCaptureParameter(
@@ -24,7 +25,7 @@ internal data class StoredCaptureParameter(
 
 internal object CaptureStyleMetadataSchema {
     const val DATABASE_NAME = "rana_capture_styles.db"
-    const val DATABASE_VERSION = 3
+    const val DATABASE_VERSION = 4
     const val CAPTURES_TABLE = "capture_styles"
     const val PARAMS_TABLE = "capture_style_params"
     private const val LEGACY_CAPTURES_TABLE = "capture_styles_v2"
@@ -99,6 +100,11 @@ internal object CaptureStyleMetadataSchema {
         """.trimIndent(),
         "DROP TABLE $LEGACY_PARAMS_TABLE",
         "DROP TABLE $LEGACY_CAPTURES_TABLE"
+    )
+
+    /** V3 → V4: add optional film_roll_id column for Film Roll feature. */
+    val MIGRATE_V3_TO_V4 = listOf(
+        "ALTER TABLE $CAPTURES_TABLE ADD COLUMN film_roll_id TEXT"
     )
 }
 
@@ -197,6 +203,9 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
         if (oldVersion < 3) {
             CaptureStyleMetadataSchema.MIGRATE_V2_TO_V3.forEach(db::execSQL)
         }
+        if (oldVersion < 4) {
+            CaptureStyleMetadataSchema.MIGRATE_V3_TO_V4.forEach(db::execSQL)
+        }
     }
 
     fun upsert(metadata: CaptureStyleMetadata) {
@@ -212,6 +221,9 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
                 put("undertone_y", metadata.undertoneY)
                 put("created_at_epoch_ms", metadata.createdAtEpochMs)
                 put("updated_at_epoch_ms", metadata.updatedAtEpochMs)
+                if (metadata.filmRollId != null) {
+                    put("film_roll_id", metadata.filmRollId)
+                }
             }
             db.insertWithOnConflict(
                 CaptureStyleMetadataSchema.CAPTURES_TABLE,
@@ -255,7 +267,8 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
                 "undertone_x",
                 "undertone_y",
                 "created_at_epoch_ms",
-                "updated_at_epoch_ms"
+                "updated_at_epoch_ms",
+                "film_roll_id"
             ),
             "media_uri = ?",
             arrayOf(mediaUri),
@@ -274,7 +287,8 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
                 undertoneY = cursor.getFloat(4),
                 createdAtEpochMs = cursor.getLong(5),
                 updatedAtEpochMs = cursor.getLong(6),
-                params = emptyMap()
+                params = emptyMap(),
+                filmRollId = if (cursor.isNull(7)) null else cursor.getString(7)
             )
         }
 
@@ -312,7 +326,8 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
                 "undertone_x",
                 "undertone_y",
                 "created_at_epoch_ms",
-                "updated_at_epoch_ms"
+                "updated_at_epoch_ms",
+                "film_roll_id"
             ),
             null,
             null,
@@ -330,7 +345,8 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
                     undertoneY = cursor.getFloat(5),
                     createdAtEpochMs = cursor.getLong(6),
                     updatedAtEpochMs = cursor.getLong(7),
-                    params = emptyMap()
+                    params = emptyMap(),
+                    filmRollId = if (cursor.isNull(8)) null else cursor.getString(8)
                 )
             }
         }

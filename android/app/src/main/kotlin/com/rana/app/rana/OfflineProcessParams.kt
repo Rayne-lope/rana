@@ -62,7 +62,9 @@ data class OfflineProcessParams(
     val highlightsTintB: Float = 0f,
     val outputQuality: OutputQualityProfile = OutputQualityProfile.HIGH_JPEG,
     val presetId: String = "normal",
-    val isStyleModified: Boolean = false
+    val isStyleModified: Boolean = false,
+    /** Film roll UUID, or null when shooting without a roll. */
+    val filmRollId: String? = null
 )
 
 /** Stable flat payload persisted for later non-destructive rendering. */
@@ -218,7 +220,8 @@ internal fun offlineProcessParamsFromArguments(
             args?.get("outputQuality") as? String
         ),
         presetId = args?.get("presetId") as? String ?: "normal",
-        isStyleModified = args?.get("isStyleModified") as? Boolean ?: false
+        isStyleModified = args?.get("isStyleModified") as? Boolean ?: false,
+        filmRollId = args?.get("filmRollId") as? String
     )
 }
 

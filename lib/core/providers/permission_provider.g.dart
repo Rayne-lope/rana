@@ -50,8 +50,7 @@ typedef _$CameraPermissionController = Notifier<PermissionAccessState>;
 String _$galleryPermissionControllerHash() =>
     r'dfdd4a4e61043a66beb1b2fb71d8b06a19c5810f';
 
-/// Controls optional photo-library access only. Rana first attempts to read
-/// media it owns, so this permission is not requested during camera startup.
+/// Optional access used only for previous-install media and legacy Android.
 ///
 /// Copied from [GalleryPermissionController].
 @ProviderFor(GalleryPermissionController)

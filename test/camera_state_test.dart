@@ -11,6 +11,8 @@ import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:rana/features/preset/model/rana_style_mood.dart';
 import 'package:rana/features/preset/repository/preset_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -61,6 +63,7 @@ void main() {
     }
 
     setUp(() {
+      SharedPreferences.setMockInitialValues({});
       log.clear();
       executeCaptureHandler = null;
       nativeMaxZoomRatio = userMaxZoomRatio;

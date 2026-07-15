@@ -1184,7 +1184,8 @@ class CameraPreviewView(
                                     undertoneX = storedRenderParams.undertoneX,
                                     undertoneY = storedRenderParams.undertoneY,
                                     params = storedRenderParams.asMetadataParams(),
-                                    createdAtEpochMs = capturedAtEpochMs
+                                    createdAtEpochMs = capturedAtEpochMs,
+                                    filmRollId = storedRenderParams.filmRollId
                                 )
                             )
                             markProgress("metadata_saved")

@@ -6,6 +6,7 @@ import 'package:rana/core/services/camera_platform_service.dart';
 import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/debug/provider/consistency_debug_provider.dart';
+import 'package:rana/features/film_roll/controller/film_roll_controller.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:rana/features/preset/model/rana_style_mood.dart';
@@ -169,8 +170,26 @@ class CameraController extends _$CameraController {
   }
 
   /// Selects active film preset on native rendering pipeline.
+  ///
+  /// Blocked when a Film Roll is active — the preset is locked for the
+  /// duration of the roll. The caller should surface an error to the user.
   Future<void> selectPreset(PresetModel preset) async {
     if (state.isSelfTimerRunning) return;
+
+    // Guard: preset is locked while a roll is active.
+    final rollState = ref.read(filmRollControllerProvider);
+    if (rollState.hasActiveRoll && preset.id != state.activePresetId) {
+      state = state.copyWith(
+        errorMessage:
+            'Preset locked — end or abandon the current roll to switch.',
+      );
+      AppLogger.w(
+        'CameraController',
+        'selectPreset blocked: roll ${rollState.activeRoll!.id} is active',
+      );
+      return;
+    }
+
     try {
       final isNewPreset = state.activePresetId != preset.id;
       final effectiveStyle = _clampStyle(preset.style ?? const RanaStyle());
@@ -270,6 +289,20 @@ class CameraController extends _$CameraController {
   Future<void> handleShutterPressed() async {
     if (state.captureStatus != CaptureStatus.idle) return;
     if (state.isSelfTimerRunning) return;
+
+    // Block shutter when the active roll is full.
+    final rollState = ref.read(filmRollControllerProvider);
+    if (rollState.isActiveRollFull) {
+      state = state.copyWith(
+        errorMessage: 'Roll complete — end the roll before shooting.',
+      );
+      AppLogger.w(
+        'CameraController',
+        'Shutter blocked: active roll is full '
+            '(${rollState.activeRoll!.exposuresTaken}/${rollState.activeRoll!.size.count})',
+      );
+      return;
+    }
 
     if (!state.selfTimerMode.isEnabled) {
       await capture();
@@ -518,6 +551,9 @@ class CameraController extends _$CameraController {
       'outputQuality': outputQuality.storageValue,
       'presetId': activePreset?.id ?? 'normal',
       'isStyleModified': isStyleModified,
+      // Film Roll: pass the active roll ID so the Android side can store
+      // it against the capture in the metadata DB.
+      'filmRollId': ref.read(filmRollControllerProvider).activeRoll?.id,
     };
   }
 
@@ -613,6 +649,16 @@ class CameraController extends _$CameraController {
       lastCaptureOutput: CaptureOutputMetadata.fromEvent(event),
     );
     _randomizeNextVariantForPreview();
+
+    // Film Roll: record the exposure ONLY after the image URI is confirmed.
+    // A failed capture never reaches here, satisfying the core domain rule.
+    if (imageUri != null) {
+      unawaited(
+        ref
+            .read(filmRollControllerProvider.notifier)
+            .recordExposure(imageUri),
+      );
+    }
   }
 
   void _handleCaptureFailed(Map<String, dynamic> event) {
