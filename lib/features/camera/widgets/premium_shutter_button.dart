@@ -15,6 +15,7 @@ class PremiumShutterButton extends StatefulWidget {
     required this.onStatusChanged,
     this.size = 72.0,
     this.isEnabled = true,
+    this.disabledReason,
     super.key,
   });
 
@@ -29,6 +30,9 @@ class PremiumShutterButton extends StatefulWidget {
 
   /// Whether the button is interactable.
   final bool isEnabled;
+
+  /// Accessible explanation announced while the shutter is unavailable.
+  final String? disabledReason;
 
   @override
   State<PremiumShutterButton> createState() => _PremiumShutterButtonState();
@@ -157,46 +161,54 @@ class _PremiumShutterButtonState extends State<PremiumShutterButton>
     final double translate = _isPressing ? 3 : 0;
     final wrapSize = widget.size * 1.38;
 
-    return Listener(
-      onPointerDown: (event) {
-        _pressPointer = math.Point(event.position.dx, event.position.dy);
-        _handlePressStart();
-      },
-      onPointerUp: (event) {
-        if (_pressPointer != null) {
-          _pressPointer = null;
-          _handlePressEnd();
-        }
-      },
-      onPointerCancel: (event) {
-        _pressPointer = null;
-        _handlePressCancel();
-      },
-      onPointerMove: (event) {
-        if (_pressPointer != null) {
-          final diffX = event.position.dx - _pressPointer!.x;
-          final diffY = event.position.dy - _pressPointer!.y;
-          final dist = math.sqrt(diffX * diffX + diffY * diffY);
-          // If the finger moves too far away from the button, cancel the press
-          if (dist > widget.size * 1.2) {
+    return Semantics(
+      button: true,
+      enabled: widget.isEnabled,
+      label: 'Camera shutter',
+      hint: widget.isEnabled
+          ? 'Capture a photo'
+          : (widget.disabledReason ?? 'Camera shutter unavailable'),
+      child: Listener(
+        onPointerDown: (event) {
+          _pressPointer = math.Point(event.position.dx, event.position.dy);
+          _handlePressStart();
+        },
+        onPointerUp: (event) {
+          if (_pressPointer != null) {
             _pressPointer = null;
-            _handlePressCancel();
+            _handlePressEnd();
           }
-        }
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOutCubic,
-        transform: Matrix4.translationValues(0, translate, 0)
-          ..scaleByDouble(scale, scale, 1, 1),
-        child: CustomPaint(
-          size: Size(wrapSize, wrapSize),
-          painter: ShutterPainter(
-            size: widget.size,
-            focusProgress: _focusController.value,
-            bladeProgress: _bladeController.value,
-            waveProgress: _waveController.value,
-            isEnabled: widget.isEnabled,
+        },
+        onPointerCancel: (event) {
+          _pressPointer = null;
+          _handlePressCancel();
+        },
+        onPointerMove: (event) {
+          if (_pressPointer != null) {
+            final diffX = event.position.dx - _pressPointer!.x;
+            final diffY = event.position.dy - _pressPointer!.y;
+            final dist = math.sqrt(diffX * diffX + diffY * diffY);
+            // If the finger moves too far away from the button, cancel the press
+            if (dist > widget.size * 1.2) {
+              _pressPointer = null;
+              _handlePressCancel();
+            }
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOutCubic,
+          transform: Matrix4.translationValues(0, translate, 0)
+            ..scaleByDouble(scale, scale, 1, 1),
+          child: CustomPaint(
+            size: Size(wrapSize, wrapSize),
+            painter: ShutterPainter(
+              size: widget.size,
+              focusProgress: _focusController.value,
+              bladeProgress: _bladeController.value,
+              waveProgress: _waveController.value,
+              isEnabled: widget.isEnabled,
+            ),
           ),
         ),
       ),
@@ -255,16 +267,18 @@ class ShutterPainter extends CustomPainter {
       final focusPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.2
-        ..color = const Color(0xFFF4C44F)
-            .withValues(alpha: 0.65 * focusProgress);
+        ..color = const Color(
+          0xFFF4C44F,
+        ).withValues(alpha: 0.65 * focusProgress);
       canvas.drawCircle(center, currentFocusRadius, focusPaint);
 
       // Draw focus glow
       final glowPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 4.0
-        ..color = const Color(0xFFF4C44F)
-            .withValues(alpha: 0.28 * focusProgress)
+        ..color = const Color(
+          0xFFF4C44F,
+        ).withValues(alpha: 0.28 * focusProgress)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
       canvas.drawCircle(center, currentFocusRadius, glowPaint);
     }
@@ -396,8 +410,9 @@ class ShutterPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.6
-        ..color = const Color(0xFFF4C44F)
-            .withValues(alpha: 0.12), // Subtle gold accent ring
+        ..color = const Color(
+          0xFFF4C44F,
+        ).withValues(alpha: 0.12), // Subtle gold accent ring
     );
 
     // Fine inner highlight rim on the edge
@@ -415,8 +430,7 @@ class ShutterPainter extends CustomPainter {
       canvas.drawCircle(
         center,
         currentButtonRadius,
-        Paint()
-          ..color = Colors.black.withValues(alpha: 0.32 * bladeProgress),
+        Paint()..color = Colors.black.withValues(alpha: 0.32 * bladeProgress),
       );
     }
 
@@ -432,27 +446,28 @@ class ShutterPainter extends CustomPainter {
           Colors.transparent,
         ],
         stops: const [0, 0.55, 1],
-      ).createShader(
-        Rect.fromCircle(center: center, radius: glassRadius),
-      );
+      ).createShader(Rect.fromCircle(center: center, radius: glassRadius));
 
     canvas.drawCircle(center, glassRadius, glassPaint);
 
     // Gloss reflection arc
     final glossPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Colors.white.withValues(alpha: 0.16),
-          Colors.white.withValues(alpha: 0),
-        ],
-      ).createShader(Rect.fromLTWH(
-        center.dx - glassRadius * 0.8,
-        center.dy - glassRadius * 0.9,
-        glassRadius * 1.6,
-        glassRadius * 0.6,
-      ));
+      ..shader =
+          LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.white.withValues(alpha: 0.16),
+              Colors.white.withValues(alpha: 0),
+            ],
+          ).createShader(
+            Rect.fromLTWH(
+              center.dx - glassRadius * 0.8,
+              center.dy - glassRadius * 0.9,
+              glassRadius * 1.6,
+              glassRadius * 0.6,
+            ),
+          );
 
     canvas.drawOval(
       Rect.fromLTWH(

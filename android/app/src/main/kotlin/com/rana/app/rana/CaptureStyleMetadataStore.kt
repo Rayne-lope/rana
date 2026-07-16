@@ -18,6 +18,15 @@ internal data class CaptureStyleMetadata(
     val filmRollId: String? = null
 )
 
+/**
+ * The minimal, read-only capture metadata needed to reconcile an active Film
+ * Roll after the Flutter process or camera lifecycle has been interrupted.
+ */
+internal data class FilmRollCaptureRecord(
+    val mediaUri: String,
+    val capturedAtEpochMs: Long
+)
+
 internal data class StoredCaptureParameter(
     val type: String,
     val value: String?
@@ -28,6 +37,9 @@ internal object CaptureStyleMetadataSchema {
     const val DATABASE_VERSION = 4
     const val CAPTURES_TABLE = "capture_styles"
     const val PARAMS_TABLE = "capture_style_params"
+    const val FILM_ROLL_CAPTURE_SELECTION = "film_roll_id = ?"
+    const val FILM_ROLL_CAPTURE_SORT_ORDER =
+        "created_at_epoch_ms ASC, media_uri ASC"
     private const val LEGACY_CAPTURES_TABLE = "capture_styles_v2"
     private const val LEGACY_PARAMS_TABLE = "capture_style_params_v2"
 
@@ -43,6 +55,23 @@ internal object CaptureStyleMetadataSchema {
             created_at_epoch_ms INTEGER NOT NULL,
             updated_at_epoch_ms INTEGER NOT NULL,
             film_roll_id TEXT
+        )
+    """
+    // Keep the historical v3 table shape separate from the latest create
+    // schema. An upgrade from v1/v2 first rebuilds into v3, then the v3→v4
+    // step adds `film_roll_id` exactly once. Fresh v4 installs use
+    // [CREATE_CAPTURES] above and already contain the column.
+    private const val CREATE_CAPTURES_V3 = """
+        CREATE TABLE capture_styles (
+            media_uri TEXT PRIMARY KEY NOT NULL,
+            source_image_path TEXT,
+            media_is_rendered INTEGER NOT NULL DEFAULT 0
+                CHECK (media_is_rendered IN (0, 1)),
+            preset_id TEXT NOT NULL,
+            undertone_x REAL NOT NULL,
+            undertone_y REAL NOT NULL,
+            created_at_epoch_ms INTEGER NOT NULL,
+            updated_at_epoch_ms INTEGER NOT NULL
         )
     """
     const val CREATE_PARAMS = """
@@ -61,7 +90,7 @@ internal object CaptureStyleMetadataSchema {
     val MIGRATE_V2_TO_V3 = listOf(
         "ALTER TABLE $PARAMS_TABLE RENAME TO $LEGACY_PARAMS_TABLE",
         "ALTER TABLE $CAPTURES_TABLE RENAME TO $LEGACY_CAPTURES_TABLE",
-        CREATE_CAPTURES,
+        CREATE_CAPTURES_V3,
         CREATE_PARAMS,
         """
             INSERT INTO $CAPTURES_TABLE (
@@ -352,6 +381,36 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
             }
         }
         return metadata
+    }
+
+    /**
+     * Returns the persisted native captures associated with one Film Roll.
+     *
+     * This deliberately reads the capture sidecar database only: callers use
+     * it as the authoritative durable record of successful Film Roll captures
+     * and must not infer success from transient camera events.
+     */
+    fun listFilmRollCaptures(filmRollId: String): List<FilmRollCaptureRecord> {
+        require(filmRollId.isNotBlank()) { "Film Roll ID must not be blank" }
+
+        val records = mutableListOf<FilmRollCaptureRecord>()
+        readableDatabase.query(
+            CaptureStyleMetadataSchema.CAPTURES_TABLE,
+            arrayOf("media_uri", "created_at_epoch_ms"),
+            CaptureStyleMetadataSchema.FILM_ROLL_CAPTURE_SELECTION,
+            arrayOf(filmRollId),
+            null,
+            null,
+            CaptureStyleMetadataSchema.FILM_ROLL_CAPTURE_SORT_ORDER
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                records += FilmRollCaptureRecord(
+                    mediaUri = cursor.getString(0),
+                    capturedAtEpochMs = cursor.getLong(1)
+                )
+            }
+        }
+        return records
     }
 
     fun delete(mediaUri: String) {

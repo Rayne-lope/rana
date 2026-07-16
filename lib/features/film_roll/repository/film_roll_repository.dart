@@ -46,7 +46,7 @@ class SharedPreferencesFilmRollRepository implements FilmRollRepository {
       return null;
     } on Object catch (e, stack) {
       AppLogger.e('FilmRollRepository', 'Failed to loadActive', e, stack);
-      return null;
+      rethrow;
     }
   }
 
@@ -77,7 +77,7 @@ class SharedPreferencesFilmRollRepository implements FilmRollRepository {
       return const [];
     } on Object catch (e, stack) {
       AppLogger.e('FilmRollRepository', 'Failed to loadAll', e, stack);
-      return const [];
+      rethrow;
     }
   }
 
@@ -87,28 +87,44 @@ class SharedPreferencesFilmRollRepository implements FilmRollRepository {
 
     if (roll.status == FilmRollStatus.active) {
       // Store as active roll.
-      await prefs.setString(_activeKey, json.encode(roll.toJson()));
-    } else {
-      // Clear active key if it was this roll.
-      final activeRaw = prefs.getString(_activeKey);
-      if (activeRaw != null) {
-        final dynamic activeDecoded = json.decode(activeRaw);
-        if (activeDecoded is Map<String, dynamic> &&
-            activeDecoded['id'] == roll.id) {
-          await prefs.remove(_activeKey);
-        }
+      final saved = await prefs.setString(
+        _activeKey,
+        json.encode(roll.toJson()),
+      );
+      if (!saved) {
+        throw StateError('SharedPreferences rejected the active Film Roll.');
       }
-      // Upsert into history.
+    } else {
+      // Upsert the archive before clearing the active key. SharedPreferences
+      // cannot update both keys transactionally; this order is deliberately
+      // conservative. If the second write fails, a restart can still recover
+      // the active roll rather than losing an already-saved frame grouping.
       final history = await loadAll();
       final next = <FilmRoll>[
         for (final existing in history)
           if (existing.id != roll.id) existing,
         roll,
       ]..sort((a, b) => b.startedAt.compareTo(a.startedAt));
-      await prefs.setString(
+      final saved = await prefs.setString(
         _historyKey,
         json.encode(next.map((r) => r.toJson()).toList()),
       );
+      if (!saved) {
+        throw StateError('SharedPreferences rejected the Film Roll archive.');
+      }
+
+      // Clear active only after the completed roll is durably archived.
+      final activeRaw = prefs.getString(_activeKey);
+      if (activeRaw != null) {
+        final dynamic activeDecoded = json.decode(activeRaw);
+        if (activeDecoded is Map<String, dynamic> &&
+            activeDecoded['id'] == roll.id) {
+          final removed = await prefs.remove(_activeKey);
+          if (!removed) {
+            throw StateError('Could not clear the active Film Roll.');
+          }
+        }
+      }
     }
   }
 
@@ -121,7 +137,10 @@ class SharedPreferencesFilmRollRepository implements FilmRollRepository {
     if (activeRaw != null) {
       final dynamic activeDecoded = json.decode(activeRaw);
       if (activeDecoded is Map<String, dynamic> && activeDecoded['id'] == id) {
-        await prefs.remove(_activeKey);
+        final removed = await prefs.remove(_activeKey);
+        if (!removed) {
+          throw StateError('Could not remove the active Film Roll.');
+        }
         return;
       }
     }
@@ -132,10 +151,13 @@ class SharedPreferencesFilmRollRepository implements FilmRollRepository {
       for (final roll in history)
         if (roll.id != id) roll,
     ];
-    await prefs.setString(
+    final saved = await prefs.setString(
       _historyKey,
       json.encode(next.map((r) => r.toJson()).toList()),
     );
+    if (!saved) {
+      throw StateError('SharedPreferences rejected the Film Roll archive.');
+    }
   }
 }
 

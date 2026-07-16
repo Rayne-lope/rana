@@ -1,6 +1,38 @@
 import 'package:flutter/services.dart';
 import 'package:rana/core/utils/app_logger.dart';
 
+/// A successful native capture durably associated with a Film Roll.
+class FilmRollCaptureRecord {
+  const FilmRollCaptureRecord({
+    required this.mediaUri,
+    required this.capturedAt,
+  });
+
+  factory FilmRollCaptureRecord.fromChannelMap(Map<dynamic, dynamic> map) {
+    final mediaUri = map['mediaUri'];
+    final capturedAtEpochMs = map['capturedAtEpochMs'];
+    if (mediaUri is! String || mediaUri.isEmpty) {
+      throw const FormatException(
+        'Film Roll capture record is missing mediaUri',
+      );
+    }
+    if (capturedAtEpochMs is! num) {
+      throw const FormatException(
+        'Film Roll capture record is missing capturedAtEpochMs',
+      );
+    }
+    return FilmRollCaptureRecord(
+      mediaUri: mediaUri,
+      capturedAt: DateTime.fromMillisecondsSinceEpoch(
+        capturedAtEpochMs.toInt(),
+      ),
+    );
+  }
+
+  final String mediaUri;
+  final DateTime capturedAt;
+}
+
 /// Service that interfaces with native Android camera code via platform
 /// channels.
 class CameraPlatformService {
@@ -242,6 +274,33 @@ class CameraPlatformService {
       AppLogger.e(
         'CameraPlatformService',
         'Failed to release camera resources',
+        e,
+        stack,
+      );
+      rethrow;
+    }
+  }
+
+  /// Reads native metadata for successful captures in [filmRollId].
+  ///
+  /// The platform side intentionally returns only the durable URI and capture
+  /// timestamp. Platform failures propagate so Film Roll recovery can block
+  /// shooting rather than silently treating an unavailable query as empty.
+  Future<List<FilmRollCaptureRecord>> listFilmRollCaptures(
+    String filmRollId,
+  ) async {
+    try {
+      final result = await _methodChannel
+          .invokeListMethod<Map<dynamic, dynamic>>('listFilmRollCaptures', {
+            'filmRollId': filmRollId,
+          });
+      return (result ?? const <Map<dynamic, dynamic>>[])
+          .map(FilmRollCaptureRecord.fromChannelMap)
+          .toList(growable: false);
+    } on PlatformException catch (e, stack) {
+      AppLogger.e(
+        'CameraPlatformService',
+        'Failed to list Film Roll captures: $filmRollId',
         e,
         stack,
       );

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rana/features/film_roll/model/film_roll.dart';
+import 'package:rana/features/film_roll/model/film_roll_lifecycle.dart';
 import 'package:rana/features/film_roll/widgets/roll_complete_sheet.dart';
 import 'package:rana/features/film_roll/widgets/roll_hud_pill.dart';
 import 'package:rana/features/film_roll/widgets/roll_info_sheet.dart';
@@ -52,7 +53,8 @@ void main() {
             .getSemantics(find.byKey(const ValueKey<String>('roll-hud-pill')))
             .label,
         contains(
-          'Film Roll, 13/24 exposures used, 11 remaining, amber capacity',
+          'Film Roll, 13/24 exposures used, 11 frame capacity remaining, '
+          'amber capacity',
         ),
       );
       final decoration =
@@ -67,6 +69,36 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey<String>('roll-hud-pill')));
       expect(wasTapped, isTrue);
+    });
+
+    testWidgets('includes pending frames in capacity and semantics', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        host(
+          RollHudPill(
+            roll: roll(size: FilmRollSize.twelve, exposuresTaken: 11),
+            pendingExposures: 1,
+            onTap: () {},
+          ),
+        ),
+      );
+
+      expect(find.text('+1'), findsOneWidget);
+      expect(
+        tester
+            .getSemantics(find.byKey(const ValueKey<String>('roll-hud-pill')))
+            .label,
+        contains('0 frame capacity remaining, 1 frame processing'),
+      );
+      expect(
+        tester
+            .widget<Icon>(find.byKey(const ValueKey<String>('roll-hud-icon')))
+            .color,
+        const Color(0xFFE57373),
+      );
+      semantics.dispose();
     });
 
     testWidgets('uses green, amber, and red capacity states', (tester) async {
@@ -102,7 +134,10 @@ void main() {
             aspectRatioLabel: '3:4',
             onLoad: (size) async {
               loadedSize = size;
-              return false;
+              return const FilmRollActionResult.failure(
+                FilmRollActionFailure.persistenceFailed,
+                message: 'Could not load this Film Roll. Try again.',
+              );
             },
           ),
         ),
@@ -121,7 +156,7 @@ void main() {
     });
 
     testWidgets('prevents a duplicate load while saving', (tester) async {
-      final response = Completer<bool>();
+      final response = Completer<FilmRollActionResult>();
       var loadCalls = 0;
       await tester.pumpWidget(
         host(
@@ -143,10 +178,37 @@ void main() {
       await tester.pump();
       expect(loadCalls, 1);
 
-      response.complete(false);
+      response.complete(
+        const FilmRollActionResult.failure(
+          FilmRollActionFailure.persistenceFailed,
+          message: 'Could not load this Film Roll. Try again.',
+        ),
+      );
       await tester.pump();
       expect(
         find.text('Could not load this Film Roll. Try again.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('keeps long recipes scroll-safe at 200 percent text scale', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: host(
+            StartRollSheet(
+              presetName: 'A VERY LONG UNICODE PRESET 名称 WITH MANY WORDS',
+              aspectRatioLabel: '9:16',
+              onLoad: (_) async => const FilmRollActionResult.success(),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(
+        find.byKey(const ValueKey<String>('start-roll-close-button')),
         findsOneWidget,
       );
     });
@@ -163,8 +225,10 @@ void main() {
             presetName: 'Normal',
             aspectRatioLabel: '3:4',
             pendingExposures: 1,
-            onEnd: () async => false,
-            onAbandon: () async => false,
+            pendingSaveState: FilmRollPendingSaveState.saving,
+            recipeStatus: FilmRollRecipeStatus.ready,
+            onEnd: () async => const FilmRollActionResult.success(),
+            onAbandon: () async => const FilmRollActionResult.success(),
           ),
         ),
       );
@@ -199,11 +263,16 @@ void main() {
             presetName: 'Normal',
             aspectRatioLabel: '3:4',
             pendingExposures: 0,
+            pendingSaveState: FilmRollPendingSaveState.idle,
+            recipeStatus: FilmRollRecipeStatus.ready,
             onEnd: () async {
               ended = true;
-              return false;
+              return const FilmRollActionResult.failure(
+                FilmRollActionFailure.lifecycleBusy,
+                message: 'Still processing.',
+              );
             },
-            onAbandon: () async => false,
+            onAbandon: () async => const FilmRollActionResult.success(),
           ),
         ),
       );
@@ -226,6 +295,78 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('offers a retry when the locked recipe is unavailable', (
+      tester,
+    ) async {
+      var retries = 0;
+      await tester.pumpWidget(
+        host(
+          RollInfoSheet(
+            roll: roll(exposuresTaken: 3),
+            presetName: 'Unavailable recipe',
+            aspectRatioLabel: '3:4',
+            pendingExposures: 0,
+            pendingSaveState: FilmRollPendingSaveState.idle,
+            recipeStatus: FilmRollRecipeStatus.unavailable,
+            onEnd: () async => const FilmRollActionResult.success(),
+            onAbandon: () async => const FilmRollActionResult.success(),
+            onRetryRecipe: () async {
+              retries += 1;
+              return const FilmRollActionResult.success();
+            },
+          ),
+        ),
+      );
+
+      expect(
+        find.textContaining('LOCKED RECIPE IS UNAVAILABLE'),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey<String>('retry-roll-recipe-button')),
+      );
+      await tester.pump();
+      expect(retries, 1);
+    });
+
+    testWidgets(
+      'permits terminal actions when a missing recipe also needs reconciliation',
+      (tester) async {
+        await tester.pumpWidget(
+          host(
+            RollInfoSheet(
+              roll: roll(exposuresTaken: 3),
+              presetName: 'Unavailable recipe',
+              aspectRatioLabel: '3:4',
+              pendingExposures: 0,
+              pendingSaveState: FilmRollPendingSaveState.idle,
+              recipeStatus: FilmRollRecipeStatus.unavailable,
+              reconciliationRequired: true,
+              onEnd: () async => const FilmRollActionResult.success(),
+              onAbandon: () async => const FilmRollActionResult.success(),
+            ),
+          ),
+        );
+
+        expect(
+          tester
+              .widget<FilledButton>(
+                find.byKey(const ValueKey<String>('end-roll-button')),
+              )
+              .onPressed,
+          isNotNull,
+        );
+        expect(
+          tester
+              .widget<TextButton>(
+                find.byKey(const ValueKey<String>('abandon-roll-button')),
+              )
+              .onPressed,
+          isNotNull,
+        );
+      },
+    );
   });
 
   testWidgets('RollCompleteSheet reports the saved roll', (tester) async {

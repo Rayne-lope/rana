@@ -261,6 +261,38 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                 }
+                "listFilmRollCaptures" -> {
+                    val filmRollId = call.argument<String>("filmRollId")
+                    if (filmRollId.isNullOrBlank()) {
+                        result.error(
+                            "INVALID_FILM_ROLL_ID",
+                            "Film Roll ID is required",
+                            null
+                        )
+                    } else {
+                        mediaStoreExecutor.execute {
+                            try {
+                                val records = captureStyleMetadataStore
+                                    .listFilmRollCaptures(filmRollId)
+                                    .map { record ->
+                                        mapOf(
+                                            "mediaUri" to record.mediaUri,
+                                            "capturedAtEpochMs" to record.capturedAtEpochMs
+                                        )
+                                    }
+                                handler.post { result.success(records) }
+                            } catch (e: Exception) {
+                                handler.post {
+                                    result.error(
+                                        "LIST_FILM_ROLL_CAPTURES_FAILED",
+                                        e.message,
+                                        null
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
                 "loadGalleryThumbnailBytes" -> {
                     val uriArg = call.argument<String>("uri")
                     val targetSize = (call.argument<Number>("targetSize"))

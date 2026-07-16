@@ -111,6 +111,8 @@ void main() {
                 return null;
               case 'deleteGalleryMedia':
                 return null;
+              case 'listFilmRollCaptures':
+                return const [];
             }
             return null;
           });
@@ -180,7 +182,16 @@ void main() {
     testWidgets('Film action loads a roll and disables style editing', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(const ProviderScope(child: RanaApp()));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            presetRepositoryProvider.overrideWithValue(
+              const _StaticPresetRepository([_navigationNormalPreset]),
+            ),
+          ],
+          child: const RanaApp(),
+        ),
+      );
       await tester.pump(const Duration(milliseconds: 1300));
       await tester.pumpAndSettle();
 
@@ -197,8 +208,23 @@ void main() {
       await tester.tap(
         find.byKey(const ValueKey<String>('start-roll-size-12')),
       );
+      await tester.pump();
       await tester.tap(find.byKey(const ValueKey<String>('load-roll-button')));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      // The analog shutter surface owns a long-lived animation controller;
+      // poll a bounded time for the async recipe application instead of
+      // waiting for every app animation to become idle.
+      for (
+        var attempt = 0;
+        attempt < 20 &&
+            find
+                .byKey(const ValueKey<String>('roll-hud-pill'))
+                .evaluate()
+                .isEmpty;
+        attempt += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
 
       expect(
         find.byKey(const ValueKey<String>('roll-hud-pill')),
@@ -235,7 +261,7 @@ void main() {
       );
       expect(
         tester
-            .widget<GestureDetector>(
+            .widget<InkWell>(
               find.byKey(const ValueKey<String>('camera-preset-selector')),
             )
             .onTap,
@@ -466,3 +492,22 @@ class _EmptyPresetRepository implements PresetRepository {
   @override
   Future<List<PresetModel>> loadAll() async => const [];
 }
+
+class _StaticPresetRepository implements PresetRepository {
+  const _StaticPresetRepository(this.presets);
+
+  final List<PresetModel> presets;
+
+  @override
+  Future<List<PresetModel>> loadAll() async => presets;
+}
+
+const _navigationNormalPreset = PresetModel(
+  id: 'normal',
+  name: 'Normal',
+  category: 'Classic',
+  color: PresetColor(temperature: 0, contrast: 0, saturation: 0),
+  grain: PresetGrain(intensity: 0),
+  vignette: PresetVignette(intensity: 0),
+  style: RanaStyle(),
+);

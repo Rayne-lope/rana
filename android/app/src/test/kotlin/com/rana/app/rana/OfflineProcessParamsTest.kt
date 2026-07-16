@@ -155,13 +155,18 @@ class OfflineProcessParamsTest {
     }
 
     @Test
-    fun `capture filename metadata is parsed`() {
+    fun `capture filename and Film Roll metadata are parsed`() {
         val params = offlineProcessParamsFromArguments(
-            mapOf("presetId" to "rana_chroma", "isStyleModified" to true)
+            mapOf(
+                "presetId" to "rana_chroma",
+                "isStyleModified" to true,
+                "filmRollId" to "roll-42"
+            )
         )
 
         assertEquals("rana_chroma", params.presetId)
         assertTrue(params.isStyleModified)
+        assertEquals("roll-42", params.filmRollId)
     }
 
     @Test

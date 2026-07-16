@@ -79,6 +79,10 @@ class CaptureStyleMetadataStoreTest {
         assertTrue(migration.contains("source_image_path"))
         assertTrue(migration.contains("media_is_rendered"))
         assertTrue(Regex("NULL,\\s+0,").containsMatchIn(migration))
+        assertFalse(
+            "The v2→v3 table must not pre-add the v4 column.",
+            migration.contains("film_roll_id")
+        )
     }
 
     @Test
@@ -87,6 +91,41 @@ class CaptureStyleMetadataStoreTest {
 
         assertTrue(migration.contains("ALTER TABLE capture_styles"))
         assertTrue(migration.contains("ADD COLUMN film_roll_id TEXT"))
+    }
+
+    @Test
+    fun `v2 to v4 upgrade creates then adds film roll id exactly once`() {
+        val v2ToV3 = CaptureStyleMetadataSchema.MIGRATE_V2_TO_V3.joinToString("\n")
+        val v3ToV4 = CaptureStyleMetadataSchema.MIGRATE_V3_TO_V4.joinToString("\n")
+
+        assertFalse(v2ToV3.contains("film_roll_id"))
+        assertEquals(1, Regex("film_roll_id").findAll(v3ToV4).count())
+    }
+
+    @Test
+    fun `film roll capture query scopes records and orders them deterministically`() {
+        assertEquals(
+            "film_roll_id = ?",
+            CaptureStyleMetadataSchema.FILM_ROLL_CAPTURE_SELECTION
+        )
+        assertEquals(
+            "created_at_epoch_ms ASC, media_uri ASC",
+            CaptureStyleMetadataSchema.FILM_ROLL_CAPTURE_SORT_ORDER
+        )
+        assertTrue(
+            CaptureStyleMetadataSchema.CREATE_CAPTURES.contains("film_roll_id TEXT")
+        )
+    }
+
+    @Test
+    fun `film roll record retains capture association data`() {
+        val record = FilmRollCaptureRecord(
+            mediaUri = "content://media/external/images/media/42",
+            capturedAtEpochMs = 1_700_000_000_123L
+        )
+
+        assertEquals("content://media/external/images/media/42", record.mediaUri)
+        assertEquals(1_700_000_000_123L, record.capturedAtEpochMs)
     }
 
     @Test

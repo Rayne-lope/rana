@@ -10,11 +10,30 @@ import 'package:rana/features/camera/controller/camera_controller.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/film_roll/controller/film_roll_controller.dart';
 import 'package:rana/features/film_roll/model/film_roll.dart';
+import 'package:rana/features/film_roll/repository/film_roll_repository.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:rana/features/preset/model/rana_style_mood.dart';
 import 'package:rana/features/preset/repository/preset_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+class _DelayedFilmRollRepository implements FilmRollRepository {
+  _DelayedFilmRollRepository(this.activeRollCompleter);
+
+  final Completer<FilmRoll?> activeRollCompleter;
+
+  @override
+  Future<void> delete(String id) async {}
+
+  @override
+  Future<FilmRoll?> loadActive() => activeRollCompleter.future;
+
+  @override
+  Future<List<FilmRoll>> loadAll() async => const <FilmRoll>[];
+
+  @override
+  Future<void> save(FilmRoll roll) async {}
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +47,8 @@ void main() {
     var nativeHasTelephotoCandidate = false;
     var nativePhysicalCameraCount = 0;
     var captureCounter = 0;
+    Completer<void>? releaseCameraCompleter;
+    final nativeFilmRollRecords = <String, List<Map<String, dynamic>>>{};
 
     Map<String, dynamic> zoomQualityFields(double zoomRatio) {
       final isZoomed = zoomRatio > userMinZoomRatio + 0.01;
@@ -72,6 +93,8 @@ void main() {
       nativeHasTelephotoCandidate = false;
       nativePhysicalCameraCount = 0;
       captureCounter = 0;
+      releaseCameraCompleter = null;
+      nativeFilmRollRecords.clear();
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(methodChannel, (
             MethodCall methodCall,
@@ -187,6 +210,13 @@ void main() {
                   ),
                 );
                 return {'status': 'capture_started', 'captureId': captureId};
+              case 'listFilmRollCaptures':
+                final args = methodCall.arguments as Map<dynamic, dynamic>;
+                final filmRollId = args['filmRollId'] as String;
+                return nativeFilmRollRecords[filmRollId] ?? const [];
+              case 'releaseCamera':
+                await releaseCameraCompleter?.future;
+                return null;
               default:
                 return null;
             }
@@ -257,6 +287,42 @@ void main() {
         expect(state.currentFps, equals(0));
         expect(log.length, equals(1));
         expect(log.first.method, equals('releaseCamera'));
+      },
+    );
+
+    test(
+      'resume waits for an in-flight release before reinitializing',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        final controller = container.read(cameraControllerProvider.notifier);
+        await controller.initialize();
+        log.clear();
+
+        final releaseGate = Completer<void>();
+        releaseCameraCompleter = releaseGate;
+        final release = controller.releaseCamera();
+        await Future<void>.delayed(Duration.zero);
+        final resume = controller.initialize();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(
+          log.where((call) => call.method == 'releaseCamera'),
+          hasLength(1),
+        );
+        expect(log.where((call) => call.method == 'initializeCamera'), isEmpty);
+
+        releaseGate.complete();
+        await Future.wait<void>([release, resume]);
+
+        expect(
+          container.read(cameraControllerProvider).isCameraInitialized,
+          isTrue,
+        );
+        expect(
+          log.where((call) => call.method == 'initializeCamera'),
+          hasLength(1),
+        );
       },
     );
 
@@ -499,6 +565,89 @@ void main() {
     );
 
     test(
+      'shutter and timer wait for Film Roll restoration before normal capture',
+      () async {
+        final restored = Completer<FilmRoll?>();
+        final container = ProviderContainer(
+          overrides: [
+            filmRollRepositoryProvider.overrideWithValue(
+              _DelayedFilmRollRepository(restored),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        final controller = container.read(cameraControllerProvider.notifier);
+
+        final initialization = controller.initialize();
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          container.read(cameraControllerProvider).isCameraInitialized,
+          isTrue,
+        );
+        log.clear();
+
+        await controller.handleShutterPressed();
+        controller.cycleSelfTimer();
+        controller.startSelfTimer(SelfTimerMode.threeSeconds);
+
+        expect(log.where((call) => call.method == 'beginCapture'), isEmpty);
+        expect(
+          container.read(cameraControllerProvider).selfTimerMode,
+          SelfTimerMode.off,
+        );
+        expect(
+          container.read(cameraControllerProvider).isSelfTimerRunning,
+          isFalse,
+        );
+        expect(
+          container.read(cameraControllerProvider).errorMessage,
+          contains('Film Roll restoration is still in progress'),
+        );
+
+        restored.complete(null);
+        await initialization;
+        log.clear();
+
+        await controller.handleShutterPressed();
+        expect(
+          log.where((call) => call.method == 'beginCapture'),
+          hasLength(1),
+        );
+        await drainCaptureEvents();
+      },
+    );
+
+    test(
+      'failed Film Roll restoration never falls back to normal capture',
+      () async {
+        final restored = Completer<FilmRoll?>();
+        final container = ProviderContainer(
+          overrides: [
+            filmRollRepositoryProvider.overrideWithValue(
+              _DelayedFilmRollRepository(restored),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        final controller = container.read(cameraControllerProvider.notifier);
+
+        final initialization = controller.initialize();
+        await Future<void>.delayed(Duration.zero);
+        restored.completeError(StateError('storage unavailable'));
+        await initialization;
+        log.clear();
+
+        await controller.handleShutterPressed();
+
+        expect(log.where((call) => call.method == 'beginCapture'), isEmpty);
+        expect(
+          container.read(cameraControllerProvider).errorMessage,
+          contains('Film Roll restoration failed'),
+        );
+      },
+    );
+
+    test(
       'restores the active Film Roll recipe before enabling capture',
       () async {
         const preset = PresetModel(
@@ -523,6 +672,13 @@ void main() {
         SharedPreferences.setMockInitialValues({
           'rana.film_roll.active': json.encode(roll.toJson()),
         });
+        nativeFilmRollRecords[roll.id] = List<Map<String, dynamic>>.generate(
+          4,
+          (index) => <String, dynamic>{
+            'mediaUri': 'content://rana/restored-$index.jpg',
+            'capturedAtEpochMs': 1_700_000_000_000 + index,
+          },
+        );
         final container = ProviderContainer(
           overrides: [
             presetRepositoryProvider.overrideWithValue(
@@ -540,7 +696,10 @@ void main() {
         expect(state.activePresetId, preset.id);
         expect(state.activeStyle, lockedStyle);
         expect(state.aspectRatio, CameraAspectRatio.square11);
-        expect(container.read(filmRollControllerProvider).activeRoll, roll);
+        final restored = container.read(filmRollControllerProvider).activeRoll;
+        expect(restored?.id, roll.id);
+        expect(restored?.exposuresTaken, 4);
+        expect(restored?.coverUri, 'content://rana/restored-0.jpg');
       },
     );
 
@@ -551,16 +710,8 @@ void main() {
         addTearDown(container.dispose);
         final controller = container.read(cameraControllerProvider.notifier);
         await controller.initialize();
-        final rollController = container.read(
-          filmRollControllerProvider.notifier,
-        );
-        await rollController.waitUntilRestored();
-        await rollController.startRoll(
-          presetId: 'normal',
-          lockedStyle: const RanaStyle(),
-          size: FilmRollSize.twelve,
-          aspectRatioPlatformValue: CameraAspectRatio.portrait34.platformValue,
-        );
+        final startResult = await controller.startFilmRoll(FilmRollSize.twelve);
+        expect(startResult.succeeded, isTrue);
         final rollId = container
             .read(filmRollControllerProvider)
             .activeRoll!

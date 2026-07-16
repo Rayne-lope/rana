@@ -79,6 +79,25 @@ enum SelfTimerMode {
 /// States representing the capturing flow animation.
 enum CaptureStatus { idle, capturing, processing, success, error }
 
+/// Readiness of the recipe locked by an active Film Roll.
+///
+/// A camera may be initialized while a persisted roll's recipe is still being
+/// restored. Keeping that distinction in immutable state prevents the UI from
+/// advertising a usable shutter before the native pipeline is configured.
+enum ActiveFilmRollRecipeStatus {
+  /// There is no active roll to restore.
+  notRequired,
+
+  /// The persisted recipe is being applied to the native preview.
+  restoring,
+
+  /// The native preview and capture pipeline match the locked recipe.
+  ready,
+
+  /// The persisted recipe could not be found or applied. Recovery is needed.
+  unavailable,
+}
+
 /// The actual encoded result of a completed capture.
 @immutable
 class CaptureOutputMetadata {
@@ -164,6 +183,7 @@ class CameraState {
     required this.selfTimerMode,
     required this.selfTimerRemainingSeconds,
     required this.captureStatus,
+    required this.activeFilmRollRecipeStatus,
     required this.currentFps,
     required this.isCameraInitialized,
     required this.activeStyle,
@@ -193,6 +213,7 @@ class CameraState {
     selfTimerMode: SelfTimerMode.off,
     selfTimerRemainingSeconds: 0,
     captureStatus: CaptureStatus.idle,
+    activeFilmRollRecipeStatus: ActiveFilmRollRecipeStatus.notRequired,
     currentFps: 0,
     isCameraInitialized: false,
     activeStyle: RanaStyle(),
@@ -215,6 +236,7 @@ class CameraState {
   final SelfTimerMode selfTimerMode;
   final int selfTimerRemainingSeconds;
   final CaptureStatus captureStatus;
+  final ActiveFilmRollRecipeStatus activeFilmRollRecipeStatus;
   final int currentFps;
   final bool isCameraInitialized;
   final RanaStyle activeStyle;
@@ -235,6 +257,11 @@ class CameraState {
   final String? errorMessage;
 
   bool get isSelfTimerRunning => selfTimerRemainingSeconds > 0;
+
+  /// Whether an active Film Roll currently permits capture and self-timer use.
+  bool get isActiveFilmRollRecipeReady =>
+      activeFilmRollRecipeStatus != ActiveFilmRollRecipeStatus.unavailable &&
+      activeFilmRollRecipeStatus != ActiveFilmRollRecipeStatus.restoring;
   double get effectiveMaxZoomRatio {
     final cappedMaxZoomRatio = maxZoomRatio < userMaxZoomRatio
         ? maxZoomRatio
@@ -255,6 +282,7 @@ class CameraState {
     SelfTimerMode? selfTimerMode,
     int? selfTimerRemainingSeconds,
     CaptureStatus? captureStatus,
+    ActiveFilmRollRecipeStatus? activeFilmRollRecipeStatus,
     int? currentFps,
     bool? isCameraInitialized,
     RanaStyle? activeStyle,
@@ -282,6 +310,8 @@ class CameraState {
     selfTimerRemainingSeconds:
         selfTimerRemainingSeconds ?? this.selfTimerRemainingSeconds,
     captureStatus: captureStatus ?? this.captureStatus,
+    activeFilmRollRecipeStatus:
+        activeFilmRollRecipeStatus ?? this.activeFilmRollRecipeStatus,
     currentFps: currentFps ?? this.currentFps,
     isCameraInitialized: isCameraInitialized ?? this.isCameraInitialized,
     activeStyle: activeStyle ?? this.activeStyle,
@@ -325,6 +355,7 @@ class CameraState {
         other.selfTimerMode == selfTimerMode &&
         other.selfTimerRemainingSeconds == selfTimerRemainingSeconds &&
         other.captureStatus == captureStatus &&
+        other.activeFilmRollRecipeStatus == activeFilmRollRecipeStatus &&
         other.currentFps == currentFps &&
         other.isCameraInitialized == isCameraInitialized &&
         other.activeStyle == activeStyle &&
@@ -354,6 +385,7 @@ class CameraState {
     selfTimerMode,
     selfTimerRemainingSeconds,
     captureStatus,
+    activeFilmRollRecipeStatus,
     currentFps,
     isCameraInitialized,
     activeStyle,
@@ -378,6 +410,7 @@ class CameraState {
   String toString() =>
       'CameraState(flashMode: $flashMode, activeLens: $activeLens, '
       'activePresetId: $activePresetId, captureStatus: $captureStatus, '
+      'activeFilmRollRecipeStatus: $activeFilmRollRecipeStatus, '
       'aspectRatio: $aspectRatio, selfTimerMode: $selfTimerMode, '
       'selfTimerRemainingSeconds: $selfTimerRemainingSeconds, '
       'currentFps: $currentFps, '
