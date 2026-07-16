@@ -11,6 +11,7 @@ import 'package:rana/features/camera/view/camera_screen.dart';
 import 'package:rana/features/camera/widgets/latest_capture_thumbnail.dart';
 import 'package:rana/features/film_roll/controller/film_roll_controller.dart';
 import 'package:rana/features/film_roll/model/film_roll.dart';
+import 'package:rana/features/film_roll/widgets/contact_sheet_export.dart';
 import 'package:rana/features/gallery/controller/gallery_controller.dart';
 import 'package:rana/features/gallery/state/gallery_state.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
@@ -34,6 +35,9 @@ void main() {
     String? pendingCaptureId;
     var galleryItems = <Map<String, dynamic>>[];
     var filmRollCaptures = <String, List<Map<String, dynamic>>>{};
+    var contactSheetShareCalls = 0;
+    String? exportedContactSheetRollId;
+    String? exportedContactSheetPresetName;
 
     Future<void> dispatchCameraStatusEvent(Map<String, dynamic> event) async {
       const codec = StandardMethodCodec();
@@ -52,6 +56,9 @@ void main() {
       pendingCaptureId = null;
       galleryItems = <Map<String, dynamic>>[];
       filmRollCaptures = <String, List<Map<String, dynamic>>>{};
+      contactSheetShareCalls = 0;
+      exportedContactSheetRollId = null;
+      exportedContactSheetPresetName = null;
       SharedPreferences.setMockInitialValues({});
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(permissionChannel, (
@@ -114,6 +121,9 @@ void main() {
               case 'openMediaInGallery':
                 return null;
               case 'shareGalleryMedia':
+                return null;
+              case 'shareContactSheet':
+                contactSheetShareCalls += 1;
                 return null;
               case 'deleteGalleryMedia':
                 return null;
@@ -519,6 +529,97 @@ void main() {
       expect(find.text('FILM ROLL'), findsOneWidget);
     });
 
+    testWidgets('active Roll Info exports durable saved frames', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            presetRepositoryProvider.overrideWithValue(
+              const _StaticPresetRepository([_navigationNormalPreset]),
+            ),
+            contactSheetExportRunnerProvider.overrideWithValue(({
+              required FilmRoll roll,
+              required String presetName,
+            }) async {
+              contactSheetShareCalls += 1;
+              exportedContactSheetRollId = roll.id;
+              exportedContactSheetPresetName = presetName;
+              return ContactSheetExportResult.shared(
+                exportedFrameCount: roll.exposuresTaken,
+                historicalFrameCount: roll.exposuresTaken,
+                skippedFrameCount: 0,
+                width: 1440,
+                height: 1000,
+              );
+            }),
+          ],
+          child: const RanaApp(),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 1300));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CameraScreen)),
+      );
+      final rollController = container.read(
+        filmRollControllerProvider.notifier,
+      );
+      expect(
+        (await rollController.startRoll(
+          presetId: 'normal',
+          lockedStyle: const RanaStyle(),
+          size: FilmRollSize.twelve,
+          aspectRatioPlatformValue: CameraAspectRatio.portrait34.platformValue,
+        )).succeeded,
+        isTrue,
+      );
+      final activeRoll = container.read(filmRollControllerProvider).activeRoll!;
+      final reservation = rollController.tryReserveExposure().reservation!;
+      expect(
+        (await rollController.recordExposure(
+          captureId: 'contact-sheet-frame',
+          reservation: reservation,
+          mediaUri: 'content://rana/contact-sheet-frame.jpg',
+        )).succeeded,
+        isTrue,
+      );
+      filmRollCaptures[activeRoll.id] = <Map<String, dynamic>>[
+        <String, dynamic>{
+          'mediaUri': 'content://rana/contact-sheet-frame.jpg',
+          'capturedAtEpochMs': DateTime.utc(
+            2026,
+            7,
+            16,
+            12,
+          ).millisecondsSinceEpoch,
+        },
+      ];
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('camera-film-action')),
+      );
+      await tester.pumpAndSettle();
+
+      final exportButton = find.byKey(
+        const ValueKey<String>('export-contact-sheet-button'),
+      );
+      expect(exportButton, findsOneWidget);
+      await tester.tap(exportButton);
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('roll-info-error')),
+        findsNothing,
+      );
+      expect(contactSheetShareCalls, 1);
+      expect(exportedContactSheetRollId, activeRoll.id);
+      expect(exportedContactSheetPresetName, 'Normal');
+      expect(find.text('CONTACT SHEET READY: 1 FRAME'), findsOneWidget);
+    });
+
     testWidgets('a full roll shows its completion sheet only once', (
       WidgetTester tester,
     ) async {
@@ -721,8 +822,8 @@ void main() {
 }
 
 Uint8List _testImageBytes() => base64Decode(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMA'
-  'ASsJTYQAAAAASUVORK5CYII=',
+  'iVBORw0KGgoAAAANSUhEUgAAABAAAAAJCAYAAAA7KqwyAAAAFklEQVR4nGO406PxnxLM'
+  'MGrAqAFADAARhHCA1uhxAQAAAABJRU5ErkJggg==',
 );
 
 Map<String, dynamic> _galleryItemMap({

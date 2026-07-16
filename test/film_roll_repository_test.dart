@@ -39,6 +39,42 @@ void main() {
     expect(await repository.loadAll(), [completed]);
   });
 
+  test(
+    'upserts and deletes completed history without disturbing other rolls',
+    () async {
+      const repository = SharedPreferencesFilmRollRepository();
+      final older = active.copyWith(
+        id: 'older-roll',
+        status: FilmRollStatus.completed,
+        startedAt: DateTime.utc(2026, 7, 14, 16),
+        completedAt: DateTime.utc(2026, 7, 14, 17),
+        coverUri: 'content://rana/older-cover',
+      );
+      final newer = active.copyWith(
+        id: 'newer-roll',
+        status: FilmRollStatus.completed,
+        startedAt: DateTime.utc(2026, 7, 16, 16),
+        completedAt: DateTime.utc(2026, 7, 16, 17),
+        coverUri: 'content://rana/newer-cover',
+      );
+
+      await repository.save(older);
+      await repository.save(newer);
+      final updatedNewer = newer.copyWith(
+        exposuresTaken: FilmRollSize.twelve.count,
+        coverUri: 'content://rana/newer-cover-updated',
+      );
+      await repository.save(updatedNewer);
+
+      expect(await repository.loadAll(), [updatedNewer, older]);
+
+      await repository.delete(updatedNewer.id);
+
+      expect(await repository.loadAll(), [older]);
+      expect(await repository.loadActive(), isNull);
+    },
+  );
+
   test('hides abandoned records persisted by an earlier build', () async {
     final abandoned = active.copyWith(status: FilmRollStatus.abandoned);
     SharedPreferences.setMockInitialValues({

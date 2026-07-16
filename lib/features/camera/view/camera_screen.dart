@@ -20,6 +20,7 @@ import 'package:rana/features/film_roll/controller/film_roll_controller.dart';
 import 'package:rana/features/film_roll/model/film_roll.dart';
 import 'package:rana/features/film_roll/model/film_roll_lifecycle.dart';
 import 'package:rana/features/film_roll/state/film_roll_state.dart';
+import 'package:rana/features/film_roll/widgets/contact_sheet_export.dart';
 import 'package:rana/features/film_roll/widgets/roll_complete_sheet.dart';
 import 'package:rana/features/film_roll/widgets/roll_hud_pill.dart';
 import 'package:rana/features/film_roll/widgets/roll_info_sheet.dart';
@@ -412,6 +413,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               onAbandon: () => ref
                   .read(cameraControllerProvider.notifier)
                   .abandonFilmRoll(roll.id),
+              onExportContactSheet: () => ref.read(
+                contactSheetExportRunnerProvider,
+              )(roll: currentRoll, presetName: _presetNameForRoll(currentRoll)),
               onRetryRecipe: () => ref
                   .read(cameraControllerProvider.notifier)
                   .retryActiveFilmRollRecipe(),

@@ -18,9 +18,12 @@ class _MemoryFilmRollRepository implements FilmRollRepository {
   int failSaveAttempts = 0;
   bool failLoadActive = false;
   int saveCalls = 0;
+  final List<String> deletedIds = <String>[];
+  final List<FilmRoll> savedRolls = <FilmRoll>[];
 
   @override
   Future<void> delete(String id) async {
+    deletedIds.add(id);
     if (active?.id == id) {
       active = null;
       return;
@@ -48,6 +51,7 @@ class _MemoryFilmRollRepository implements FilmRollRepository {
       failSaveAttempts -= 1;
       throw StateError('disk unavailable');
     }
+    savedRolls.add(roll);
     if (roll.status == FilmRollStatus.active) {
       active = roll;
       return;
@@ -248,6 +252,75 @@ void main() {
     );
   });
 
+  test(
+    'ending an incomplete roll archives it without a live completion sheet',
+    () async {
+      final repository = _MemoryFilmRollRepository();
+      final container = containerFor(repository);
+      addTearDown(container.dispose);
+      final controller = await readyController(container);
+      await start(controller);
+      final rollId = container.read(filmRollControllerProvider).activeRoll!.id;
+
+      for (var index = 0; index < 2; index += 1) {
+        final reservation = controller.tryReserveExposure().reservation!;
+        expect(
+          (await controller.recordExposure(
+            captureId: 'early-end-$index',
+            reservation: reservation,
+            mediaUri: 'content://photo/early-end-$index',
+          )).succeeded,
+          isTrue,
+        );
+      }
+
+      final result = await controller.endRoll(expectedRollId: rollId);
+      final state = container.read(filmRollControllerProvider);
+
+      expect(result.succeeded, isTrue);
+      expect(result.roll!.status, FilmRollStatus.completed);
+      expect(result.roll!.exposuresTaken, 2);
+      expect(state.activeRoll, isNull);
+      expect(state.history, [result.roll]);
+      expect(repository.active, isNull);
+      expect(repository.history, [result.roll]);
+      expect(state.completionEvent!.source, FilmRollCompletionSource.manualEnd);
+      expect(state.completionEvent!.shouldPresentCompletionSheet, isFalse);
+    },
+  );
+
+  test('abandon deletes only the active roll grouping', () async {
+    final repository = _MemoryFilmRollRepository();
+    final container = containerFor(repository);
+    addTearDown(container.dispose);
+    final controller = await readyController(container);
+    await start(controller);
+    final rollId = container.read(filmRollControllerProvider).activeRoll!.id;
+    final reservation = controller.tryReserveExposure().reservation!;
+    await controller.recordExposure(
+      captureId: 'abandon-saved-frame',
+      reservation: reservation,
+      mediaUri: 'content://photo/abandon-saved-frame',
+    );
+
+    final result = await controller.abandonRoll(expectedRollId: rollId);
+    final state = container.read(filmRollControllerProvider);
+
+    expect(result.succeeded, isTrue);
+    expect(result.roll!.coverUri, 'content://photo/abandon-saved-frame');
+    expect(repository.deletedIds, [rollId]);
+    expect(repository.active, isNull);
+    expect(repository.history, isEmpty);
+    expect(
+      repository.savedRolls.where(
+        (roll) => roll.status == FilmRollStatus.abandoned,
+      ),
+      isEmpty,
+    );
+    expect(state.activeRoll, isNull);
+    expect(state.history, isEmpty);
+  });
+
   test('stale actions cannot affect the current roll', () async {
     final container = containerFor(_MemoryFilmRollRepository());
     addTearDown(container.dispose);
@@ -364,6 +437,89 @@ void main() {
         (await controller.endRoll(expectedRollId: roll.id)).succeeded,
         isTrue,
       );
+    },
+  );
+
+  test(
+    'restored locked recipe must be ready and reconciled before capture',
+    () async {
+      const lockedStyle = RanaStyle(
+        tone: 21,
+        color: -8,
+        texture: 44,
+        styleStrength: 79,
+        undertoneX: -0.16,
+        undertoneY: 0.27,
+      );
+      final restored = FilmRoll(
+        id: 'locked-recipe-roll',
+        presetId: 'custom-portra',
+        lockedStyle: lockedStyle,
+        aspectRatioPlatformValue: 'square_1_1',
+        size: FilmRollSize.twelve,
+        exposuresTaken: 1,
+        status: FilmRollStatus.active,
+        startedAt: DateTime.utc(2026, 7, 16),
+      );
+      final repository = _MemoryFilmRollRepository()..active = restored;
+      final container = containerFor(repository);
+      addTearDown(container.dispose);
+      final controller = await readyController(container);
+
+      var state = container.read(filmRollControllerProvider);
+      expect(state.activeRoll, restored);
+      expect(state.recipeStatus, FilmRollRecipeStatus.applying);
+      expect(state.reconciliationRequired, isTrue);
+      expect(
+        controller.tryReserveExposure().failure,
+        FilmRollActionFailure.lifecycleBusy,
+      );
+
+      final unavailable = controller.setActiveRecipeStatus(
+        FilmRollRecipeStatus.unavailable,
+        expectedRollId: restored.id,
+        message: 'The saved custom preset is unavailable.',
+      );
+      expect(unavailable.failure, FilmRollActionFailure.recipeUnavailable);
+      expect(
+        controller.tryReserveExposure().failure,
+        FilmRollActionFailure.recipeUnavailable,
+      );
+
+      expect(
+        controller
+            .setActiveRecipeStatus(
+              FilmRollRecipeStatus.ready,
+              expectedRollId: restored.id,
+            )
+            .succeeded,
+        isTrue,
+      );
+      expect(
+        controller.tryReserveExposure().failure,
+        FilmRollActionFailure.lifecycleBusy,
+      );
+
+      final reconciliation = await controller.reconcileCapturedMedia(
+        rollId: restored.id,
+        captures: [
+          RollCaptureEntry(
+            filmRollId: restored.id,
+            mediaUri: 'content://photo/locked-recipe-frame',
+            capturedAt: DateTime.utc(2026, 7, 16, 12),
+            exposureIndex: 1,
+          ),
+        ],
+      );
+      state = container.read(filmRollControllerProvider);
+
+      expect(reconciliation.succeeded, isTrue);
+      expect(state.reconciliationRequired, isFalse);
+      expect(state.recipeStatus, FilmRollRecipeStatus.ready);
+      expect(state.activeRoll!.presetId, 'custom-portra');
+      expect(state.activeRoll!.lockedStyle, lockedStyle);
+      expect(state.activeRoll!.aspectRatioPlatformValue, 'square_1_1');
+      expect(controller.tryReserveExposure().succeeded, isTrue);
     },
   );
 }

@@ -335,6 +335,18 @@ class MainActivity : FlutterActivity() {
                         shareGalleryMedia(Uri.parse(uriArg), result)
                     }
                 }
+                "shareContactSheet" -> {
+                    val pngBytes = call.argument<ByteArray>("pngBytes")
+                    if (pngBytes == null || !ShareCacheFiles.hasPngSignature(pngBytes)) {
+                        result.error(
+                            "INVALID_CONTACT_SHEET",
+                            "PNG contact sheet bytes are required",
+                            null
+                        )
+                    } else {
+                        shareContactSheet(pngBytes, result)
+                    }
+                }
                 "deleteGalleryMedia" -> {
                     val uriArg = call.argument<String>("uri")
                     if (uriArg.isNullOrBlank()) {
@@ -905,22 +917,72 @@ class MainActivity : FlutterActivity() {
                     uri
                 }
                 val shareMimeType = if (shareUri == uri) sourceMimeType else "image/jpeg"
-                handler.post {
-                    try {
-                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = shareMimeType
-                            putExtra(Intent.EXTRA_STREAM, shareUri)
-                            clipData = ClipData.newRawUri("Rana photo", shareUri)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
-                        startActivity(Intent.createChooser(shareIntent, "Share Rana photo"))
-                        result.success(null)
-                    } catch (e: Exception) {
-                        result.error("SHARE_MEDIA_FAILED", e.message, null)
-                    }
-                }
+                launchImageShare(
+                    uri = shareUri,
+                    mimeType = shareMimeType,
+                    label = "Rana photo",
+                    chooserTitle = "Share Rana photo",
+                    failureCode = "SHARE_MEDIA_FAILED",
+                    result = result
+                )
             } catch (e: Exception) {
                 handler.post { result.error("SHARE_MEDIA_FAILED", e.message, null) }
+            }
+        }
+    }
+
+    /**
+     * Encodes Flutter's transient contact-sheet PNG into a compatible JPEG and
+     * shares it through the same FileProvider path as converted camera photos.
+     */
+    private fun shareContactSheet(
+        pngBytes: ByteArray,
+        result: MethodChannel.Result
+    ) {
+        mediaStoreExecutor.execute {
+            try {
+                val shareUri = createContactSheetShareJpeg(pngBytes)
+                launchImageShare(
+                    uri = shareUri,
+                    mimeType = "image/jpeg",
+                    label = "Rana contact sheet",
+                    chooserTitle = "Share Rana contact sheet",
+                    failureCode = "SHARE_CONTACT_SHEET_FAILED",
+                    result = result
+                )
+            } catch (e: IllegalArgumentException) {
+                handler.post {
+                    result.error("INVALID_CONTACT_SHEET", e.message, null)
+                }
+            } catch (e: Exception) {
+                handler.post {
+                    result.error("SHARE_CONTACT_SHEET_FAILED", e.message, null)
+                }
+            }
+        }
+    }
+
+    /** Launches Android's secure share sheet for a readable image content URI. */
+    private fun launchImageShare(
+        uri: Uri,
+        mimeType: String,
+        label: String,
+        chooserTitle: String,
+        failureCode: String,
+        result: MethodChannel.Result
+    ) {
+        handler.post {
+            try {
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = mimeType
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    clipData = ClipData.newRawUri(label, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                startActivity(Intent.createChooser(shareIntent, chooserTitle))
+                result.success(null)
+            } catch (e: Exception) {
+                result.error(failureCode, e.message, null)
             }
         }
     }
@@ -929,18 +991,51 @@ class MainActivity : FlutterActivity() {
     private fun createCompatibleShareJpeg(sourceUri: Uri): Uri {
         cleanupShareCache()
         val bitmap = decodeShareBitmap(sourceUri)
-        val directory = File(cacheDir, "share").apply { mkdirs() }
-        val file = File.createTempFile("rana-share-", ".jpg", directory)
         try {
-            FileOutputStream(file).use { output ->
-                if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 95, output)) {
-                    throw IOException("Unable to encode compatible share image")
-                }
-            }
+            return writeShareJpeg(bitmap, quality = 95, prefix = "rana-share-")
         } finally {
             bitmap.safeRecycle()
         }
-        return FileProvider.getUriForFile(this, "$packageName.rana.share", file)
+    }
+
+    /** Converts a validated Flutter PNG contact sheet to a share-only JPEG. */
+    private fun createContactSheetShareJpeg(pngBytes: ByteArray): Uri {
+        if (!ShareCacheFiles.hasPngSignature(pngBytes)) {
+            throw IllegalArgumentException("Contact sheet must be PNG data")
+        }
+        cleanupShareCache()
+        val bitmap = BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.size)
+            ?: throw IllegalArgumentException("Unable to decode contact sheet PNG")
+        try {
+            return writeShareJpeg(
+                bitmap,
+                quality = ShareCacheFiles.contactSheetJpegQuality,
+                prefix = "rana-contact-sheet-"
+            )
+        } finally {
+            bitmap.safeRecycle()
+        }
+    }
+
+    /** Writes a temporary JPEG that the existing FileProvider is allowed to serve. */
+    private fun writeShareJpeg(
+        bitmap: Bitmap,
+        quality: Int,
+        prefix: String
+    ): Uri {
+        val file = ShareCacheFiles.createJpegFile(cacheDir, prefix)
+        var didWrite = false
+        try {
+            FileOutputStream(file).use { output ->
+                if (!bitmap.compress(Bitmap.CompressFormat.JPEG, quality, output)) {
+                    throw IOException("Unable to encode share image")
+                }
+            }
+            didWrite = true
+            return FileProvider.getUriForFile(this, "$packageName.rana.share", file)
+        } finally {
+            if (!didWrite) file.delete()
+        }
     }
 
     private fun decodeShareBitmap(uri: Uri): Bitmap {
@@ -976,12 +1071,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun cleanupShareCache() {
-        val now = System.currentTimeMillis()
-        val maxAgeMs = 24L * 60L * 60L * 1000L
-        val directory = File(cacheDir, "share")
-        directory.listFiles()?.forEach { file ->
-            if (now - file.lastModified() > maxAgeMs) file.delete()
-        }
+        ShareCacheFiles.cleanup(cacheDir)
     }
 
     private fun deleteGalleryMedia(

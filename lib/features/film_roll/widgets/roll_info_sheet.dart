@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:rana/features/film_roll/model/film_roll.dart';
 import 'package:rana/features/film_roll/model/film_roll_lifecycle.dart';
+import 'package:rana/features/film_roll/widgets/contact_sheet_export.dart';
 
 /// Bottom sheet with the active roll's locked recipe and lifecycle actions.
 class RollInfoSheet extends StatefulWidget {
@@ -15,6 +16,7 @@ class RollInfoSheet extends StatefulWidget {
     required this.onEnd,
     required this.onAbandon,
     this.reconciliationRequired = false,
+    this.onExportContactSheet,
     this.onRetryRecipe,
     this.onRetryPendingSave,
     this.actionError,
@@ -48,6 +50,9 @@ class RollInfoSheet extends StatefulWidget {
   /// Deletes only the roll grouping.
   final Future<FilmRollActionResult> Function() onAbandon;
 
+  /// Builds and opens the share sheet for the roll's durable saved frames.
+  final Future<ContactSheetExportResult> Function()? onExportContactSheet;
+
   /// Attempts to reapply a missing or failed locked recipe.
   final Future<FilmRollActionResult> Function()? onRetryRecipe;
 
@@ -63,13 +68,26 @@ class RollInfoSheet extends StatefulWidget {
 
 class _RollInfoSheetState extends State<RollInfoSheet> {
   bool _isSubmitting = false;
+  bool _isExporting = false;
   String? _errorMessage;
+  String? _exportMessage;
+
+  bool get _isBusy => _isSubmitting || _isExporting;
 
   bool get _isProcessing => widget.pendingExposures > 0;
   bool get _hasSaveRecovery =>
       widget.pendingSaveState == FilmRollPendingSaveState.recoveryRequired;
+  bool get _hasUnsettledSave =>
+      widget.pendingSaveState != FilmRollPendingSaveState.idle;
   bool get _recipeUnavailable =>
       widget.recipeStatus == FilmRollRecipeStatus.unavailable;
+  bool get _canExport =>
+      !_isBusy &&
+      widget.onExportContactSheet != null &&
+      widget.roll.exposuresTaken > 0 &&
+      !_isProcessing &&
+      !_hasUnsettledSave &&
+      !widget.reconciliationRequired;
   bool get _canChangeLifecycle =>
       !_isProcessing &&
       !_hasSaveRecovery &&
@@ -79,7 +97,7 @@ class _RollInfoSheetState extends State<RollInfoSheet> {
       (widget.recipeStatus == FilmRollRecipeStatus.unavailable ||
           !widget.reconciliationRequired) &&
       widget.recipeStatus != FilmRollRecipeStatus.applying &&
-      !_isSubmitting;
+      !_isBusy;
 
   Future<void> _endRoll() async {
     if (!_canChangeLifecycle) return;
@@ -115,6 +133,7 @@ class _RollInfoSheetState extends State<RollInfoSheet> {
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
+      _exportMessage = null;
     });
     try {
       final result = await action();
@@ -138,10 +157,11 @@ class _RollInfoSheetState extends State<RollInfoSheet> {
   }
 
   Future<void> _retry(Future<FilmRollActionResult> Function()? action) async {
-    if (_isSubmitting || action == null) return;
+    if (_isBusy || action == null) return;
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
+      _exportMessage = null;
     });
     try {
       final result = await action();
@@ -161,6 +181,42 @@ class _RollInfoSheetState extends State<RollInfoSheet> {
     }
   }
 
+  Future<void> _exportContactSheet() async {
+    final export = widget.onExportContactSheet;
+    if (!_canExport || export == null) return;
+
+    setState(() {
+      _isExporting = true;
+      _errorMessage = null;
+      _exportMessage = null;
+    });
+    try {
+      final result = await export();
+      if (!mounted) return;
+      setState(() {
+        _isExporting = false;
+        if (!result.succeeded) {
+          _errorMessage =
+              result.message ??
+              'Could not prepare the contact sheet. Try again.';
+          return;
+        }
+        _exportMessage =
+            result.exportedFrameCount == result.historicalFrameCount
+            ? 'CONTACT SHEET READY: ${result.exportedFrameCount} '
+                  '${result.exportedFrameCount == 1 ? 'FRAME' : 'FRAMES'}'
+            : 'CONTACT SHEET READY: ${result.exportedFrameCount} OF '
+                  '${result.historicalFrameCount} FRAMES';
+      });
+    } on Object catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isExporting = false;
+        _errorMessage = 'Could not prepare the contact sheet. Try again.';
+      });
+    }
+  }
+
   Future<bool?> _confirm({
     required String title,
     required String body,
@@ -168,9 +224,9 @@ class _RollInfoSheetState extends State<RollInfoSheet> {
     required Color confirmColor,
   }) => showDialog<bool>(
     context: context,
-    barrierDismissible: !_isSubmitting,
+    barrierDismissible: !_isBusy,
     builder: (dialogContext) => PopScope(
-      canPop: !_isSubmitting,
+      canPop: !_isBusy,
       child: AlertDialog(
         backgroundColor: const Color(0xFF1B1C20),
         title: Text(
@@ -207,7 +263,7 @@ class _RollInfoSheetState extends State<RollInfoSheet> {
     return SafeArea(
       top: false,
       child: PopScope(
-        canPop: !_isSubmitting,
+        canPop: !_isBusy,
         child: LayoutBuilder(
           builder: (context, constraints) => Container(
             constraints: BoxConstraints(
@@ -238,7 +294,7 @@ class _RollInfoSheetState extends State<RollInfoSheet> {
                       IconButton(
                         key: const ValueKey<String>('roll-info-close-button'),
                         tooltip: 'Close',
-                        onPressed: _isSubmitting
+                        onPressed: _isBusy
                             ? null
                             : () => Navigator.of(context).pop(),
                         icon: const Icon(Icons.close_rounded),
@@ -292,8 +348,7 @@ class _RollInfoSheetState extends State<RollInfoSheet> {
                     const SizedBox(height: 8),
                     OutlinedButton(
                       key: const ValueKey<String>('retry-roll-save-button'),
-                      onPressed:
-                          _isSubmitting || widget.onRetryPendingSave == null
+                      onPressed: _isBusy || widget.onRetryPendingSave == null
                           ? null
                           : () => _retry(widget.onRetryPendingSave),
                       child: const Text('RETRY SAVE'),
@@ -312,7 +367,7 @@ class _RollInfoSheetState extends State<RollInfoSheet> {
                     const SizedBox(height: 8),
                     OutlinedButton(
                       key: const ValueKey<String>('retry-roll-recipe-button'),
-                      onPressed: _isSubmitting || widget.onRetryRecipe == null
+                      onPressed: _isBusy || widget.onRetryRecipe == null
                           ? null
                           : () => _retry(widget.onRetryRecipe),
                       child: const Text('RETRY RECIPE'),
@@ -331,7 +386,7 @@ class _RollInfoSheetState extends State<RollInfoSheet> {
                       key: const ValueKey<String>(
                         'retry-roll-reconciliation-button',
                       ),
-                      onPressed: _isSubmitting || widget.onRetryRecipe == null
+                      onPressed: _isBusy || widget.onRetryRecipe == null
                           ? null
                           : () => _retry(widget.onRetryRecipe),
                       child: const Text('RETRY RECOVERY'),
@@ -352,7 +407,65 @@ class _RollInfoSheetState extends State<RollInfoSheet> {
                       ),
                     ),
                   ],
+                  if (_exportMessage != null) ...[
+                    const SizedBox(height: 12),
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        _exportMessage!,
+                        key: const ValueKey<String>('roll-info-export-status'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFFF4C44F),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
+                  if (widget.onExportContactSheet != null) ...[
+                    Semantics(
+                      button: true,
+                      enabled: _canExport,
+                      label: 'Export contact sheet',
+                      hint: _exportHint,
+                      child: OutlinedButton.icon(
+                        key: const ValueKey<String>(
+                          'export-contact-sheet-button',
+                        ),
+                        onPressed: _canExport ? _exportContactSheet : null,
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(50),
+                          foregroundColor: const Color(0xFFF4C44F),
+                          side: const BorderSide(color: Color(0xFF8F6821)),
+                        ),
+                        icon: _isExporting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Color(0xFFF4C44F),
+                                  ),
+                                ),
+                              )
+                            : const Icon(Icons.grid_view_rounded, size: 19),
+                        label: Text(
+                          _isExporting
+                              ? 'EXPORTING CONTACT SHEET…'
+                              : 'EXPORT CONTACT SHEET',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   FilledButton(
                     key: const ValueKey<String>('end-roll-button'),
                     onPressed: _canChangeLifecycle ? _endRoll : null,
@@ -392,6 +505,17 @@ class _RollInfoSheetState extends State<RollInfoSheet> {
         ),
       ),
     );
+  }
+
+  String get _exportHint {
+    if (widget.roll.exposuresTaken == 0) {
+      return 'Save a frame before exporting a contact sheet';
+    }
+    if (_isProcessing || _hasUnsettledSave || widget.reconciliationRequired) {
+      return 'Wait for saved Film Roll frames to finish processing';
+    }
+    if (_isBusy) return 'Contact sheet export is in progress';
+    return 'Creates a share-only JPEG from saved Film Roll frames';
   }
 }
 

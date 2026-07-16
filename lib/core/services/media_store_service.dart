@@ -72,6 +72,26 @@ class MediaStoreService {
     }
   }
 
+  /// Encodes and shares a transient Film Roll contact-sheet PNG as JPEG.
+  ///
+  /// Android writes the resulting JPEG into its FileProvider-backed share
+  /// cache, so it is shareable without adding a photo to MediaStore.
+  Future<void> shareContactSheet(Uint8List pngBytes) async {
+    try {
+      await _methodChannel.invokeMethod<void>('shareContactSheet', {
+        'pngBytes': pngBytes,
+      });
+    } on PlatformException catch (e, stack) {
+      AppLogger.e(
+        'MediaStoreService',
+        'Failed to share Film Roll contact sheet',
+        e,
+        stack,
+      );
+      rethrow;
+    }
+  }
+
   /// Deletes a MediaStore image URI.
   ///
   /// Scoped-storage consent is requested by Android when needed.

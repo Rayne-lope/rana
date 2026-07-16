@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rana/features/film_roll/model/film_roll.dart';
 import 'package:rana/features/film_roll/model/film_roll_lifecycle.dart';
+import 'package:rana/features/film_roll/widgets/contact_sheet_export.dart';
 import 'package:rana/features/film_roll/widgets/roll_complete_sheet.dart';
 import 'package:rana/features/film_roll/widgets/roll_hud_pill.dart';
 import 'package:rana/features/film_roll/widgets/roll_info_sheet.dart';
@@ -215,6 +216,123 @@ void main() {
   });
 
   group('RollInfoSheet', () {
+    testWidgets('exports a partial contact sheet once and announces it', (
+      tester,
+    ) async {
+      final response = Completer<ContactSheetExportResult>();
+      var exportCalls = 0;
+      await tester.pumpWidget(
+        host(
+          RollInfoSheet(
+            roll: roll(exposuresTaken: 3),
+            presetName: 'Normal',
+            aspectRatioLabel: '3:4',
+            pendingExposures: 0,
+            pendingSaveState: FilmRollPendingSaveState.idle,
+            recipeStatus: FilmRollRecipeStatus.ready,
+            onEnd: () async => const FilmRollActionResult.success(),
+            onAbandon: () async => const FilmRollActionResult.success(),
+            onExportContactSheet: () {
+              exportCalls += 1;
+              return response.future;
+            },
+          ),
+        ),
+      );
+
+      final exportButton = find.byKey(
+        const ValueKey<String>('export-contact-sheet-button'),
+      );
+      expect(exportButton, findsOneWidget);
+      await tester.tap(exportButton);
+      await tester.pump();
+      await tester.tap(exportButton);
+      await tester.pump();
+      expect(exportCalls, 1);
+      expect(find.text('EXPORTING CONTACT SHEET…'), findsOneWidget);
+
+      response.complete(
+        const ContactSheetExportResult.shared(
+          exportedFrameCount: 2,
+          historicalFrameCount: 3,
+          skippedFrameCount: 1,
+          width: 900,
+          height: 1200,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('CONTACT SHEET READY: 2 OF 3 FRAMES'), findsOneWidget);
+    });
+
+    testWidgets('disables contact-sheet export until durable frames are safe', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        host(
+          RollInfoSheet(
+            roll: roll(exposuresTaken: 1),
+            presetName: 'Normal',
+            aspectRatioLabel: '3:4',
+            pendingExposures: 1,
+            pendingSaveState: FilmRollPendingSaveState.saving,
+            recipeStatus: FilmRollRecipeStatus.ready,
+            onEnd: () async => const FilmRollActionResult.success(),
+            onAbandon: () async => const FilmRollActionResult.success(),
+            onExportContactSheet: () async =>
+                const ContactSheetExportResult.shared(
+                  exportedFrameCount: 1,
+                  historicalFrameCount: 1,
+                  skippedFrameCount: 0,
+                  width: 900,
+                  height: 900,
+                ),
+          ),
+        ),
+      );
+
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.byKey(const ValueKey<String>('export-contact-sheet-button')),
+            )
+            .onPressed,
+        isNull,
+      );
+    });
+
+    testWidgets('announces a contact-sheet export failure', (tester) async {
+      await tester.pumpWidget(
+        host(
+          RollInfoSheet(
+            roll: roll(exposuresTaken: 1),
+            presetName: 'Normal',
+            aspectRatioLabel: '3:4',
+            pendingExposures: 0,
+            pendingSaveState: FilmRollPendingSaveState.idle,
+            recipeStatus: FilmRollRecipeStatus.ready,
+            onEnd: () async => const FilmRollActionResult.success(),
+            onAbandon: () async => const FilmRollActionResult.success(),
+            onExportContactSheet: () async =>
+                const ContactSheetExportResult.noExportableFrames(
+                  historicalFrameCount: 1,
+                  skippedFrameCount: 1,
+                ),
+          ),
+        ),
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('export-contact-sheet-button')),
+      );
+      await tester.pump();
+
+      expect(
+        find.text('No saved Film Roll frames are available to export.'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('disables lifecycle actions while a frame is processing', (
       tester,
     ) async {

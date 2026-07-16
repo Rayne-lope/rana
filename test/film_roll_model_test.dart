@@ -30,6 +30,23 @@ void main() {
     expect(FilmRoll.fromJson(original.toJson()), original);
   });
 
+  test('FilmRoll preserves terminal archive metadata through JSON', () {
+    final archived = roll(FilmRollSize.twelve, exposuresTaken: 4).copyWith(
+      status: FilmRollStatus.completed,
+      completedAt: DateTime.utc(2026, 7, 15, 18),
+      coverUri: 'content://rana/roll-cover',
+    );
+
+    final restored = FilmRoll.fromJson(archived.toJson());
+
+    expect(restored.status, FilmRollStatus.completed);
+    expect(restored.completedAt, archived.completedAt);
+    expect(restored.coverUri, archived.coverUri);
+    expect(restored.presetId, 'portra');
+    expect(restored.lockedStyle, lockedStyle);
+    expect(restored.aspectRatioPlatformValue, 'portrait_3_4');
+  });
+
   test('FilmRoll reports capacity correctly for every supported size', () {
     for (final size in FilmRollSize.values) {
       final almostFull = roll(size, exposuresTaken: size.count - 1);

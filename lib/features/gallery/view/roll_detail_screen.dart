@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:rana/core/providers/preset_provider.dart';
 import 'package:rana/core/router/app_router.dart';
 import 'package:rana/core/services/media_store_service.dart';
+import 'package:rana/features/film_roll/model/film_roll.dart';
+import 'package:rana/features/film_roll/widgets/contact_sheet_export.dart';
 import 'package:rana/features/gallery/controller/gallery_controller.dart';
 import 'package:rana/features/gallery/model/gallery_film_roll.dart';
 import 'package:rana/features/gallery/model/gallery_media_item.dart';
@@ -16,19 +18,49 @@ import 'package:rana/features/preset/model/preset_model.dart';
 
 /// Chronological Gallery view for the captures belonging to one Film Roll.
 class RollDetailScreen extends ConsumerStatefulWidget {
-  const RollDetailScreen({required this.rollId, super.key});
+  const RollDetailScreen({
+    required this.rollId,
+    this.onExportContactSheet,
+    super.key,
+  });
 
   final String rollId;
+
+  /// Builds and opens the share sheet for this archived roll's saved frames.
+  ///
+  /// The optional callback keeps this route testable while production uses the
+  /// default [ContactSheetExporter] path.
+  final Future<ContactSheetExportResult> Function({
+    required FilmRoll roll,
+    required String presetName,
+  })?
+  onExportContactSheet;
 
   @override
   ConsumerState<RollDetailScreen> createState() => _RollDetailScreenState();
 }
 
 class _RollDetailScreenState extends ConsumerState<RollDetailScreen> {
+  late final ContactSheetExporter _contactSheetExporter =
+      ContactSheetExporter();
+  bool _isExporting = false;
+  String? _exportMessage;
+  String? _exportError;
+
   @override
   void initState() {
     super.initState();
     unawaited(Future<void>.microtask(_loadRolls));
+  }
+
+  @override
+  void didUpdateWidget(covariant RollDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.rollId != widget.rollId) {
+      _isExporting = false;
+      _exportMessage = null;
+      _exportError = null;
+    }
   }
 
   Future<void> _loadRolls() =>
@@ -38,6 +70,16 @@ class _RollDetailScreenState extends ConsumerState<RollDetailScreen> {
   Widget build(BuildContext context) {
     final galleryState = ref.watch(galleryControllerProvider);
     final roll = _rollForId(galleryState.rolls, widget.rollId);
+    final presetName = roll == null ? null : _presetName(roll.roll.presetId);
+    final canExport =
+        roll != null && roll.availableItems.isNotEmpty && !_isExporting;
+    final exportHint = _isExporting
+        ? 'Please wait for the current export to finish'
+        : roll == null
+        ? 'Film Roll metadata is still loading'
+        : roll.availableItems.isEmpty
+        ? 'No saved Film Roll frames are available to export'
+        : 'Creates a JPEG contact sheet to share';
 
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -71,8 +113,54 @@ class _RollDetailScreenState extends ConsumerState<RollDetailScreen> {
             ),
           ),
           centerTitle: true,
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Semantics(
+                button: true,
+                enabled: canExport,
+                label: _isExporting
+                    ? 'Preparing contact sheet'
+                    : 'Export contact sheet',
+                hint: exportHint,
+                child: IconButton(
+                  key: const ValueKey<String>(
+                    'roll-detail-export-contact-sheet-button',
+                  ),
+                  tooltip: _isExporting
+                      ? 'Preparing contact sheet'
+                      : canExport
+                      ? 'Export contact sheet'
+                      : 'No saved frames to export',
+                  onPressed: canExport
+                      ? () => _exportContactSheet(
+                          roll: roll,
+                          presetName: presetName!,
+                        )
+                      : null,
+                  icon: _isExporting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Color(0xFFF4C44F),
+                            ),
+                          ),
+                        )
+                      : const Icon(Icons.grid_view_rounded),
+                ),
+              ),
+            ),
+          ],
         ),
-        body: _bodyFor(context: context, state: galleryState, roll: roll),
+        body: _bodyFor(
+          context: context,
+          state: galleryState,
+          roll: roll,
+          presetName: presetName,
+        ),
       ),
     );
   }
@@ -81,13 +169,17 @@ class _RollDetailScreenState extends ConsumerState<RollDetailScreen> {
     required BuildContext context,
     required GalleryState state,
     required GalleryFilmRoll? roll,
+    required String? presetName,
   }) {
     if (roll != null) {
       return _RollDetailBody(
         roll: roll,
-        presetName: _presetName(roll.roll.presetId),
+        presetName: presetName!,
         isRefreshing: state.rollsStatus == GalleryRollLoadStatus.loading,
         onRetry: () => unawaited(_loadRolls()),
+        isExporting: _isExporting,
+        exportMessage: _exportMessage,
+        exportError: _exportError,
       );
     }
 
@@ -101,6 +193,47 @@ class _RollDetailScreenState extends ConsumerState<RollDetailScreen> {
       GalleryRollLoadStatus.loaded ||
       GalleryRollLoadStatus.empty => _RollNotFoundState(onBack: _handleBack),
     };
+  }
+
+  Future<void> _exportContactSheet({
+    required GalleryFilmRoll roll,
+    required String presetName,
+  }) async {
+    if (_isExporting || roll.availableItems.isEmpty) return;
+
+    setState(() {
+      _isExporting = true;
+      _exportMessage = null;
+      _exportError = null;
+    });
+
+    try {
+      final export =
+          widget.onExportContactSheet ?? _contactSheetExporter.exportRoll;
+      final result = await export(roll: roll.roll, presetName: presetName);
+      if (!mounted) return;
+      setState(() {
+        _isExporting = false;
+        if (!result.succeeded) {
+          _exportError =
+              result.message ??
+              'Could not prepare the contact sheet. Try again.';
+          return;
+        }
+        _exportMessage =
+            result.exportedFrameCount == result.historicalFrameCount
+            ? 'CONTACT SHEET READY: ${result.exportedFrameCount} '
+                  '${result.exportedFrameCount == 1 ? 'FRAME' : 'FRAMES'}'
+            : 'CONTACT SHEET READY: ${result.exportedFrameCount} OF '
+                  '${result.historicalFrameCount} FRAMES';
+      });
+    } on Object catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isExporting = false;
+        _exportError = 'Could not prepare the contact sheet. Try again.';
+      });
+    }
   }
 
   String _presetName(String presetId) {
@@ -141,12 +274,18 @@ class _RollDetailBody extends StatelessWidget {
     required this.presetName,
     required this.isRefreshing,
     required this.onRetry,
+    required this.isExporting,
+    required this.exportMessage,
+    required this.exportError,
   });
 
   final GalleryFilmRoll roll;
   final String presetName;
   final bool isRefreshing;
   final VoidCallback onRetry;
+  final bool isExporting;
+  final String? exportMessage;
+  final String? exportError;
 
   @override
   Widget build(BuildContext context) {
@@ -165,6 +304,17 @@ class _RollDetailBody extends StatelessWidget {
             ),
           ),
         ),
+        if (isExporting || exportMessage != null || exportError != null)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            sliver: SliverToBoxAdapter(
+              child: _RollContactSheetFeedback(
+                isExporting: isExporting,
+                message: exportError ?? exportMessage,
+                isError: exportError != null,
+              ),
+            ),
+          ),
         if (availableItems.isEmpty)
           SliverFillRemaining(
             hasScrollBody: false,
@@ -254,6 +404,79 @@ class _RollDetailBody extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _RollContactSheetFeedback extends StatelessWidget {
+  const _RollContactSheetFeedback({
+    required this.isExporting,
+    required this.message,
+    required this.isError,
+  });
+
+  final bool isExporting;
+  final String? message;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isError ? const Color(0xFFE57373) : const Color(0xFFF4C44F);
+    final text = isExporting
+        ? 'PREPARING CONTACT SHEET…'
+        : message ?? 'CONTACT SHEET READY';
+
+    return Semantics(
+      liveRegion: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.42)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              if (isExporting)
+                SizedBox(
+                  width: 17,
+                  height: 17,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
+                  ),
+                )
+              else
+                Icon(
+                  isError
+                      ? Icons.error_outline_rounded
+                      : Icons.grid_view_rounded,
+                  color: color,
+                  size: 18,
+                ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  text,
+                  key: ValueKey<String>(
+                    isError
+                        ? 'roll-detail-export-error'
+                        : 'roll-detail-export-status',
+                  ),
+                  style: TextStyle(
+                    color: color,
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
