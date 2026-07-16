@@ -6,9 +6,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rana/core/router/app_router.dart';
+import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/camera/view/camera_screen.dart';
 import 'package:rana/features/camera/widgets/latest_capture_thumbnail.dart';
+import 'package:rana/features/film_roll/controller/film_roll_controller.dart';
+import 'package:rana/features/film_roll/model/film_roll.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
+import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:rana/features/preset/repository/preset_repository.dart';
 import 'package:rana/features/splash/view/splash_screen.dart';
 import 'package:rana/main.dart';
@@ -171,6 +175,125 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Settings'), findsWidgets);
+    });
+
+    testWidgets('Film action loads a roll and disables style editing', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(const ProviderScope(child: RanaApp()));
+      await tester.pump(const Duration(milliseconds: 1300));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CameraScreen)),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey<String>('camera-film-action')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('LOAD FILM'), findsOneWidget);
+      expect(find.text('LOAD 24 EXPOSURES'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('start-roll-size-12')),
+      );
+      await tester.tap(find.byKey(const ValueKey<String>('load-roll-button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey<String>('roll-hud-pill')),
+        findsOneWidget,
+      );
+      expect(find.text('0/12'), findsOneWidget);
+      final activeRoll = container.read(filmRollControllerProvider).activeRoll;
+      expect(activeRoll?.presetId, 'normal');
+      expect(activeRoll?.lockedStyle, const RanaStyle());
+      expect(activeRoll?.aspectRatioPlatformValue, 'portrait_3_4');
+      expect(
+        tester
+            .widget<InkWell>(
+              find.byKey(const ValueKey<String>('camera-reset-action')),
+            )
+            .onTap,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<InkWell>(
+              find.byKey(const ValueKey<String>('camera-style-action')),
+            )
+            .onTap,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<InkWell>(
+              find.byKey(const ValueKey<String>('camera-aspect-ratio-control')),
+            )
+            .onTap,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<GestureDetector>(
+              find.byKey(const ValueKey<String>('camera-preset-selector')),
+            )
+            .onTap,
+        isNull,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey<String>('camera-style-action')),
+      );
+      await tester.pump();
+      expect(find.text('RANA STYLES'), findsNothing);
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('camera-film-action')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('FILM ROLL'), findsOneWidget);
+    });
+
+    testWidgets('a full roll shows its completion sheet only once', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(const ProviderScope(child: RanaApp()));
+      await tester.pump(const Duration(milliseconds: 1300));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CameraScreen)),
+      );
+      final rollController = container.read(
+        filmRollControllerProvider.notifier,
+      );
+      await rollController.startRoll(
+        presetId: 'normal',
+        lockedStyle: const RanaStyle(),
+        size: FilmRollSize.twelve,
+        aspectRatioPlatformValue: CameraAspectRatio.portrait34.platformValue,
+      );
+      for (var frame = 1; frame <= FilmRollSize.twelve.count; frame += 1) {
+        final reservation = rollController.reserveExposure()!;
+        await rollController.recordExposure(
+          captureId: 'completion-frame-$frame',
+          reservation: reservation,
+          mediaUri: 'content://rana/frame-$frame.jpg',
+        );
+      }
+
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(find.text('ROLL COMPLETE'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('roll-complete-done-button')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('ROLL COMPLETE'), findsNothing);
+
+      await tester.pump();
+      expect(find.text('ROLL COMPLETE'), findsNothing);
     });
 
     testWidgets('capture stays on CameraScreen and refreshes thumbnail', (

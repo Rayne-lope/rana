@@ -16,6 +16,13 @@ import 'package:rana/features/camera/widgets/latest_capture_thumbnail.dart';
 import 'package:rana/features/camera/widgets/premium_shutter_button.dart';
 import 'package:rana/features/camera/widgets/rana_styles_controls.dart';
 import 'package:rana/features/camera/widgets/style_mood_chips.dart';
+import 'package:rana/features/film_roll/controller/film_roll_controller.dart';
+import 'package:rana/features/film_roll/model/film_roll.dart';
+import 'package:rana/features/film_roll/state/film_roll_state.dart';
+import 'package:rana/features/film_roll/widgets/roll_complete_sheet.dart';
+import 'package:rana/features/film_roll/widgets/roll_hud_pill.dart';
+import 'package:rana/features/film_roll/widgets/roll_info_sheet.dart';
+import 'package:rana/features/film_roll/widgets/start_roll_sheet.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:rana/features/preset/repository/saved_rana_style_repository.dart';
@@ -50,8 +57,12 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   bool _showToast = false;
 
   ProviderSubscription<CameraState>? _captureFeedbackSubscription;
+  ProviderSubscription<FilmRollState>? _filmRollSubscription;
   Timer? _flashTimer;
   Timer? _toastTimer;
+  bool _isRollCompletionSheetVisible = false;
+  bool _isRollInfoSheetVisible = false;
+  BuildContext? _rollInfoSheetContext;
 
   void _handleCaptureFeedback(CameraState? previous, CameraState next) {
     final imageWasCaptured =
@@ -70,6 +81,33 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     if (captureWasCompleted) {
       _triggerCaptureToast();
     }
+  }
+
+  void _handleFilmRollState(FilmRollState? previous, FilmRollState next) {
+    final completedRoll = next.latestCompletedRoll;
+    if (completedRoll == null ||
+        completedRoll == previous?.latestCompletedRoll) {
+      return;
+    }
+
+    // The controller retains this transient value until the view consumes it.
+    // Always clear it, but celebrate only the automatic final-frame path.
+    ref.read(filmRollControllerProvider.notifier).acknowledgeLatestCompletion();
+    if (!completedRoll.isFull || _isRollCompletionSheetVisible || !mounted) {
+      return;
+    }
+
+    final rollInfoSheetContext = _rollInfoSheetContext;
+    if (rollInfoSheetContext != null &&
+        rollInfoSheetContext.mounted &&
+        ModalRoute.of(rollInfoSheetContext)?.isCurrent == true) {
+      Navigator.of(rollInfoSheetContext).pop();
+    }
+    _isRollCompletionSheetVisible = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_showRollCompleteSheet(completedRoll));
+    });
   }
 
   void _triggerScreenFlash() {
@@ -132,6 +170,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       cameraControllerProvider,
       _handleCaptureFeedback,
     );
+    _filmRollSubscription = ref.listenManual<FilmRollState>(
+      filmRollControllerProvider,
+      _handleFilmRollState,
+    );
     _focusAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -150,6 +192,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   @override
   void dispose() {
     _captureFeedbackSubscription?.close();
+    _filmRollSubscription?.close();
     _flashTimer?.cancel();
     _toastTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
@@ -282,6 +325,92 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     await controller.handleShutterPressed();
   }
 
+  Future<void> _showFilmRollSheet(CameraState cameraState) async {
+    final rollState = ref.read(filmRollControllerProvider);
+    final activeRoll = rollState.activeRoll;
+    if (activeRoll != null && activeRoll.isActive) {
+      await _showRollInfoSheet(activeRoll, rollState.pendingExposureCount);
+      return;
+    }
+
+    final presets = ref.read(presetsProvider).valueOrNull ?? [];
+    final activePreset = _findActivePreset(cameraState, presets);
+    final presetId = activePreset?.id ?? cameraState.activePresetId;
+    final presetName = activePreset?.name ?? presetId;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StartRollSheet(
+        presetName: presetName,
+        aspectRatioLabel: cameraState.aspectRatio.label,
+        onLoad: (size) => ref
+            .read(filmRollControllerProvider.notifier)
+            .startRoll(
+              presetId: presetId,
+              lockedStyle: cameraState.activeStyle,
+              size: size,
+              aspectRatioPlatformValue: cameraState.aspectRatio.platformValue,
+            ),
+      ),
+    );
+  }
+
+  Future<void> _showRollInfoSheet(FilmRoll roll, int pendingExposures) async {
+    if (_isRollInfoSheetVisible) return;
+    _isRollInfoSheetVisible = true;
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) {
+          _rollInfoSheetContext = sheetContext;
+          return Consumer(
+            builder: (context, ref, child) {
+              final currentRollState = ref.watch(filmRollControllerProvider);
+              final currentRoll = currentRollState.activeRoll ?? roll;
+              final isSameActiveRoll =
+                  currentRollState.activeRoll?.id == roll.id;
+              return RollInfoSheet(
+                roll: currentRoll,
+                presetName: _presetNameForRoll(currentRoll),
+                aspectRatioLabel: _aspectRatioLabel(
+                  currentRoll.aspectRatioPlatformValue,
+                ),
+                pendingExposures: isSameActiveRoll
+                    ? currentRollState.pendingExposureCount
+                    : pendingExposures,
+                onEnd: () =>
+                    ref.read(filmRollControllerProvider.notifier).endRoll(),
+                onAbandon: () =>
+                    ref.read(filmRollControllerProvider.notifier).abandonRoll(),
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      _isRollInfoSheetVisible = false;
+      _rollInfoSheetContext = null;
+    }
+  }
+
+  Future<void> _showRollCompleteSheet(FilmRoll roll) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) =>
+          RollCompleteSheet(roll: roll, presetName: _presetNameForRoll(roll)),
+    );
+    if (mounted) {
+      _isRollCompletionSheetVisible = false;
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     AppLogger.i('CameraScreen', 'App lifecycle changed to: $state');
@@ -301,6 +430,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   Widget build(BuildContext context) {
     final permissionState = ref.watch(cameraPermissionControllerProvider);
     final cameraState = ref.watch(cameraControllerProvider);
+    final rollState = ref.watch(filmRollControllerProvider);
     final controller = ref.read(cameraControllerProvider.notifier);
 
     if (permissionState.isChecking) {
@@ -355,6 +485,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                     child: _buildViewfinder(
                       cameraState,
                       controller,
+                      rollState: rollState,
                       layoutMode: (isEditing || _isSelectingPreset)
                           ? _ViewfinderLayoutMode.styleEditor
                           : _ViewfinderLayoutMode.capture,
@@ -366,7 +497,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                   else if (_isSelectingPreset)
                     _buildPresetSelectionContent(cameraState, controller)
                   else
-                    _buildBottomPanel(cameraState, controller),
+                    _buildBottomPanel(
+                      cameraState,
+                      controller,
+                      rollState: rollState,
+                    ),
                 ],
               ),
             ),
@@ -568,6 +703,21 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     }
     return null;
   }
+
+  String _presetNameForRoll(FilmRoll roll) {
+    final presets = ref.read(presetsProvider).valueOrNull ?? [];
+    for (final preset in presets) {
+      if (preset.id == roll.presetId) return preset.name;
+    }
+    return roll.presetId;
+  }
+
+  String _aspectRatioLabel(String platformValue) => CameraAspectRatio.values
+      .firstWhere(
+        (ratio) => ratio.platformValue == platformValue,
+        orElse: () => CameraAspectRatio.portrait34,
+      )
+      .label;
 
   Widget _buildStylesEditingHeader(
     String title,
@@ -881,32 +1031,37 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   Widget _buildGlassTextButton({
     required String text,
     required VoidCallback? onPressed,
+    Key? actionKey,
     String? tooltip,
-  }) => Tooltip(
-    message: tooltip ?? '',
-    child: ClipOval(
-      child: Material(
-        color: Colors.black.withValues(alpha: 0.4),
-        child: InkWell(
-          onTap: onPressed,
-          child: SizedBox(
-            width: 40,
-            height: 40,
-            child: Center(
-              child: Text(
-                text,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+  }) {
+    final isEnabled = onPressed != null;
+    return Tooltip(
+      message: tooltip ?? '',
+      child: ClipOval(
+        child: Material(
+          color: Colors.black.withValues(alpha: 0.4),
+          child: InkWell(
+            key: actionKey,
+            onTap: onPressed,
+            child: SizedBox(
+              width: 40,
+              height: 40,
+              child: Center(
+                child: Text(
+                  text,
+                  style: TextStyle(
+                    color: isEnabled ? Colors.white : Colors.white24,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 
   Widget _buildSelfTimerButton(CameraState state, CameraController controller) {
     final isRunning = state.isSelfTimerRunning;
@@ -985,8 +1140,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   Widget _buildTopOverlayControls(
     CameraState state,
-    CameraController controller,
-  ) {
+    CameraController controller, {
+    required bool isRollActive,
+  }) {
     final canInteract =
         state.isCameraInitialized &&
         state.captureStatus == CaptureStatus.idle &&
@@ -1019,8 +1175,13 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         // Aspect Ratio Button
         _buildGlassTextButton(
           text: state.aspectRatio.label,
-          tooltip: 'Aspect Ratio: ${state.aspectRatio.label}',
-          onPressed: canInteract ? controller.cycleAspectRatio : null,
+          actionKey: const ValueKey<String>('camera-aspect-ratio-control'),
+          tooltip: isRollActive
+              ? 'Film Roll recipe locked'
+              : 'Aspect Ratio: ${state.aspectRatio.label}',
+          onPressed: canInteract && !isRollActive
+              ? controller.cycleAspectRatio
+              : null,
         ),
 
         // Timer Button
@@ -1109,6 +1270,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   Widget _buildViewfinder(
     CameraState state,
     CameraController controller, {
+    required FilmRollState rollState,
     required _ViewfinderLayoutMode layoutMode,
   }) {
     final presetsList = ref.watch(presetsProvider).valueOrNull ?? [];
@@ -1117,6 +1279,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         state.isCameraInitialized &&
         state.captureStatus == CaptureStatus.idle &&
         !state.isSelfTimerRunning;
+    final activeRoll = rollState.activeRoll;
+    final isRollActive = rollState.hasActiveRoll;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -1162,7 +1326,31 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                       top: 16,
                       left: 16,
                       right: 16,
-                      child: _buildTopOverlayControls(state, controller),
+                      child: _buildTopOverlayControls(
+                        state,
+                        controller,
+                        isRollActive: isRollActive,
+                      ),
+                    ),
+
+                  if (layoutMode == _ViewfinderLayoutMode.capture &&
+                      activeRoll != null &&
+                      activeRoll.isActive)
+                    Positioned(
+                      top: _isFocusLocked ? 96 : 68,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: RollHudPill(
+                          roll: activeRoll,
+                          onTap: () => unawaited(
+                            _showRollInfoSheet(
+                              activeRoll,
+                              rollState.pendingExposureCount,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
 
                   // Floating Preset selector overlay at the bottom center of the viewfinder
@@ -1172,71 +1360,91 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                       left: 0,
                       right: 0,
                       child: Center(
-                        child: GestureDetector(
-                          onTap: isReady
-                              ? () {
-                                  setState(() {
-                                    _originalPresetId = state.activePresetId;
-                                    _isSelectingPreset = true;
-                                  });
-                                }
-                              : null,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 7,
+                        child: Semantics(
+                          button: true,
+                          enabled: isReady && !isRollActive,
+                          label: isRollActive
+                              ? 'Preset locked by Film Roll'
+                              : 'Select preset',
+                          child: GestureDetector(
+                            key: const ValueKey<String>(
+                              'camera-preset-selector',
                             ),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(20),
-                              gradient: const RadialGradient(
-                                center: Alignment(-0.15, -0.2),
-                                colors: [
-                                  Color(0xFF3E424B),
-                                  Color(0xFF202227),
-                                  Color(0xFF131416),
-                                ],
-                                stops: [0, 0.7, 1],
-                              ),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.09),
-                                width: 0.8,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.35),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 3),
+                            onTap: isReady && !isRollActive
+                                ? () {
+                                    setState(() {
+                                      _originalPresetId = state.activePresetId;
+                                      _isSelectingPreset = true;
+                                    });
+                                  }
+                                : null,
+                            child: AnimatedOpacity(
+                              duration: const Duration(milliseconds: 180),
+                              opacity: isRollActive ? 0.45 : 1,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 7,
                                 ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.photo_camera_back_rounded,
-                                  size: 12,
-                                  color: Color(0xFFF39C12),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  (activePreset?.name ?? 'NORMAL')
-                                      .toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Color(0xFFF39C12),
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.5,
-                                    fontFamily: 'monospace',
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(20),
+                                  gradient: const RadialGradient(
+                                    center: Alignment(-0.15, -0.2),
+                                    colors: [
+                                      Color(0xFF3E424B),
+                                      Color(0xFF202227),
+                                      Color(0xFF131416),
+                                    ],
+                                    stops: [0, 0.7, 1],
                                   ),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.09),
+                                    width: 0.8,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.35,
+                                      ),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.keyboard_arrow_up_rounded,
-                                  size: 13,
-                                  color: Colors.white60,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isRollActive
+                                          ? Icons.lock_outline_rounded
+                                          : Icons.photo_camera_back_rounded,
+                                      size: 12,
+                                      color: const Color(0xFFF39C12),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      (activePreset?.name ?? 'NORMAL')
+                                          .toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Color(0xFFF39C12),
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 1.5,
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      isRollActive
+                                          ? Icons.lock_rounded
+                                          : Icons.keyboard_arrow_up_rounded,
+                                      size: 13,
+                                      color: Colors.white60,
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
@@ -1457,7 +1665,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     );
   }
 
-  Widget _buildBottomPanel(CameraState state, CameraController controller) {
+  Widget _buildBottomPanel(
+    CameraState state,
+    CameraController controller, {
+    required FilmRollState rollState,
+  }) {
     final presetsAsync = ref.watch(presetsProvider);
     final isReady =
         state.isCameraInitialized &&
@@ -1466,6 +1678,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
     final presetsList = presetsAsync.valueOrNull ?? [];
     final activePreset = _findActivePreset(state, presetsList);
+    final isRollActive = rollState.hasActiveRoll;
+    final canOpenFilmRoll =
+        isRollActive ||
+        (state.captureStatus == CaptureStatus.idle &&
+            !state.isSelfTimerRunning);
 
     return Container(
       decoration: const BoxDecoration(color: Colors.transparent),
@@ -1538,7 +1755,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                 onCapture: () => _handleCapture(controller),
               ),
 
-              // Style and Reset Button (right)
+              // Film, style, and reset controls (right).
               SizedBox(
                 width: 120,
                 child: Row(
@@ -1546,10 +1763,27 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                   children: [
                     Expanded(
                       child: _BottomPanelActionButton(
+                        actionKey: const ValueKey<String>('camera-film-action'),
+                        label: 'FILM',
+                        icon: Icons.local_movies_outlined,
+                        isEnabled: canOpenFilmRoll,
+                        onPressed: () => unawaited(_showFilmRollSheet(state)),
+                        tooltip: isRollActive
+                            ? 'Film Roll: ${rollState.activeRoll!.exposuresTaken}/'
+                                  '${rollState.activeRoll!.size.count}'
+                            : 'Load Film Roll',
+                      ),
+                    ),
+                    Expanded(
+                      child: _BottomPanelActionButton(
+                        actionKey: const ValueKey<String>(
+                          'camera-reset-action',
+                        ),
                         label: 'RESET',
                         icon: Icons.replay_rounded,
                         isEnabled:
                             isReady &&
+                            !isRollActive &&
                             activePreset != null &&
                             state.activeStyle !=
                                 (activePreset.style ?? const RanaStyle()),
@@ -1559,9 +1793,13 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                     ),
                     Expanded(
                       child: _BottomPanelActionButton(
+                        actionKey: const ValueKey<String>(
+                          'camera-style-action',
+                        ),
                         label: 'STYLE',
                         icon: Icons.tune_rounded,
-                        isEnabled: isReady && activePreset != null,
+                        isEnabled:
+                            isReady && !isRollActive && activePreset != null,
                         onPressed: () {
                           setState(() {
                             _originalStyle = state.activeStyle;
@@ -1634,6 +1872,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
 class _BottomPanelActionButton extends StatelessWidget {
   const _BottomPanelActionButton({
+    required this.actionKey,
     required this.label,
     required this.icon,
     required this.isEnabled,
@@ -1641,6 +1880,7 @@ class _BottomPanelActionButton extends StatelessWidget {
     this.tooltip,
   });
 
+  final Key actionKey;
   final String label;
   final IconData icon;
   final bool isEnabled;
@@ -1656,6 +1896,7 @@ class _BottomPanelActionButton extends StatelessWidget {
         Material(
           color: Colors.transparent,
           child: InkWell(
+            key: actionKey,
             onTap: isEnabled ? onPressed : null,
             borderRadius: BorderRadius.circular(20),
             child: AnimatedContainer(
