@@ -6,12 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rana/core/providers/permission_provider.dart';
+import 'package:rana/core/providers/preset_provider.dart';
 import 'package:rana/core/router/app_router.dart';
 import 'package:rana/core/services/media_store_service.dart';
 import 'package:rana/features/gallery/controller/gallery_controller.dart';
+import 'package:rana/features/gallery/model/gallery_film_roll.dart';
 import 'package:rana/features/gallery/model/gallery_media_item.dart';
 import 'package:rana/features/gallery/state/gallery_state.dart';
 import 'package:rana/features/gallery/view/gallery_detail_screen.dart';
+import 'package:rana/features/preset/model/preset_model.dart';
 
 /// Gallery screen that reads Rana photos from Android MediaStore.
 class GalleryScreen extends ConsumerStatefulWidget {
@@ -29,7 +32,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     WidgetsBinding.instance.addObserver(this);
     Future.microtask(() async {
       await ref.read(galleryPermissionControllerProvider.notifier).refresh();
-      await ref.read(galleryControllerProvider.notifier).loadGallery();
+      await _refreshGallery();
     });
   }
 
@@ -45,9 +48,18 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
       ref.read(galleryPermissionControllerProvider.notifier).refresh().then((
         _,
       ) {
-        ref.read(galleryControllerProvider.notifier).loadGallery();
+        _refreshGallery();
       });
     }
+  }
+
+  /// Refreshes the active Gallery surface. Rolls remain lazy on a cold Photos
+  /// launch, while a Rolls refresh first updates its MediaStore URI join.
+  Future<void> _refreshGallery() {
+    final state = ref.read(galleryControllerProvider);
+    return ref
+        .read(galleryControllerProvider.notifier)
+        .refresh(includeRolls: state.viewMode == GalleryViewMode.rolls);
   }
 
   @override
@@ -56,10 +68,18 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
     final galleryState = ref.watch(galleryControllerProvider);
     final controller = ref.read(galleryControllerProvider.notifier);
     final visibleItems = galleryState.visibleItems;
+    final isRollsMode = galleryState.viewMode == GalleryViewMode.rolls;
 
     final showLoader =
         galleryState.status == GalleryStatus.loading &&
         galleryState.items.isEmpty;
+    final showRollsLoader =
+        (galleryState.rollsStatus == GalleryRollLoadStatus.initial ||
+            galleryState.rollsStatus == GalleryRollLoadStatus.loading) &&
+        galleryState.rolls.isEmpty;
+    final isCurrentViewLoading = isRollsMode ? showRollsLoader : showLoader;
+    final presets =
+        ref.watch(presetsProvider).valueOrNull ?? const <PresetModel>[];
 
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -103,8 +123,8 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
               padding: const EdgeInsets.only(right: 16),
               child: _AppBarActionButton(
                 icon: Icons.refresh_rounded,
-                onPressed: showLoader ? null : controller.loadGallery,
-                tooltip: 'Refresh gallery',
+                onPressed: isCurrentViewLoading ? null : _refreshGallery,
+                tooltip: isRollsMode ? 'Refresh Film Rolls' : 'Refresh gallery',
               ),
             ),
           ],
@@ -112,141 +132,217 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
         body: RefreshIndicator(
           color: const Color(0xFFF39C12),
           backgroundColor: const Color(0xFF17171B),
-          onRefresh: controller.loadGallery,
+          onRefresh: _refreshGallery,
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 sliver: SliverToBoxAdapter(
-                  child: _GallerySummaryCard(
-                    itemCount: galleryState.items.length,
-                    favoriteCount: galleryState.favoriteIds.length,
-                    hasPermission: !galleryState.isPermissionDenied,
-                    isLoading: showLoader,
-                    showFavoritesOnly: galleryState.showFavoritesOnly,
-                    onFavoritesOnlyChanged: (value) =>
-                        controller.setFavoritesOnly(value: value),
+                  child: _GalleryViewModeControl(
+                    viewMode: galleryState.viewMode,
+                    onChanged: controller.setViewMode,
                   ),
                 ),
               ),
-              if (!galleryState.isPermissionDenied && !showLoader)
+              if (isRollsMode) ...[
+                if (showRollsLoader)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _RollsLoadingState(),
+                  )
+                else if (galleryState.rollsStatus ==
+                    GalleryRollLoadStatus.error)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _RollsErrorState(
+                      message: galleryState.rollsErrorMessage,
+                      onRetry: controller.loadRolls,
+                    ),
+                  )
+                else if (galleryState.rolls.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _RollsEmptyState(
+                      onTakePhoto: () => context.go(AppRoutes.camera),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                    sliver: SliverList.builder(
+                      itemCount: galleryState.rolls.length,
+                      itemBuilder: (context, index) {
+                        final filmRoll = galleryState.rolls[index];
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            bottom: index == galleryState.rolls.length - 1
+                                ? 0
+                                : 12,
+                          ),
+                          child: _GalleryFilmRollCard(
+                            key: ValueKey<String>(
+                              'gallery-roll-${filmRoll.roll.id}',
+                            ),
+                            filmRoll: filmRoll,
+                            presetName: _presetNameForRoll(filmRoll, presets),
+                            onTap: () => context.push(
+                              AppRoutes.rollDetail(filmRoll.roll.id),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ] else ...[
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                   sliver: SliverToBoxAdapter(
-                    child: _GalleryFilterStrip(
-                      activeFilter: galleryState.timeFilter,
+                    child: _GallerySummaryCard(
+                      itemCount: galleryState.items.length,
+                      favoriteCount: galleryState.favoriteIds.length,
+                      hasPermission: !galleryState.isPermissionDenied,
+                      isLoading: showLoader,
                       showFavoritesOnly: galleryState.showFavoritesOnly,
-                      onFilterChanged: controller.setTimeFilter,
                       onFavoritesOnlyChanged: (value) =>
                           controller.setFavoritesOnly(value: value),
                     ),
                   ),
                 ),
-              if (permissionState.isLimited && !showLoader)
-                const SliverPadding(
-                  padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  sliver: SliverToBoxAdapter(
-                    child: _GalleryLimitedAccessBanner(),
+                if (!galleryState.isPermissionDenied && !showLoader)
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    sliver: SliverToBoxAdapter(
+                      child: _GalleryFilterStrip(
+                        activeFilter: galleryState.timeFilter,
+                        showFavoritesOnly: galleryState.showFavoritesOnly,
+                        onFilterChanged: controller.setTimeFilter,
+                        onFavoritesOnlyChanged: (value) =>
+                            controller.setFavoritesOnly(value: value),
+                      ),
+                    ),
                   ),
-                ),
-              if (showLoader)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: _GalleryLoadingState(),
-                )
-              else if (galleryState.isPermissionDenied)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: _GalleryPermissionState(
-                    isPermanentlyDenied: permissionState.isPermanentlyDenied,
-                    onOpenSettings: openAppSettings,
-                    onRequestAccess: () async {
-                      await ref
-                          .read(galleryPermissionControllerProvider.notifier)
-                          .requestGalleryAccess();
-                      await controller.loadGallery();
-                    },
-                    onRetryCheck: () async {
-                      await ref
-                          .read(galleryPermissionControllerProvider.notifier)
-                          .refresh();
-                      await controller.loadGallery();
-                    },
+                if (permissionState.isLimited && !showLoader)
+                  const SliverPadding(
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    sliver: SliverToBoxAdapter(
+                      child: _GalleryLimitedAccessBanner(),
+                    ),
                   ),
-                )
-              else if (galleryState.status == GalleryStatus.error &&
-                  galleryState.items.isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: _GalleryErrorState(
-                    message: galleryState.errorMessage,
-                    onRetry: controller.loadGallery,
-                  ),
-                )
-              else if (visibleItems.isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: _GalleryEmptyState(
-                    showFavoritesOnly: galleryState.showFavoritesOnly,
-                    onTakePhoto: () => context.go(AppRoutes.camera),
-                    onFindPreviousInstallPhotos: permissionState.canRead
-                        ? null
-                        : () async {
-                            await ref
-                                .read(
-                                  galleryPermissionControllerProvider.notifier,
-                                )
-                                .requestGalleryAccess();
-                            await controller.loadGallery();
-                          },
-                  ),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  sliver: SliverLayoutBuilder(
-                    builder: (context, constraints) {
-                      final width = constraints.crossAxisExtent;
-                      final crossAxisCount = width >= 520 ? 3 : 2;
-                      return SliverGrid(
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: crossAxisCount,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: 0.82,
-                        ),
-                        delegate: SliverChildBuilderDelegate((context, index) {
-                          final item = visibleItems[index];
-                          return _GalleryTile(
-                            key: ValueKey<String>('gallery-tile-${item.id}'),
-                            item: item,
-                            isFavorite: galleryState.isFavorite(item.id),
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => GalleryDetailScreen(
-                                  items: visibleItems,
-                                  initialIndex: index,
-                                ),
+                if (showLoader)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _GalleryLoadingState(),
+                  )
+                else if (galleryState.isPermissionDenied)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _GalleryPermissionState(
+                      isPermanentlyDenied: permissionState.isPermanentlyDenied,
+                      onOpenSettings: openAppSettings,
+                      onRequestAccess: () async {
+                        await ref
+                            .read(galleryPermissionControllerProvider.notifier)
+                            .requestGalleryAccess();
+                        await controller.loadGallery();
+                      },
+                      onRetryCheck: () async {
+                        await ref
+                            .read(galleryPermissionControllerProvider.notifier)
+                            .refresh();
+                        await controller.loadGallery();
+                      },
+                    ),
+                  )
+                else if (galleryState.status == GalleryStatus.error &&
+                    galleryState.items.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _GalleryErrorState(
+                      message: galleryState.errorMessage,
+                      onRetry: controller.loadGallery,
+                    ),
+                  )
+                else if (visibleItems.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _GalleryEmptyState(
+                      showFavoritesOnly: galleryState.showFavoritesOnly,
+                      onTakePhoto: () => context.go(AppRoutes.camera),
+                      onFindPreviousInstallPhotos: permissionState.canRead
+                          ? null
+                          : () async {
+                              await ref
+                                  .read(
+                                    galleryPermissionControllerProvider
+                                        .notifier,
+                                  )
+                                  .requestGalleryAccess();
+                              await controller.loadGallery();
+                            },
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    sliver: SliverLayoutBuilder(
+                      builder: (context, constraints) {
+                        final width = constraints.crossAxisExtent;
+                        final crossAxisCount = width >= 520 ? 3 : 2;
+                        return SliverGrid(
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: crossAxisCount,
+                                mainAxisSpacing: 12,
+                                crossAxisSpacing: 12,
+                                childAspectRatio: 0.82,
                               ),
-                            ),
-                            onLongPress: () => _showGalleryActions(
-                              context: context,
-                              ref: ref,
+                          delegate: SliverChildBuilderDelegate((
+                            context,
+                            index,
+                          ) {
+                            final item = visibleItems[index];
+                            return _GalleryTile(
+                              key: ValueKey<String>('gallery-tile-${item.id}'),
                               item: item,
                               isFavorite: galleryState.isFavorite(item.id),
-                            ),
-                          );
-                        }, childCount: visibleItems.length),
-                      );
-                    },
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => GalleryDetailScreen(
+                                    items: visibleItems,
+                                    initialIndex: index,
+                                  ),
+                                ),
+                              ),
+                              onLongPress: () => _showGalleryActions(
+                                context: context,
+                                ref: ref,
+                                item: item,
+                                isFavorite: galleryState.isFavorite(item.id),
+                              ),
+                            );
+                          }, childCount: visibleItems.length),
+                        );
+                      },
+                    ),
                   ),
-                ),
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _presetNameForRoll(
+    GalleryFilmRoll filmRoll,
+    List<PresetModel> presets,
+  ) {
+    final presetId = filmRoll.roll.presetId;
+    for (final preset in presets) {
+      if (preset.id == presetId) return preset.name;
+    }
+    return presetId;
   }
 }
 
@@ -350,6 +446,604 @@ Future<bool?> _confirmGalleryDelete(
 );
 
 enum _GalleryAction { favorite, share, delete }
+
+/// Compact Photos/Rolls mode selector kept close to the Gallery heading.
+class _GalleryViewModeControl extends StatelessWidget {
+  const _GalleryViewModeControl({
+    required this.viewMode,
+    required this.onChanged,
+  });
+
+  final GalleryViewMode viewMode;
+  final ValueChanged<GalleryViewMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'Gallery view',
+    child: Container(
+      // 3dp inset on both sides leaves each segmented action with the
+      // required 48dp minimum tap target.
+      height: 54,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        children: [
+          _GalleryViewModeButton(
+            key: const ValueKey<String>('gallery-mode-photos'),
+            icon: Icons.photo_library_outlined,
+            label: 'PHOTOS',
+            isSelected: viewMode == GalleryViewMode.photos,
+            onTap: () => onChanged(GalleryViewMode.photos),
+          ),
+          const SizedBox(width: 4),
+          _GalleryViewModeButton(
+            key: const ValueKey<String>('gallery-mode-rolls'),
+            icon: Icons.local_movies_outlined,
+            label: 'ROLLS',
+            isSelected: viewMode == GalleryViewMode.rolls,
+            onTap: () => onChanged(GalleryViewMode.rolls),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _GalleryViewModeButton extends StatelessWidget {
+  const _GalleryViewModeButton({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    super.key,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Semantics(
+      button: true,
+      selected: isSelected,
+      label: '$label view',
+      hint: isSelected ? 'Selected' : 'Show $label',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(11),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(11),
+              color: isSelected ? const Color(0xFFF39C12) : Colors.transparent,
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFFF39C12).withValues(alpha: 0.18),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 17,
+                  color: isSelected ? Colors.black : Colors.white60,
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected ? Colors.black : Colors.white70,
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _RollsLoadingState extends StatelessWidget {
+  const _RollsLoadingState();
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Semantics(
+      label: 'Loading Film Rolls',
+      liveRegion: true,
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox.square(
+            dimension: 34,
+            child: CircularProgressIndicator(
+              color: Color(0xFFF39C12),
+              strokeWidth: 2.6,
+            ),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'LOADING FILM ROLLS',
+            style: TextStyle(
+              color: Colors.white70,
+              fontFamily: 'monospace',
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _RollsEmptyState extends StatelessWidget {
+  const _RollsEmptyState({required this.onTakePhoto});
+
+  final VoidCallback onTakePhoto;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 84,
+            height: 84,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.04),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: const Icon(
+              Icons.local_movies_outlined,
+              color: Color(0xFFF39C12),
+              size: 38,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'NO FILM ROLLS YET',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Load a Film Roll in Camera to keep its photos together here.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white54, height: 1.45),
+          ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            key: const ValueKey<String>('gallery-rolls-open-camera'),
+            onPressed: onTakePhoto,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              backgroundColor: const Color(0xFFF39C12),
+              foregroundColor: Colors.black,
+            ),
+            icon: const Icon(Icons.camera_alt_outlined),
+            label: const Text('OPEN CAMERA'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _RollsErrorState extends StatelessWidget {
+  const _RollsErrorState({required this.message, required this.onRetry});
+
+  final String? message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFF39C12),
+            size: 42,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'FAILED TO LOAD FILM ROLLS',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              message ?? 'Film Roll history could not be loaded.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white54, height: 1.45),
+            ),
+          ),
+          const SizedBox(height: 20),
+          FilledButton(
+            key: const ValueKey<String>('gallery-rolls-retry'),
+            onPressed: onRetry,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              backgroundColor: const Color(0xFFF39C12),
+              foregroundColor: Colors.black,
+            ),
+            child: const Text('TRY AGAIN'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _GalleryFilmRollCard extends StatelessWidget {
+  const _GalleryFilmRollCard({
+    required this.filmRoll,
+    required this.presetName,
+    required this.onTap,
+    super.key,
+  });
+
+  final GalleryFilmRoll filmRoll;
+  final String presetName;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final roll = filmRoll.roll;
+    final availableCount = filmRoll.availableItems.length;
+    final unavailableCount = filmRoll.unavailableFrameCount;
+    final totalCount = roll.exposuresTaken;
+    final statusLabel = filmRoll.isEarlyEnded
+        ? 'ENDED EARLY'
+        : roll.isFull
+        ? 'COMPLETE'
+        : roll.isActive
+        ? 'ACTIVE ROLL'
+        : 'ARCHIVED';
+    final availabilityLabel = totalCount == 0
+        ? 'NO SAVED FRAMES'
+        : '$availableCount OF $totalCount '
+              'FRAME${totalCount == 1 ? '' : 'S'} AVAILABLE';
+    final dateLabel = _filmRollDateRangeLabel(
+      filmRoll.dateRangeStart,
+      filmRoll.dateRangeEnd,
+    );
+    final unavailableFrameWord = unavailableCount == 1 ? 'frame' : 'frames';
+    final unavailableSemanticLabel =
+        '$unavailableCount unavailable $unavailableFrameWord';
+    final semanticLabel = [
+      'Film Roll',
+      presetName,
+      statusLabel,
+      '${roll.exposuresTaken} of ${roll.size.count} exposures',
+      availabilityLabel.toLowerCase(),
+      dateLabel,
+      if (unavailableCount > 0) unavailableSemanticLabel,
+    ].join(', ');
+
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      hint: 'Open Film Roll details',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 148),
+            child: Ink(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF24262C), Color(0xFF15161A)],
+                ),
+                border: Border.all(
+                  color: const Color(0xFFF39C12).withValues(alpha: 0.22),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.24),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  _RollCoverThumbnail(item: filmRoll.preferredCover),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.local_movies_outlined,
+                                size: 16,
+                                color: const Color(
+                                  0xFFF4C44F,
+                                ).withValues(alpha: 0.95),
+                              ),
+                              const SizedBox(width: 7),
+                              Expanded(
+                                child: Text(
+                                  presetName.toUpperCase(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontFamily: 'monospace',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1.05,
+                                  ),
+                                ),
+                              ),
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                color: Colors.white38,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            dateLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            '${roll.exposuresTaken}/${roll.size.count} '
+                            'EXPOSURES',
+                            style: const TextStyle(
+                              color: Color(0xFFF4C44F),
+                              fontFamily: 'monospace',
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.7,
+                            ),
+                          ),
+                          const SizedBox(height: 9),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              _RollCardBadge(
+                                label: statusLabel,
+                                color: filmRoll.isEarlyEnded
+                                    ? const Color(0xFFF4C44F)
+                                    : const Color(0xFF81C784),
+                              ),
+                              if (unavailableCount > 0)
+                                _RollCardBadge(
+                                  label:
+                                      'PARTIAL · $unavailableCount UNAVAILABLE',
+                                  color: const Color(0xFFE57373),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 9),
+                          Text(
+                            availabilityLabel,
+                            style: const TextStyle(
+                              color: Color(0xFFF4C44F),
+                              fontFamily: 'monospace',
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.55,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RollCardBadge extends StatelessWidget {
+  const _RollCardBadge({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.11),
+      borderRadius: BorderRadius.circular(99),
+      border: Border.all(color: color.withValues(alpha: 0.3)),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(
+        color: color,
+        fontFamily: 'monospace',
+        fontSize: 8.5,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0.6,
+      ),
+    ),
+  );
+}
+
+class _RollCoverThumbnail extends StatefulWidget {
+  const _RollCoverThumbnail({required this.item});
+
+  final GalleryMediaItem? item;
+
+  @override
+  State<_RollCoverThumbnail> createState() => _RollCoverThumbnailState();
+}
+
+class _RollCoverThumbnailState extends State<_RollCoverThumbnail> {
+  final MediaStoreService _service = MediaStoreService();
+  Future<Uint8List>? _thumbnailFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThumbnail();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RollCoverThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item?.contentUri != widget.item?.contentUri) {
+      _loadThumbnail();
+    }
+  }
+
+  void _loadThumbnail() {
+    final item = widget.item;
+    _thumbnailFuture = item == null
+        ? null
+        : _service.loadThumbnailBytes(item.contentUri, targetSize: 480);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final thumbnailFuture = _thumbnailFuture;
+    return SizedBox(
+      width: 116,
+      height: 148,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(19),
+          bottomLeft: Radius.circular(19),
+        ),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(color: Color(0xFF1A1B20)),
+          child: thumbnailFuture == null
+              ? const _RollCoverPlaceholder()
+              : FutureBuilder<Uint8List>(
+                  future: thumbnailFuture,
+                  builder: (context, snapshot) {
+                    final bytes = snapshot.data;
+                    if (snapshot.connectionState != ConnectionState.done ||
+                        bytes == null ||
+                        bytes.isEmpty) {
+                      return const _RollCoverPlaceholder();
+                    }
+                    return Image.memory(
+                      bytes,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                    );
+                  },
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RollCoverPlaceholder extends StatelessWidget {
+  const _RollCoverPlaceholder();
+
+  @override
+  Widget build(BuildContext context) => const DecoratedBox(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF34363D), Color(0xFF17181C)],
+      ),
+    ),
+    child: Center(
+      child: Icon(
+        Icons.local_movies_outlined,
+        color: Color(0xFFF4C44F),
+        size: 31,
+      ),
+    ),
+  );
+}
+
+String _filmRollDateRangeLabel(DateTime? start, DateTime? end) {
+  if (start == null && end == null) return 'DATE UNAVAILABLE';
+  final first = start ?? end!;
+  final last = end ?? first;
+  final firstLabel = _formatRollDate(first);
+  final lastLabel = _formatRollDate(last);
+  return firstLabel == lastLabel ? firstLabel : '$firstLabel to $lastLabel';
+}
+
+String _formatRollDate(DateTime date) {
+  const months = <String>[
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AUG',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DEC',
+  ];
+  return '${months[date.month - 1]} '
+      '${date.day.toString().padLeft(2, '0')}, ${date.year}';
+}
 
 class _FavoriteFilterButton extends StatefulWidget {
   const _FavoriteFilterButton({

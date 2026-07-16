@@ -7,6 +7,7 @@ import 'package:rana/features/camera/view/camera_screen.dart';
 import 'package:rana/features/camera/view/result_screen.dart';
 import 'package:rana/features/debug/view/consistency_debug_screen.dart';
 import 'package:rana/features/gallery/view/gallery_screen.dart';
+import 'package:rana/features/gallery/view/roll_detail_screen.dart';
 import 'package:rana/features/settings/view/settings_screen.dart';
 import 'package:rana/features/splash/view/splash_screen.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -27,6 +28,10 @@ abstract final class AppRoutes {
 
   /// Gallery — shows photos taken with Rana.
   static const gallery = '/gallery';
+
+  /// Detail view for one completed Film Roll in the Gallery archive.
+  static String rollDetail(String rollId) =>
+      '/rolls/${Uri.encodeComponent(rollId)}';
 
   /// Settings — app preferences.
   static const settings = '/settings';
@@ -126,6 +131,14 @@ GoRouter appRouter(Ref ref) {
                 path: AppRoutes.gallery,
                 name: 'gallery',
                 builder: (context, state) => const GalleryScreen(),
+              ),
+              GoRoute(
+                path: '/rolls/:id',
+                name: 'rollDetail',
+                builder: (context, state) {
+                  final rollId = state.pathParameters['id'];
+                  return RollDetailScreen(rollId: rollId ?? '');
+                },
               ),
             ],
           ),

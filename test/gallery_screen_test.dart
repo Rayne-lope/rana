@@ -7,7 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rana/core/router/app_router.dart';
 import 'package:rana/features/camera/view/result_screen.dart';
+import 'package:rana/features/film_roll/model/film_roll.dart';
 import 'package:rana/features/gallery/view/gallery_screen.dart';
+import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -131,6 +133,164 @@ void main() {
     expect(find.byTooltip('Favorite'), findsOneWidget);
     expect(find.byTooltip('Share photo'), findsOneWidget);
     expect(find.byTooltip('Delete photo'), findsOneWidget);
+  });
+
+  testWidgets('switches to a Rolls view without photo filters', (
+    WidgetTester tester,
+  ) async {
+    var rollMetadataRequests = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(cameraChannel, (MethodCall methodCall) async {
+          switch (methodCall.method) {
+            case 'listGalleryMedia':
+              return [
+                {
+                  'id': 202,
+                  'contentUri': 'content://media/external/images/media/202',
+                  'displayName': 'Rana_2026-07-01-09-00-00.jpg',
+                  'dateTaken': DateTime(2026, 7, 1, 9).millisecondsSinceEpoch,
+                  'width': 4032,
+                  'height': 3024,
+                  'mimeType': 'image/jpeg',
+                },
+              ];
+            case 'loadGalleryThumbnailBytes':
+              return testImageBytes;
+            case 'listFilmRollCaptures':
+              rollMetadataRequests += 1;
+              return const <Map<String, dynamic>>[];
+          }
+          return null;
+        });
+
+    final router = GoRouter(
+      initialLocation: '/',
+      routes: [
+        GoRoute(path: '/', builder: (context, state) => const GalleryScreen()),
+      ],
+    );
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ALL TIME'), findsOneWidget);
+    expect(find.byKey(const ValueKey('gallery-mode-photos')), findsOneWidget);
+    expect(find.byKey(const ValueKey('gallery-mode-rolls')), findsOneWidget);
+    expect(rollMetadataRequests, 0);
+
+    await tester.tap(find.byKey(const ValueKey('gallery-mode-rolls')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('NO FILM ROLLS YET'), findsOneWidget);
+    expect(find.text('ALL TIME'), findsNothing);
+    expect(find.text('OPEN CAMERA'), findsOneWidget);
+    expect(rollMetadataRequests, 0);
+  });
+
+  testWidgets('renders partial early Film Roll cards and opens their route', (
+    WidgetTester tester,
+  ) async {
+    final archivedRoll = FilmRoll(
+      id: 'roll-archive',
+      presetId: 'night-drive',
+      lockedStyle: const RanaStyle(),
+      aspectRatioPlatformValue: 'portrait_3_4',
+      size: FilmRollSize.twelve,
+      exposuresTaken: 2,
+      status: FilmRollStatus.completed,
+      startedAt: DateTime.utc(2026, 7, 1, 9),
+      completedAt: DateTime.utc(2026, 7, 1, 10),
+      coverUri: 'content://media/external/images/media/301',
+    );
+    SharedPreferences.setMockInitialValues({
+      'rana.film_rolls.v1': jsonEncode([archivedRoll.toJson()]),
+    });
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(cameraChannel, (MethodCall methodCall) async {
+          switch (methodCall.method) {
+            case 'listGalleryMedia':
+              return [
+                {
+                  'id': 301,
+                  'contentUri': 'content://media/external/images/media/301',
+                  'displayName': 'Rana_2026-07-01-09-00-00.jpg',
+                  'dateTaken': DateTime(2026, 7, 1, 9).millisecondsSinceEpoch,
+                  'width': 4032,
+                  'height': 3024,
+                  'mimeType': 'image/jpeg',
+                },
+              ];
+            case 'listFilmRollCaptures':
+              return [
+                {
+                  'mediaUri': 'content://media/external/images/media/301',
+                  'capturedAtEpochMs': DateTime(
+                    2026,
+                    7,
+                    1,
+                    9,
+                  ).millisecondsSinceEpoch,
+                },
+                {
+                  'mediaUri': 'content://media/external/images/media/302',
+                  'capturedAtEpochMs': DateTime(
+                    2026,
+                    7,
+                    1,
+                    10,
+                  ).millisecondsSinceEpoch,
+                },
+              ];
+            case 'loadGalleryThumbnailBytes':
+              return testImageBytes;
+          }
+          return null;
+        });
+
+    final router = GoRouter(
+      initialLocation: '/',
+      routes: [
+        GoRoute(path: '/', builder: (context, state) => const GalleryScreen()),
+        GoRoute(
+          path: '/rolls/:id',
+          builder: (context, state) =>
+              Text('ROLL DETAIL ${state.pathParameters['id']}'),
+        ),
+      ],
+    );
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('gallery-mode-rolls')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('gallery-roll-roll-archive')),
+      findsOneWidget,
+    );
+    expect(find.text('ENDED EARLY'), findsOneWidget);
+    expect(find.text('2/12 EXPOSURES'), findsOneWidget);
+    expect(find.text('PARTIAL · 1 UNAVAILABLE'), findsOneWidget);
+    expect(find.text('1 OF 2 FRAMES AVAILABLE'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('gallery-roll-roll-archive')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ROLL DETAIL roll-archive'), findsOneWidget);
   });
 
   testWidgets('shows lazy photo-access prompt when MediaStore denies access', (

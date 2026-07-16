@@ -11,6 +11,8 @@ import 'package:rana/features/camera/view/camera_screen.dart';
 import 'package:rana/features/camera/widgets/latest_capture_thumbnail.dart';
 import 'package:rana/features/film_roll/controller/film_roll_controller.dart';
 import 'package:rana/features/film_roll/model/film_roll.dart';
+import 'package:rana/features/gallery/controller/gallery_controller.dart';
+import 'package:rana/features/gallery/state/gallery_state.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:rana/features/preset/repository/preset_repository.dart';
@@ -30,6 +32,8 @@ void main() {
     var captureCounter = 0;
     var autoCompleteCapture = true;
     String? pendingCaptureId;
+    var galleryItems = <Map<String, dynamic>>[];
+    var filmRollCaptures = <String, List<Map<String, dynamic>>>{};
 
     Future<void> dispatchCameraStatusEvent(Map<String, dynamic> event) async {
       const codec = StandardMethodCodec();
@@ -46,6 +50,8 @@ void main() {
       captureCounter = 0;
       autoCompleteCapture = true;
       pendingCaptureId = null;
+      galleryItems = <Map<String, dynamic>>[];
+      filmRollCaptures = <String, List<Map<String, dynamic>>>{};
       SharedPreferences.setMockInitialValues({});
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(permissionChannel, (
@@ -102,7 +108,7 @@ void main() {
               case 'loadCapturedImageBytes':
                 return testImageBytes;
               case 'listGalleryMedia':
-                return const [];
+                return galleryItems;
               case 'loadGalleryThumbnailBytes':
                 return testImageBytes;
               case 'openMediaInGallery':
@@ -112,7 +118,12 @@ void main() {
               case 'deleteGalleryMedia':
                 return null;
               case 'listFilmRollCaptures':
-                return const [];
+                final arguments = methodCall.arguments;
+                if (arguments is! Map<dynamic, dynamic>) return const [];
+                final rollId = arguments['filmRollId'];
+                return rollId is String
+                    ? filmRollCaptures[rollId] ?? const []
+                    : const [];
             }
             return null;
           });
@@ -164,6 +175,234 @@ void main() {
       // Gallery screen shows its AppBar title.
       expect(find.text('RANA GALLERY'), findsWidgets);
     });
+
+    testWidgets('roll detail route loads chronological Film Roll frames '
+        'and opens the viewer', (WidgetTester tester) async {
+      final roll = FilmRoll(
+        id: 'roll-archive',
+        presetId: 'normal',
+        lockedStyle: const RanaStyle(),
+        aspectRatioPlatformValue: 'portrait_3_4',
+        size: FilmRollSize.twelve,
+        exposuresTaken: 2,
+        status: FilmRollStatus.completed,
+        startedAt: DateTime.utc(2026, 7, 10, 9),
+        completedAt: DateTime.utc(2026, 7, 10, 10),
+        coverUri: 'content://rana/roll-frame-101.jpg',
+      );
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'rana.film_rolls.v1': jsonEncode(<Map<String, dynamic>>[roll.toJson()]),
+      });
+      galleryItems = <Map<String, dynamic>>[
+        _galleryItemMap(
+          id: 102,
+          uri: 'content://rana/roll-frame-102.jpg',
+          capturedAt: DateTime.utc(2026, 7, 10, 9, 30),
+        ),
+        _galleryItemMap(
+          id: 101,
+          uri: 'content://rana/roll-frame-101.jpg',
+          capturedAt: DateTime.utc(2026, 7, 10, 9, 10),
+        ),
+      ];
+      filmRollCaptures = <String, List<Map<String, dynamic>>>{
+        roll.id: <Map<String, dynamic>>[
+          <String, dynamic>{
+            'mediaUri': 'content://rana/roll-frame-102.jpg',
+            'capturedAtEpochMs': DateTime.utc(
+              2026,
+              7,
+              10,
+              9,
+              30,
+            ).millisecondsSinceEpoch,
+          },
+          <String, dynamic>{
+            'mediaUri': 'content://rana/roll-frame-101.jpg',
+            'capturedAtEpochMs': DateTime.utc(
+              2026,
+              7,
+              10,
+              9,
+              10,
+            ).millisecondsSinceEpoch,
+          },
+        ],
+      };
+
+      final container = ProviderContainer(
+        overrides: [
+          presetRepositoryProvider.overrideWithValue(
+            const _StaticPresetRepository(<PresetModel>[
+              _navigationNormalPreset,
+            ]),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(container: container, child: const RanaApp()),
+      );
+      await tester.pump(const Duration(milliseconds: 1300));
+      await tester.pumpAndSettle();
+
+      container.read(appRouterProvider).go(AppRoutes.rollDetail(roll.id));
+      for (
+        var attempt = 0;
+        attempt < 20 &&
+            find
+                .byKey(const ValueKey<String>('roll-detail-tile-101'))
+                .evaluate()
+                .isEmpty;
+        attempt += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      expect(
+        find.byKey(const ValueKey<String>('roll-detail-screen')),
+        findsOneWidget,
+      );
+      expect(find.text('Normal'), findsOneWidget);
+      expect(find.text('2/12'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('roll-detail-tile-101')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('roll-detail-tile-101')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('1 / 2'), findsOneWidget);
+    });
+
+    testWidgets('unknown roll route returns safely to Rolls', (
+      WidgetTester tester,
+    ) async {
+      final container = ProviderContainer(
+        overrides: [
+          presetRepositoryProvider.overrideWithValue(
+            const _StaticPresetRepository(<PresetModel>[
+              _navigationNormalPreset,
+            ]),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(container: container, child: const RanaApp()),
+      );
+      await tester.pump(const Duration(milliseconds: 1300));
+      await tester.pumpAndSettle();
+
+      container
+          .read(appRouterProvider)
+          .go(AppRoutes.rollDetail('missing-roll'));
+      for (
+        var attempt = 0;
+        attempt < 20 &&
+            find
+                .byKey(const ValueKey<String>('roll-detail-not-found'))
+                .evaluate()
+                .isEmpty;
+        attempt += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      expect(
+        find.byKey(const ValueKey<String>('roll-detail-not-found')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey<String>('roll-detail-show-rolls-button')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('RANA GALLERY'), findsWidgets);
+      expect(
+        container.read(galleryControllerProvider).viewMode,
+        GalleryViewMode.rolls,
+      );
+    });
+
+    testWidgets(
+      'roll detail retains archive metadata when frames are missing',
+      (WidgetTester tester) async {
+        final roll = FilmRoll(
+          id: 'roll-without-photos',
+          presetId: 'normal',
+          lockedStyle: const RanaStyle(),
+          aspectRatioPlatformValue: 'portrait_3_4',
+          size: FilmRollSize.twelve,
+          exposuresTaken: 1,
+          status: FilmRollStatus.completed,
+          startedAt: DateTime.utc(2026, 7, 11, 9),
+          completedAt: DateTime.utc(2026, 7, 11, 10),
+          coverUri: 'content://rana/missing-roll-frame.jpg',
+        );
+        SharedPreferences.setMockInitialValues(<String, Object>{
+          'rana.film_rolls.v1': jsonEncode(<Map<String, dynamic>>[
+            roll.toJson(),
+          ]),
+        });
+        filmRollCaptures = <String, List<Map<String, dynamic>>>{
+          roll.id: <Map<String, dynamic>>[
+            <String, dynamic>{
+              'mediaUri': 'content://rana/missing-roll-frame.jpg',
+              'capturedAtEpochMs': DateTime.utc(
+                2026,
+                7,
+                11,
+                9,
+              ).millisecondsSinceEpoch,
+            },
+          ],
+        };
+
+        final container = ProviderContainer(
+          overrides: [
+            presetRepositoryProvider.overrideWithValue(
+              const _StaticPresetRepository(<PresetModel>[
+                _navigationNormalPreset,
+              ]),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const RanaApp(),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 1300));
+        await tester.pumpAndSettle();
+
+        container.read(appRouterProvider).go(AppRoutes.rollDetail(roll.id));
+        for (
+          var attempt = 0;
+          attempt < 20 &&
+              find
+                  .byKey(const ValueKey<String>('roll-detail-empty'))
+                  .evaluate()
+                  .isEmpty;
+          attempt += 1
+        ) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+
+        expect(find.text('Normal'), findsOneWidget);
+        expect(find.text('1/12'), findsOneWidget);
+        expect(find.text('ENDED EARLY'), findsOneWidget);
+        expect(find.text('1 FRAME UNAVAILABLE'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey<String>('roll-detail-empty')),
+          findsOneWidget,
+        );
+      },
+    );
 
     testWidgets('tapping Settings cog navigates to Settings Screen', (
       WidgetTester tester,
@@ -485,6 +724,23 @@ Uint8List _testImageBytes() => base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMA'
   'ASsJTYQAAAAASUVORK5CYII=',
 );
+
+Map<String, dynamic> _galleryItemMap({
+  required int id,
+  required String uri,
+  required DateTime capturedAt,
+}) => <String, dynamic>{
+  'id': id,
+  'contentUri': uri,
+  'displayName': 'Rana_$id.jpg',
+  'dateTaken': capturedAt.millisecondsSinceEpoch,
+  'dateAdded': capturedAt.millisecondsSinceEpoch,
+  'width': 4032,
+  'height': 3024,
+  'sizeBytes': 1024000,
+  'mimeType': 'image/jpeg',
+  'relativePath': 'Pictures/Rana/',
+};
 
 class _EmptyPresetRepository implements PresetRepository {
   const _EmptyPresetRepository();
