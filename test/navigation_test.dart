@@ -186,6 +186,69 @@ void main() {
       expect(find.text('RANA GALLERY'), findsWidgets);
     });
 
+    testWidgets(
+      'camera controls stay balanced and preset selector stays compact',
+      (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(const Size(320, 720));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(const ProviderScope(child: RanaApp()));
+        await tester.pump(const Duration(milliseconds: 1300));
+        await tester.pumpAndSettle();
+
+        final controls = find.byKey(
+          const ValueKey<String>('camera-bottom-controls'),
+        );
+        final gallery = find.byKey(
+          const ValueKey<String>('camera-gallery-action'),
+        );
+        final film = find.byKey(const ValueKey<String>('camera-film-action'));
+        final shutter = find.byKey(
+          const ValueKey<String>('camera-shutter-button'),
+        );
+        final reset = find.byKey(const ValueKey<String>('camera-reset-action'));
+        final style = find.byKey(const ValueKey<String>('camera-style-action'));
+
+        final galleryRect = tester.getRect(gallery);
+        final filmRect = tester.getRect(film);
+        final shutterRect = tester.getRect(shutter);
+        final resetRect = tester.getRect(reset);
+        final styleRect = tester.getRect(style);
+
+        expect(galleryRect.center.dx, lessThan(filmRect.center.dx));
+        expect(filmRect.center.dx, lessThan(shutterRect.center.dx));
+        expect(shutterRect.center.dx, lessThan(resetRect.center.dx));
+        expect(resetRect.center.dx, lessThan(styleRect.center.dx));
+        expect(
+          shutterRect.center.dx,
+          closeTo(tester.getCenter(controls).dx, 0.01),
+        );
+
+        for (final sideControl in [gallery, film, reset, style]) {
+          expect(shutterRect.overlaps(tester.getRect(sideControl)), isFalse);
+        }
+
+        expect(
+          tester
+              .getSize(
+                find.byKey(const ValueKey<String>('camera-preset-selector')),
+              )
+              .height,
+          44,
+        );
+        expect(
+          tester
+              .getSize(
+                find.byKey(
+                  const ValueKey<String>('camera-preset-selector-surface'),
+                ),
+              )
+              .height,
+          34,
+        );
+      },
+    );
+
     testWidgets('roll detail route loads chronological Film Roll frames '
         'and opens the viewer', (WidgetTester tester) async {
       final roll = FilmRoll(

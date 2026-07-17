@@ -1284,68 +1284,82 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     );
   }
 
-  Widget _buildThumbnailButton(CameraState state) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => context.go(AppRoutes.gallery),
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const RadialGradient(
-                center: Alignment(-0.15, -0.2),
-                colors: [
-                  Color(0xFF3E424B),
-                  Color(0xFF202227),
-                  Color(0xFF131416),
-                ],
-                stops: [0.0, 0.7, 1.0],
-              ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.08),
-                width: 0.8,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.28),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: ClipOval(
-              child:
-                  state.lastCapturedPath != null &&
-                      state.lastCapturedPath!.isNotEmpty
-                  ? LatestCaptureThumbnail(imageUri: state.lastCapturedPath)
-                  : const Center(
-                      child: Icon(
-                        Icons.photo_library_outlined,
-                        size: 18,
-                        color: Colors.white70,
-                      ),
+  Widget _buildThumbnailButton(CameraState state) => SizedBox(
+    width: 44,
+    height: 60,
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: const ValueKey<String>('camera-gallery-action'),
+            onTap: () => context.go(AppRoutes.gallery),
+            borderRadius: BorderRadius.circular(22),
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: Center(
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const RadialGradient(
+                      center: Alignment(-0.15, -0.2),
+                      colors: [
+                        Color(0xFF3E424B),
+                        Color(0xFF202227),
+                        Color(0xFF131416),
+                      ],
+                      stops: [0.0, 0.7, 1.0],
                     ),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      width: 0.8,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.28),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child:
+                        state.lastCapturedPath != null &&
+                            state.lastCapturedPath!.isNotEmpty
+                        ? LatestCaptureThumbnail(
+                            imageUri: state.lastCapturedPath,
+                          )
+                        : const Center(
+                            child: Icon(
+                              Icons.photo_library_outlined,
+                              size: 18,
+                              color: Colors.white70,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
-      ),
-      const SizedBox(height: 6),
-      const Text(
-        'GALLERY',
-        maxLines: 1,
-        style: TextStyle(
-          color: Colors.white70,
-          fontSize: 9.5,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.8,
+        const SizedBox(height: 2),
+        const Text(
+          'GALLERY',
+          maxLines: 1,
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 9.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+          ),
         ),
-      ),
-    ],
+      ],
+    ),
   );
   Widget _buildViewfinder(
     CameraState state,
@@ -1465,85 +1479,92 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                                       });
                                     }
                                   : null,
-                              borderRadius: BorderRadius.circular(24),
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  minHeight: 48,
-                                ),
-                                child: AnimatedOpacity(
-                                  duration: const Duration(milliseconds: 180),
-                                  opacity: isRollActive ? 0.45 : 1,
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 7,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(20),
-                                      gradient: const RadialGradient(
-                                        center: Alignment(-0.15, -0.2),
-                                        colors: [
-                                          Color(0xFF3E424B),
-                                          Color(0xFF202227),
-                                          Color(0xFF131416),
+                              borderRadius: BorderRadius.circular(22),
+                              child: SizedBox(
+                                height: 44,
+                                child: Center(
+                                  child: AnimatedOpacity(
+                                    duration: const Duration(milliseconds: 180),
+                                    opacity: isRollActive ? 0.45 : 1,
+                                    child: AnimatedContainer(
+                                      key: const ValueKey<String>(
+                                        'camera-preset-selector-surface',
+                                      ),
+                                      duration: const Duration(
+                                        milliseconds: 200,
+                                      ),
+                                      height: 34,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(17),
+                                        gradient: const RadialGradient(
+                                          center: Alignment(-0.15, -0.2),
+                                          colors: [
+                                            Color(0xFF3E424B),
+                                            Color(0xFF202227),
+                                            Color(0xFF131416),
+                                          ],
+                                          stops: [0, 0.7, 1],
+                                        ),
+                                        border: Border.all(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.09,
+                                          ),
+                                          width: 0.8,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.35,
+                                            ),
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 3),
+                                          ),
                                         ],
-                                        stops: [0, 0.7, 1],
                                       ),
-                                      border: Border.all(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.09,
-                                        ),
-                                        width: 0.8,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.35,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            isRollActive
+                                                ? Icons.lock_outline_rounded
+                                                : Icons
+                                                      .photo_camera_back_rounded,
+                                            size: 12,
+                                            color: const Color(0xFFF39C12),
                                           ),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 3),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          isRollActive
-                                              ? Icons.lock_outline_rounded
-                                              : Icons.photo_camera_back_rounded,
-                                          size: 12,
-                                          color: const Color(0xFFF39C12),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        ConstrainedBox(
-                                          constraints: const BoxConstraints(
-                                            maxWidth: 132,
-                                          ),
-                                          child: Text(
-                                            (activePreset?.name ?? 'NORMAL')
-                                                .toUpperCase(),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: Color(0xFFF39C12),
-                                              fontSize: 9.5,
-                                              fontWeight: FontWeight.w900,
-                                              letterSpacing: 1.5,
-                                              fontFamily: 'monospace',
+                                          const SizedBox(width: 6),
+                                          ConstrainedBox(
+                                            constraints: const BoxConstraints(
+                                              maxWidth: 124,
+                                            ),
+                                            child: Text(
+                                              (activePreset?.name ?? 'NORMAL')
+                                                  .toUpperCase(),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                color: Color(0xFFF39C12),
+                                                fontSize: 9.5,
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: 1.5,
+                                                fontFamily: 'monospace',
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Icon(
-                                          isRollActive
-                                              ? Icons.lock_rounded
-                                              : Icons.keyboard_arrow_up_rounded,
-                                          size: 13,
-                                          color: Colors.white60,
-                                        ),
-                                      ],
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            isRollActive
+                                                ? Icons.lock_rounded
+                                                : Icons
+                                                      .keyboard_arrow_up_rounded,
+                                            size: 13,
+                                            color: Colors.white60,
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1840,37 +1861,24 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           ),
           const SizedBox(height: 16),
 
-          // Shutter Button Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              // Circular thumbnail (left) - tapping opens gallery
-              SizedBox(
-                width: 96,
-                child: Center(child: _buildThumbnailButton(state)),
-              ),
-
-              // Shutter capture button (center)
-              PremiumShutterButton(
-                key: const ValueKey<String>('camera-shutter-button'),
-                isEnabled: canUseShutter,
-                disabledReason: shutterBlockReason,
-                onStatusChanged: (status) {
-                  setState(() {
-                    _shutterStatus = status;
-                  });
-                },
-                onCapture: () => _handleCapture(controller),
-              ),
-
-              // Film, style, and reset controls (right).
-              SizedBox(
-                width: 144,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    Expanded(
-                      child: _BottomPanelActionButton(
+          SizedBox(
+            key: const ValueKey<String>('camera-bottom-controls'),
+            width: double.infinity,
+            height: 100,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned(
+                  left: 8,
+                  width: 96,
+                  top: 0,
+                  bottom: 0,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildThumbnailButton(state),
+                      const SizedBox(width: 8),
+                      _BottomPanelActionButton(
                         actionKey: const ValueKey<String>('camera-film-action'),
                         label: 'FILM',
                         icon: Icons.local_movies_outlined,
@@ -1881,9 +1889,29 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                                   '${rollState.activeRoll!.size.count}'
                             : 'Load Film Roll',
                       ),
-                    ),
-                    Expanded(
-                      child: _BottomPanelActionButton(
+                    ],
+                  ),
+                ),
+                PremiumShutterButton(
+                  key: const ValueKey<String>('camera-shutter-button'),
+                  isEnabled: canUseShutter,
+                  disabledReason: shutterBlockReason,
+                  onStatusChanged: (status) {
+                    setState(() {
+                      _shutterStatus = status;
+                    });
+                  },
+                  onCapture: () => _handleCapture(controller),
+                ),
+                Positioned(
+                  right: 8,
+                  width: 96,
+                  top: 0,
+                  bottom: 0,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _BottomPanelActionButton(
                         actionKey: const ValueKey<String>(
                           'camera-reset-action',
                         ),
@@ -1901,9 +1929,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                             : 'Reset Style',
                         isLocked: isRollActive,
                       ),
-                    ),
-                    Expanded(
-                      child: _BottomPanelActionButton(
+                      const SizedBox(width: 8),
+                      _BottomPanelActionButton(
                         actionKey: const ValueKey<String>(
                           'camera-style-action',
                         ),
@@ -1924,11 +1951,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                             : 'Rana Style',
                         isLocked: isRollActive,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -2050,18 +2077,18 @@ class _BottomPanelActionButton extends StatelessWidget {
         child: InkWell(
           key: actionKey,
           onTap: isEnabled ? onPressed : null,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(22),
           child: SizedBox(
-            width: 48,
-            height: 64,
+            width: 44,
+            height: 60,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  width: 48,
-                  height: 48,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
@@ -2097,7 +2124,7 @@ class _BottomPanelActionButton extends StatelessWidget {
                   ),
                   child: Icon(
                     isLocked ? Icons.lock_outline_rounded : icon,
-                    size: 18,
+                    size: 17,
                     color: isEnabled
                         ? const Color(0xFFF39C12)
                         : (isLocked ? const Color(0xFFF4C44F) : Colors.white24),
