@@ -1,29 +1,20 @@
 package com.rana.app.rana
 
-import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.graphics.Rect
-import android.graphics.SurfaceTexture
 import android.graphics.drawable.BitmapDrawable
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CaptureResult
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
-import android.os.ParcelFileDescriptor
-import android.provider.MediaStore
 import android.view.Display
 import android.view.OrientationEventListener
 import android.view.Surface
-import android.view.TextureView
 import android.view.View
-import android.view.ViewGroup
-import android.widget.FrameLayout
-import android.widget.ImageView
 import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.CameraSelector
@@ -38,47 +29,63 @@ import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.DisplayOrientedMeteringPointFactory
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import androidx.heifwriter.HeifWriter
 import com.google.common.util.concurrent.ListenableFuture
-import io.flutter.plugin.platform.PlatformView
-import java.io.File
 import java.io.IOException
-import java.io.OutputStream
-import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 import java.util.concurrent.CancellationException
-import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 private const val MAX_PENDING_CAPTURE_PIPELINES = 3
 @androidx.annotation.OptIn(markerClass = [ExperimentalCamera2Interop::class])
-class CameraPreviewView(
+internal class RanaCameraEngine(
     private val context: Context,
     private val activity: MainActivity,
-    private val viewId: Int
-) : PlatformView {
+    private val viewId: Int,
+    private val onDisposed: () -> Unit
+) {
 
-    private val previewContainer = FrameLayout(context).apply {
-        layoutParams = ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        )
-    }
-    private val textureView = TextureView(context).apply {
-        layoutParams = ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        )
-    }
-    private val lensSwitchOverlay = ImageView(context).apply {
-        layoutParams = FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        )
-        scaleType = ImageView.ScaleType.CENTER_CROP
-        visibility = View.GONE
-    }
+    private val previewSurface = RanaCameraSurface(
+        context = context,
+        onAvailable = { surfaceTexture, width, height ->
+            val renderer = CameraGlRenderer(
+                context,
+                surfaceTexture,
+                width,
+                height,
+                onInputSurfaceReady = { _ -> tryCompleteInitialization() },
+                onFpsUpdate = activity::dispatchPreviewFps,
+                onGlError = { error ->
+                    android.util.Log.e(
+                        "CameraPreviewView",
+                        "OpenGL ES initialization failed: $error"
+                    )
+                    activity.dispatchRendererError(
+                        "RENDERER_INITIALIZATION_FAILED",
+                        error
+                    )
+                },
+                onPreviewFrameRendered = { bindingGeneration ->
+                    activity.runOnUiThread {
+                        onPreviewFrameRendered(bindingGeneration)
+                    }
+                }
+            )
+            glRenderer = renderer
+            lastRenderRecipe?.let { applyRecipeToRenderer(renderer, it) }
+            tryCompleteInitialization()
+        },
+        onSizeChanged = { width, height ->
+            glRenderer?.setViewportSize(width, height)
+        },
+        onDestroyed = {
+            unbindCamera()
+            glRenderer?.release()
+            glRenderer = null
+        }
+    )
+    private val previewContainer get() = previewSurface.root
+    private val textureView get() = previewSurface.texture
+    private val lensSwitchOverlay get() = previewSurface.lensSwitchOverlay
     private var cameraProvider: ProcessCameraProvider? = null
     private var camera: Camera? = null
     private var imageCapture: ImageCapture? = null
@@ -97,13 +104,15 @@ class CameraPreviewView(
     private var initializedPlatformViewId: Long? = null
     private var firstFrameGeneration = -1
     private var lastSensorTargetRotation: Int? = null
-    private val captureExecutor = Executors.newSingleThreadExecutor()
-    private val processingExecutor = Executors.newSingleThreadExecutor()
-    private val captureStyleMetadataStore = CaptureStyleMetadataStore(context)
-    private val captureSourceStore = CaptureSourceStore(context)
+    private val captureProcessor = RanaCaptureProcessor(MAX_PENDING_CAPTURE_PIPELINES)
+    private val captureExecutor = captureProcessor.captureExecutor
+    private val processingExecutor = captureProcessor.processingExecutor
+    private val metadataRepository = RanaMetadataRepository(context)
+    private val captureStyleMetadataStore = metadataRepository.styles
+    private val captureSourceStore = metadataRepository.sources
+    private val mediaStoreWriter = RanaMediaStoreWriter(context, viewId)
     private val isCapturing = AtomicBoolean(false)
-    private val capturePipelineLimiter =
-        CapturePipelineLimiter(MAX_PENDING_CAPTURE_PIPELINES)
+    private val capturePipelineLimiter = captureProcessor.limiter
     private var previewBindGeneration = 0
     private var backCameraTopology = BackCameraTopology()
     private var activeLensDecision = LensSwitchDecision(LensOutputTarget.LOGICAL_WIDE)
@@ -128,69 +137,18 @@ class CameraPreviewView(
             "CameraPreviewView",
             "Initializing CameraPreviewView: id=$viewId, lens=$currentLensFacing, flash=$currentFlashMode, aspectRatio=$currentAspectRatio"
         )
-        previewContainer.addView(textureView)
-        previewContainer.addView(lensSwitchOverlay)
-        textureView.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-            override fun onSurfaceTextureAvailable(
-                surfaceTexture: SurfaceTexture, width: Int, height: Int
-            ) {
-                val renderer = CameraGlRenderer(
-                    context,
-                    surfaceTexture,
-                    width,
-                    height,
-                    onInputSurfaceReady = { _ -> tryCompleteInitialization() },
-                    onFpsUpdate = { fps ->
-                        activity.dispatchPreviewFps(fps)
-                    },
-                    onGlError = { error ->
-                        android.util.Log.e(
-                            "CameraPreviewView",
-                            "OpenGL ES initialization failed: $error"
-                        )
-                        activity.dispatchRendererError(
-                            "RENDERER_INITIALIZATION_FAILED",
-                            error
-                        )
-                    },
-                    onPreviewFrameRendered = { bindingGeneration ->
-                        activity.runOnUiThread {
-                            onPreviewFrameRendered(bindingGeneration)
-                        }
-                    }
-                )
-                glRenderer = renderer
-                lastRenderRecipe?.let { applyRecipeToRenderer(renderer, it) }
-                tryCompleteInitialization()
-            }
-
-            override fun onSurfaceTextureSizeChanged(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
-                glRenderer?.setViewportSize(width, height)
-            }
-
-            override fun onSurfaceTextureDestroyed(surfaceTexture: SurfaceTexture): Boolean {
-                unbindCamera()
-                glRenderer?.release()
-                glRenderer = null
-                return true
-            }
-
-            override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) {
-                // No-op
-            }
-        }
         startCamera()
     }
 
-    override fun getView(): View {
+    fun getView(): View {
         return previewContainer
     }
 
-    override fun dispose() {
+    fun dispose() {
         activity.runOnUiThread {
             try {
                 activity.logCameraPreviewDisposed(viewId, previewContainer)
-                activity.unregisterCameraPreview(viewId, this)
+                onDisposed()
                 pendingInitialization?.second?.invoke(
                     Result.failure(IllegalStateException("Camera preview disposed"))
                 )
@@ -199,8 +157,7 @@ class CameraPreviewView(
                 glRenderer?.release()
                 glRenderer = null
                 OfflineGlProcessor.release()
-                captureExecutor.shutdown()
-                processingExecutor.shutdown()
+                captureProcessor.release()
             } catch (e: Exception) {
                 // Ignore
             }
@@ -1471,188 +1428,10 @@ class CameraPreviewView(
         bitmap: Bitmap,
         zoomRatio: Float,
         params: OfflineProcessParams
-    ): SavedOutput? {
-        val filenameStem = captureFilenameStem(
-            presetId = params.presetId,
-            isStyleModified = params.isStyleModified,
-            timestamp = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
-                .format(System.currentTimeMillis())
-        )
-        val resolved = resolveOutputQuality(params.outputQuality)
-        val primary = saveBitmapWithProfile(
-            bitmap,
-            zoomRatio,
-            filenameStem,
-            resolved.actual,
-            resolved.fallbackReason
-        )
-        if (primary != null) return primary
-
-        // A codec can fail after passing the static HEVC probe. Preserve the
-        // photo by retrying once as the established High JPEG output.
-        if (resolved.actual == OutputQualityProfile.EFFICIENT_HEIC) {
-            return saveBitmapWithProfile(
-                bitmap,
-                zoomRatio,
-                filenameStem,
-                OutputQualityProfile.HIGH_JPEG,
-                "heic_encode_failed"
-            )
-        }
-        return null
-    }
-
-    private fun saveBitmapWithProfile(
-        bitmap: Bitmap,
-        zoomRatio: Float,
-        filenameStem: String,
-        profile: OutputQualityProfile,
-        fallbackReason: String?
-    ): SavedOutput? {
-        val displayName = "$filenameStem.${profile.extension}"
-        val resolver = context.contentResolver
-        val contentValues = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
-            put(MediaStore.MediaColumns.MIME_TYPE, profile.mimeType)
-            put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis())
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Rana")
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-            } else {
-                val directory = File(
-                    Environment.getExternalStoragePublicDirectory(
-                        Environment.DIRECTORY_PICTURES
-                    ),
-                    "Rana"
-                )
-                if (!directory.exists()) directory.mkdirs()
-                put(
-                    MediaStore.Images.Media.DATA,
-                    File(directory, displayName).absolutePath
-                )
-            }
-        }
-
-        val uri = resolver.insert(
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            contentValues
-        ) ?: return null
-
-        var success = false
-        var bytesWritten = 0L
-        try {
-            when (profile) {
-                OutputQualityProfile.STANDARD_JPEG,
-                OutputQualityProfile.HIGH_JPEG -> {
-                    resolver.openOutputStream(uri)?.use { stream ->
-                        val countingStream = CountingOutputStream(stream)
-                        if (!bitmap.compress(
-                                Bitmap.CompressFormat.JPEG,
-                                profile.encoderQuality,
-                                countingStream
-                            )
-                        ) {
-                            throw IOException("Bitmap compression failed")
-                        }
-                        bytesWritten = countingStream.bytesWritten
-                    } ?: throw IOException("Unable to open MediaStore output stream")
-                }
-                OutputQualityProfile.EFFICIENT_HEIC -> {
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-                        throw IOException("HEIC requires Android 9 or later")
-                    }
-                    resolver.openFileDescriptor(uri, "w")?.use { descriptor ->
-                        writeHeic(bitmap, descriptor, profile.encoderQuality)
-                    } ?: throw IOException("Unable to open MediaStore file descriptor")
-                    bytesWritten = resolver.openAssetFileDescriptor(uri, "r")?.use {
-                        it.length.coerceAtLeast(0L)
-                    } ?: 0L
-                }
-            }
-            CameraQualityAudit.logCaptureSaved(
-                viewId = viewId,
-                bitmap = bitmap,
-                bytesWritten = bytesWritten,
-                zoomRatio = zoomRatio
-            )
-
-            success = true
-            android.util.Log.i(
-                "RanaCaptureQuality",
-                "format=${profile.channelValue} bytes=$bytesWritten " +
-                    "size=${bitmap.width}x${bitmap.height} fallback=$fallbackReason"
-            )
-            return SavedOutput(uri, profile, bytesWritten, fallbackReason)
-        } catch (e: Exception) {
-            android.util.Log.e("CameraPreviewView", "Failed to save capture", e)
-            return null
-        } finally {
-            if (!success) resolver.delete(uri, null, null)
-        }
-    }
+    ): RanaSavedOutput? = mediaStoreWriter.save(bitmap, zoomRatio, params)
 
     private fun publishCapture(uri: Uri) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
-        val publishValues = ContentValues().apply {
-            put(MediaStore.Images.Media.IS_PENDING, 0)
-        }
-        val updated = context.contentResolver.update(
-            uri,
-            publishValues,
-            null,
-            null
-        )
-        if (updated != 1) {
-            throw IOException("Unable to publish MediaStore capture")
-        }
-    }
-
-    private fun writeHeic(
-        bitmap: Bitmap,
-        descriptor: ParcelFileDescriptor,
-        quality: Int
-    ) {
-        val writer = HeifWriter.Builder(
-            descriptor.fileDescriptor,
-            bitmap.width,
-            bitmap.height,
-            HeifWriter.INPUT_MODE_BITMAP
-        )
-            .setQuality(quality)
-            .setMaxImages(1)
-            .build()
-        try {
-            writer.start()
-            writer.addBitmap(bitmap)
-            writer.stop(10_000)
-        } finally {
-            writer.close()
-        }
-    }
-
-    private class CountingOutputStream(
-        private val delegate: OutputStream
-    ) : OutputStream() {
-        var bytesWritten: Long = 0
-            private set
-
-        override fun write(b: Int) {
-            delegate.write(b)
-            bytesWritten += 1
-        }
-
-        override fun write(b: ByteArray, off: Int, len: Int) {
-            delegate.write(b, off, len)
-            bytesWritten += len.toLong()
-        }
-
-        override fun flush() {
-            delegate.flush()
-        }
-
-        override fun close() {
-            delegate.close()
-        }
+        mediaStoreWriter.publish(uri)
     }
 
     private fun Bitmap.safeRecycle() {
@@ -1746,13 +1525,6 @@ class CameraPreviewView(
         val outputHeight: Int = 0,
         val fileSizeBytes: Long = 0,
         val fallbackReason: String? = null
-    )
-
-    private data class SavedOutput(
-        val uri: Uri,
-        val profile: OutputQualityProfile,
-        val fileSizeBytes: Long,
-        val fallbackReason: String?
     )
 
     private data class DecodedCapture(

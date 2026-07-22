@@ -71,7 +71,7 @@ class MainActivity : FlutterActivity() {
     }
     private var pendingDeleteResult: MethodChannel.Result? = null
     private var pendingDeleteUri: Uri? = null
-    var activePreviewView: CameraPreviewView? = null
+    internal var activePreviewView: CameraPreviewView? = null
         private set
     private val cameraPreviewRegistry = CameraPreviewRegistry<CameraPreviewView>()
     private lateinit var cameraFlutterApi: RanaCameraFlutterApi
@@ -117,7 +117,7 @@ class MainActivity : FlutterActivity() {
         )
         val messenger = flutterEngine.dartExecutor.binaryMessenger
         cameraFlutterApi = RanaCameraFlutterApi(messenger)
-        RanaCameraHostApi.setUp(messenger, PigeonCameraHostApi())
+        RanaCameraHostApi.setUp(messenger, RanaCameraHost(this))
 
         // Gallery/media operations and debug-only compatibility tooling.
         MethodChannel(messenger, METHOD_CHANNEL).setMethodCallHandler { call, result ->
@@ -620,316 +620,49 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private inner class PigeonCameraHostApi : RanaCameraHostApi {
-        override fun initializeCamera(
-            request: InitializeCameraRequest,
-            callback: (Result<CameraOperationResult>) -> Unit
-        ) {
-            val preview = try {
-                cameraPreviewRegistry.resolveOrThrow(request.platformViewId)
-            } catch (failure: Throwable) {
-                logWindowState("initializeCamera(stale-view-${request.platformViewId})")
-                callback(Result.failure(failure))
-                return
-            }
-            activePreviewView = preview
-            logWindowState("initializeCamera(${request.platformViewId})", preview.getView())
-            preview.initialize(request, callback)
-        }
-
-        override fun releaseCamera(): CameraOperationResult {
-            activePreviewView?.unbindCamera()
-            return CameraOperationResult(status = "released")
-        }
-
-        override fun getOutputCapabilities(): OutputCapabilitiesMessage {
-            val capabilities = outputCapabilities()
-            return OutputCapabilitiesMessage(
-                isHeicSupported = capabilities.isHeicSupported,
-                unavailableReason = capabilities.unavailableReason
-            )
-        }
-
-        override fun getPermissionCapabilities(): PermissionCapabilitiesMessage =
-            PermissionCapabilitiesMessage(
-                requiresLegacyStorageForCapture =
-                    Build.VERSION.SDK_INT <= Build.VERSION_CODES.P,
-                galleryReadPermission = if (
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-                ) {
-                    "photos"
-                } else {
-                    "storage"
-                }
-            )
-
-        override fun applyRecipe(recipe: RenderRecipeMessage): CameraOperationResult {
-            requireActivePreview().applyRecipe(recipe.toDomainRecipe())
-            return CameraOperationResult(status = "preset_selected")
-        }
-
-        override fun beginCapture(
-            request: CaptureRequestMessage,
-            callback: (Result<CaptureAcceptedMessage>) -> Unit
-        ) {
-            val preview = try {
-                requireActivePreview()
-            } catch (failure: Throwable) {
-                callback(Result.failure(failure))
-                return
-            }
-            val params = try {
-                request.recipe.toDomainRecipe().toOfflineProcessParams(request.filmRollId)
-            } catch (failure: Throwable) {
-                callback(Result.failure(failure))
-                return
-            }
-            val captureId =
-                "capture-${System.currentTimeMillis()}-${captureSequence.incrementAndGet()}"
-            val startedAt = SystemClock.elapsedRealtime()
-            callback(
-                Result.success(
-                    CaptureAcceptedMessage(
-                        status = "capture_started",
-                        captureId = captureId
-                    )
-                )
-            )
-            dispatchCaptureProgress(captureId, "native_request", startedAt)
-            preview.takePicture(
-                params,
-                captureId = captureId,
-                onProgress = { phase ->
-                    dispatchCaptureProgress(captureId, phase, startedAt)
-                }
-            ) { success, uri, quality, errorCode, errorMessage ->
-                if (success && uri != null) {
-                    dispatchCaptureCompleted(captureId, uri, quality, startedAt)
-                } else {
-                    dispatchCaptureFailed(
-                        captureId,
-                        errorCode ?: "CAPTURE_FAILED",
-                        errorMessage ?: "Unknown error",
-                        startedAt
-                    )
-                }
-            }
-        }
-
-        override fun executeCapture(
-            request: CaptureRequestMessage,
-            callback: (Result<CaptureResultMessage>) -> Unit
-        ) {
-            val preview = try {
-                requireActivePreview()
-            } catch (failure: Throwable) {
-                callback(Result.failure(failure))
-                return
-            }
-            val params = try {
-                request.recipe.toDomainRecipe().toOfflineProcessParams(request.filmRollId)
-            } catch (failure: Throwable) {
-                callback(Result.failure(failure))
-                return
-            }
-            preview.takePicture(params) { success, uri, quality, errorCode, errorMessage ->
-                if (success) {
-                    callback(Result.success(quality.toPigeonCaptureResult("captured", uri)))
-                } else {
-                    callback(
-                        Result.failure(
-                            FlutterError(
-                                errorCode ?: "CAPTURE_FAILED",
-                                errorMessage ?: "Unknown error",
-                                null
-                            )
-                        )
-                    )
-                }
-            }
-        }
-
-        override fun setFlashMode(flashMode: String): CameraOperationResult {
-            val nativeMode = when (flashMode) {
-                "on" -> androidx.camera.core.ImageCapture.FLASH_MODE_ON
-                "auto" -> androidx.camera.core.ImageCapture.FLASH_MODE_AUTO
-                else -> androidx.camera.core.ImageCapture.FLASH_MODE_OFF
-            }
-            requireActivePreview().setFlashMode(nativeMode)
-            return CameraOperationResult(status = "flash_set")
-        }
-
-        override fun setZoomRatio(
-            zoomRatio: Double,
-            callback: (Result<CameraOperationResult>) -> Unit
-        ) {
-            val preview = try {
-                requireActivePreview()
-            } catch (failure: Throwable) {
-                callback(Result.failure(failure))
-                return
-            }
-            preview.setZoomRatio(zoomRatio.toFloat()) { payload, errorCode, errorMessage ->
-                if (payload != null) {
-                    callback(Result.success(payload.toOperationResult()))
-                } else {
-                    callback(
-                        Result.failure(
-                            FlutterError(
-                                errorCode ?: "ZOOM_FAILED",
-                                errorMessage ?: "Unable to set camera zoom",
-                                null
-                            )
-                        )
-                    )
-                }
-            }
-        }
-
-        override fun setFocusAndMetering(x: Double, y: Double) {
-            requireActivePreview().setFocusAndMetering(x.toFloat(), y.toFloat())
-        }
-
-        override fun cancelFocusAndMetering() {
-            requireActivePreview().cancelFocusAndMetering()
-        }
-
-        override fun toggleLens(currentLens: String): CameraOperationResult {
-            val preview = requireActivePreview()
-            val targetLens = if (currentLens == "back") {
-                CameraSelector.LENS_FACING_FRONT
-            } else {
-                CameraSelector.LENS_FACING_BACK
-            }
-            preview.setLensFacing(targetLens)
-            val lens = if (targetLens == CameraSelector.LENS_FACING_BACK) "back" else "front"
-            return preview.zoomStateFields(USER_MIN_ZOOM_RATIO).toOperationResult(
-                status = "lens_toggled",
-                lens = lens
-            )
-        }
-
-        override fun setAspectRatio(aspectRatio: String): CameraOperationResult {
-            val preview = requireActivePreview()
-            preview.setAspectRatio(aspectRatio)
-            return preview.zoomStateFields().toOperationResult(
-                status = "aspect_ratio_set",
-                aspectRatio = aspectRatio,
-                label = CameraAspectRatio.fromChannelValue(aspectRatio).label
-            )
-        }
-
-        override fun loadCapturedImageBytes(
-            uri: String,
-            targetSize: Long?,
-            callback: (Result<ByteArray>) -> Unit
-        ) {
-            if (uri.isBlank()) {
-                callback(Result.failure(FlutterError("INVALID_URI", "Image URI is required")))
-                return
-            }
-            mediaStoreExecutor.execute {
-                callback(
-                    runCatching {
-                        loadCapturedImageBytes(Uri.parse(uri), targetSize?.toInt())
-                    }.mapFailure("LOAD_IMAGE_FAILED")
-                )
-            }
-        }
-
-        override fun listFilmRollCaptures(
-            filmRollId: String,
-            callback: (Result<List<FilmRollCaptureMessage>>) -> Unit
-        ) {
-            if (filmRollId.isBlank()) {
-                callback(
-                    Result.failure(
-                        FlutterError("INVALID_FILM_ROLL_ID", "Film Roll ID is required")
-                    )
-                )
-                return
-            }
-            mediaStoreExecutor.execute {
-                callback(
-                    runCatching {
-                        captureStyleMetadataStore.listFilmRollCaptures(filmRollId).map {
-                            FilmRollCaptureMessage(it.mediaUri, it.capturedAtEpochMs)
-                        }
-                    }.mapFailure("LIST_FILM_ROLL_CAPTURES_FAILED")
-                )
-            }
-        }
-
-        override fun getCaptureStyleMetadata(
-            uri: String,
-            callback: (Result<CaptureStyleMetadataMessage?>) -> Unit
-        ) {
-            if (uri.isBlank()) {
-                callback(Result.failure(FlutterError("INVALID_URI", "Image URI is required")))
-                return
-            }
-            mediaStoreExecutor.execute {
-                callback(
-                    runCatching {
-                        captureStyleMetadataStore.find(uri)?.toPigeonMessage()
-                    }.mapFailure("GET_METADATA_FAILED")
-                )
-            }
-        }
-
-        override fun getCaptureStyleMetadataBatch(
-            uris: List<String>,
-            callback: (Result<List<CaptureStyleMetadataMessage>>) -> Unit
-        ) {
-            mediaStoreExecutor.execute {
-                callback(
-                    runCatching {
-                        captureStyleMetadataStore.findBatch(uris).map {
-                            it.toPigeonMessage()
-                        }
-                    }.mapFailure("GET_METADATA_BATCH_FAILED")
-                )
-            }
-        }
-
-        override fun openMediaInGallery(uri: String) {
-            if (uri.isBlank()) throw FlutterError("INVALID_URI", "Image URI is required")
-            launchMediaInGallery(Uri.parse(uri))
-        }
-    }
-
-    private fun requireActivePreview(): CameraPreviewView = activePreviewView
-        ?: throw FlutterError("CAMERA_NOT_READY", "Camera preview not initialized")
-
-    private fun Map<String, Any>.toOperationResult(
-        status: String = this["status"] as? String ?: "zoom_set",
-        lens: String? = null,
-        aspectRatio: String? = null,
-        label: String? = null
-    ): CameraOperationResult = CameraOperationResult(
-        status = status,
-        lens = lens,
-        aspectRatio = aspectRatio,
-        label = label,
-        zoomRatio = (this["zoomRatio"] as? Number)?.toDouble(),
-        minZoomRatio = (this["minZoomRatio"] as? Number)?.toDouble(),
-        maxZoomRatio = (this["maxZoomRatio"] as? Number)?.toDouble(),
-        isLikelyDigitalZoom = this["isLikelyDigitalZoom"] as? Boolean,
-        shouldWarnDigitalZoom = this["shouldWarnDigitalZoom"] as? Boolean,
-        hasTelephotoCandidate = this["hasTelephotoCandidate"] as? Boolean,
-        zoomQualityLabel = this["zoomQualityLabel"] as? String
-    )
-
-    private fun <T> Result<T>.mapFailure(code: String): Result<T> = fold(
-        onSuccess = Result.Companion::success,
-        onFailure = { failure ->
-            Result.failure(FlutterError(code, failure.message, null))
-        }
-    )
-
     private fun offlineParamsFromArgs(arguments: Any?): OfflineProcessParams {
         return offlineProcessParamsFromArguments(arguments)
     }
+
+    internal fun resolveAndActivateCameraPreview(platformViewId: Long): CameraPreviewView {
+        val preview = try {
+            cameraPreviewRegistry.resolveOrThrow(platformViewId)
+        } catch (failure: Throwable) {
+            logWindowState("initializeCamera(stale-view-$platformViewId)")
+            throw failure
+        }
+        activePreviewView = preview
+        logWindowState("initializeCamera($platformViewId)", preview.getView())
+        return preview
+    }
+
+    internal fun requireActiveCameraPreview(): CameraPreviewView = activePreviewView
+        ?: throw FlutterError("CAMERA_NOT_READY", "Camera preview not initialized")
+
+    internal fun releaseActiveCameraPreview() {
+        activePreviewView?.unbindCamera()
+    }
+
+    internal fun nextCaptureId(): String =
+        "capture-${System.currentTimeMillis()}-${captureSequence.incrementAndGet()}"
+
+    internal fun executeMediaTask(task: () -> Unit) {
+        mediaStoreExecutor.execute(task)
+    }
+
+    internal fun readCapturedImageBytes(uri: Uri, targetSize: Int?): ByteArray =
+        loadCapturedImageBytes(uri, targetSize)
+
+    internal fun readFilmRollCaptures(filmRollId: String): List<FilmRollCaptureRecord> =
+        captureStyleMetadataStore.listFilmRollCaptures(filmRollId)
+
+    internal fun readCaptureStyleMetadata(uri: String): CaptureStyleMetadata? =
+        captureStyleMetadataStore.find(uri)
+
+    internal fun readCaptureStyleMetadataBatch(uris: List<String>): List<CaptureStyleMetadata> =
+        captureStyleMetadataStore.findBatch(uris)
+
+    internal fun openMediaInGallery(uri: Uri) = launchMediaInGallery(uri)
 
     fun dispatchPreviewFps(fps: Int) {
         handler.post {
@@ -945,7 +678,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun dispatchCaptureProgress(
+    internal fun dispatchCaptureProgress(
         captureId: String,
         phase: String,
         startedAt: Long
@@ -966,10 +699,10 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun dispatchCaptureCompleted(
+    internal fun dispatchCaptureCompleted(
         captureId: String,
         uri: String?,
-        qualityMetadata: CameraPreviewView.CaptureQualityMetadata?,
+        qualityMetadata: RanaCameraEngine.CaptureQualityMetadata?,
         startedAt: Long
     ) {
         val elapsedMs = SystemClock.elapsedRealtime() - startedAt
@@ -1001,7 +734,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun dispatchCaptureFailed(
+    internal fun dispatchCaptureFailed(
         captureId: String,
         errorCode: String,
         message: String,

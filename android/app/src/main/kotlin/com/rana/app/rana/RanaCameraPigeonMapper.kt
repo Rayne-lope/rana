@@ -117,7 +117,7 @@ internal fun RenderRecipeV1.toPigeonMessage(): RenderRecipeMessage = RenderRecip
     isStyleModified = isStyleModified
 )
 
-internal fun CameraPreviewView.CaptureQualityMetadata?.toPigeonCaptureResult(
+internal fun RanaCameraEngine.CaptureQualityMetadata?.toPigeonCaptureResult(
     status: String,
     filePath: String?
 ): CaptureResultMessage = CaptureResultMessage(
