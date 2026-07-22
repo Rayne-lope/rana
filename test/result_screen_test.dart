@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rana/core/services/camera_platform_service.dart';
 import 'package:rana/features/camera/view/result_screen.dart';
 
 void main() {
@@ -17,6 +18,7 @@ void main() {
     late Uint8List capturedImageBytes;
 
     setUp(() {
+      CameraPlatformService.useLegacyChannelsForTests = true;
       methodCalls.clear();
       capturedImageBytes = _testImageBytes();
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -40,6 +42,7 @@ void main() {
     });
 
     tearDown(() {
+      CameraPlatformService.useLegacyChannelsForTests = false;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(methodChannel, null);
     });

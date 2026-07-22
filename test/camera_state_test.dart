@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rana/core/providers/preset_provider.dart';
+import 'package:rana/core/services/camera_platform_service.dart';
 import 'package:rana/features/camera/controller/camera_controller.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/film_roll/controller/film_roll_controller.dart';
@@ -86,6 +87,7 @@ void main() {
     }
 
     setUp(() {
+      CameraPlatformService.useLegacyChannelsForTests = true;
       SharedPreferences.setMockInitialValues({});
       log.clear();
       executeCaptureHandler = null;
@@ -224,6 +226,7 @@ void main() {
     });
 
     tearDown(() {
+      CameraPlatformService.useLegacyChannelsForTests = false;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(methodChannel, null);
     });

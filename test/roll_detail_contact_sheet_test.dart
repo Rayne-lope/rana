@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rana/core/services/camera_platform_service.dart';
 import 'package:rana/features/film_roll/model/film_roll.dart';
 import 'package:rana/features/film_roll/widgets/contact_sheet_export.dart';
 import 'package:rana/features/gallery/view/roll_detail_screen.dart';
@@ -21,6 +22,7 @@ void main() {
   late Map<String, List<Map<String, dynamic>>> filmRollCaptures;
 
   setUp(() {
+    CameraPlatformService.useLegacyChannelsForTests = true;
     SharedPreferences.setMockInitialValues(<String, Object>{});
     galleryItems = <Map<String, dynamic>>[];
     filmRollCaptures = <String, List<Map<String, dynamic>>>{};
@@ -45,6 +47,7 @@ void main() {
   });
 
   tearDown(() {
+    CameraPlatformService.useLegacyChannelsForTests = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(cameraChannel, null);
   });

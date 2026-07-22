@@ -56,8 +56,7 @@ private const val MAX_PENDING_CAPTURE_PIPELINES = 3
 class CameraPreviewView(
     private val context: Context,
     private val activity: MainActivity,
-    private val viewId: Int,
-    private val creationParams: Map<String, Any>?
+    private val viewId: Int
 ) : PlatformView {
 
     private val previewContainer = FrameLayout(context).apply {
@@ -86,26 +85,17 @@ class CameraPreviewView(
     private var previewUseCase: Preview? = null
     private var glRenderer: CameraGlRenderer? = null
     private var lastRenderRecipe: RenderRecipeV1? = null
-    private var currentAspectRatio = CameraAspectRatio.fromChannelValue(
-        creationParams?.get("aspectRatio") as? String
-    )
+    private var currentAspectRatio = CameraAspectRatio.PORTRAIT_3_4
 
-    private var currentLensFacing = when (creationParams?.get("lens") as? String) {
-        "front" -> CameraSelector.LENS_FACING_FRONT
-        else -> CameraSelector.LENS_FACING_BACK
-    }
-    private var currentFlashMode = when (creationParams?.get("flashMode") as? String) {
-        "on" -> ImageCapture.FLASH_MODE_ON
-        "auto" -> ImageCapture.FLASH_MODE_AUTO
-        else -> ImageCapture.FLASH_MODE_OFF
-    }
-    private var currentZoomRatio = clampUserZoomRatio(
-        requestedZoomRatio =
-            (creationParams?.get("zoomRatio") as? Number)?.toFloat()
-                ?: USER_MIN_ZOOM_RATIO,
-        nativeMinZoomRatio = null,
-        nativeMaxZoomRatio = null
-    )
+    private var currentLensFacing = CameraSelector.LENS_FACING_BACK
+    private var currentFlashMode = ImageCapture.FLASH_MODE_OFF
+    private var currentZoomRatio = USER_MIN_ZOOM_RATIO
+    private var pendingInitialization: Pair<
+        InitializeCameraRequest,
+        (Result<CameraOperationResult>) -> Unit
+    >? = null
+    private var initializedPlatformViewId: Long? = null
+    private var firstFrameGeneration = -1
     private var lastSensorTargetRotation: Int? = null
     private val captureExecutor = Executors.newSingleThreadExecutor()
     private val processingExecutor = Executors.newSingleThreadExecutor()
@@ -149,7 +139,7 @@ class CameraPreviewView(
                     surfaceTexture,
                     width,
                     height,
-                    onInputSurfaceReady = { _ -> bindPreview() },
+                    onInputSurfaceReady = { _ -> tryCompleteInitialization() },
                     onFpsUpdate = { fps ->
                         activity.dispatchPreviewFps(fps)
                     },
@@ -157,6 +147,10 @@ class CameraPreviewView(
                         android.util.Log.e(
                             "CameraPreviewView",
                             "OpenGL ES initialization failed: $error"
+                        )
+                        activity.dispatchRendererError(
+                            "RENDERER_INITIALIZATION_FAILED",
+                            error
                         )
                     },
                     onPreviewFrameRendered = { bindingGeneration ->
@@ -167,6 +161,7 @@ class CameraPreviewView(
                 )
                 glRenderer = renderer
                 lastRenderRecipe?.let { applyRecipeToRenderer(renderer, it) }
+                tryCompleteInitialization()
             }
 
             override fun onSurfaceTextureSizeChanged(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
@@ -195,9 +190,11 @@ class CameraPreviewView(
         activity.runOnUiThread {
             try {
                 activity.logCameraPreviewDisposed(viewId, previewContainer)
-                if (activity.activePreviewView == this) {
-                    activity.activePreviewView = null
-                }
+                activity.unregisterCameraPreview(viewId, this)
+                pendingInitialization?.second?.invoke(
+                    Result.failure(IllegalStateException("Camera preview disposed"))
+                )
+                pendingInitialization = null
                 unbindCamera()
                 glRenderer?.release()
                 glRenderer = null
@@ -216,11 +213,91 @@ class CameraPreviewView(
             try {
                 cameraProvider = cameraProviderFuture.get()
                 CameraQualityAudit.logBackCameraInventory(context)
-                bindPreview()
+                tryCompleteInitialization()
             } catch (e: Exception) {
-                // Ignore
+                val callback = pendingInitialization?.second
+                pendingInitialization = null
+                callback?.invoke(Result.failure(e))
             }
         }, ContextCompat.getMainExecutor(context))
+    }
+
+    fun initialize(
+        request: InitializeCameraRequest,
+        callback: (Result<CameraOperationResult>) -> Unit
+    ) {
+        if (request.platformViewId != viewId.toLong()) {
+            callback(
+                Result.failure(
+                    FlutterError(
+                        "CAMERA_NOT_READY",
+                        "Camera preview not initialized",
+                        mapOf("platformViewId" to request.platformViewId)
+                    )
+                )
+            )
+            return
+        }
+        currentAspectRatio = CameraAspectRatio.fromChannelValue(request.aspectRatio)
+        currentLensFacing = if (request.lens == "front") {
+            CameraSelector.LENS_FACING_FRONT
+        } else {
+            CameraSelector.LENS_FACING_BACK
+        }
+        currentFlashMode = when (request.flashMode) {
+            "on" -> ImageCapture.FLASH_MODE_ON
+            "auto" -> ImageCapture.FLASH_MODE_AUTO
+            else -> ImageCapture.FLASH_MODE_OFF
+        }
+        currentZoomRatio = clampUserZoomRatio(
+            requestedZoomRatio = request.zoomRatio.toFloat(),
+            nativeMinZoomRatio = null,
+            nativeMaxZoomRatio = null
+        )
+        if (initializedPlatformViewId == request.platformViewId && imageCapture != null) {
+            callback(Result.success(initializationResult()))
+            return
+        }
+        pendingInitialization?.second?.invoke(
+            Result.failure(
+                FlutterError(
+                    "CAMERA_INITIALIZATION_STALE",
+                    "Camera initialization was superseded",
+                    null
+                )
+            )
+        )
+        pendingInitialization = request to callback
+        tryCompleteInitialization()
+    }
+
+    private fun tryCompleteInitialization() {
+        if (cameraProvider == null || glRenderer?.cameraSurfaceTexture == null) return
+        val pending = pendingInitialization ?: return
+        pendingInitialization = null
+        bindPreview()
+        initializedPlatformViewId = pending.first.platformViewId
+        pending.second(Result.success(initializationResult()))
+    }
+
+    private fun initializationResult(): CameraOperationResult {
+        val lens = if (currentLensFacing == CameraSelector.LENS_FACING_FRONT) {
+            "front"
+        } else {
+            "back"
+        }
+        val zoom = zoomStateFields()
+        return CameraOperationResult(
+            status = "initialized",
+            lens = lens,
+            zoomRatio = (zoom["zoomRatio"] as? Number)?.toDouble(),
+            minZoomRatio = (zoom["minZoomRatio"] as? Number)?.toDouble(),
+            maxZoomRatio = (zoom["maxZoomRatio"] as? Number)?.toDouble(),
+            isLikelyDigitalZoom = zoom["isLikelyDigitalZoom"] as? Boolean,
+            shouldWarnDigitalZoom = zoom["shouldWarnDigitalZoom"] as? Boolean,
+            hasTelephotoCandidate = zoom["hasTelephotoCandidate"] as? Boolean,
+            zoomQualityLabel = zoom["zoomQualityLabel"] as? String
+        )
     }
 
     fun bindPreview() {
@@ -675,7 +752,12 @@ class CameraPreviewView(
     }
 
     private fun onPreviewFrameRendered(bindingGeneration: Int) {
-        if (bindingGeneration != previewBindGeneration || !isLensSwitching) return
+        if (bindingGeneration != previewBindGeneration) return
+        if (firstFrameGeneration != bindingGeneration) {
+            firstFrameGeneration = bindingGeneration
+            activity.dispatchPreviewFirstFrame()
+        }
+        if (!isLensSwitching) return
         cancelLensSwitchTimeout()
         isLensSwitching = false
         hideLensSwitchOverlay()
@@ -784,7 +866,10 @@ class CameraPreviewView(
     }
 
     fun setPresetParams(params: Map<String, Any>) {
-        val recipe = RenderRecipeV1.fromMap(params)
+        applyRecipe(RenderRecipeV1.fromMap(params))
+    }
+
+    internal fun applyRecipe(recipe: RenderRecipeV1) {
         lastRenderRecipe = recipe
         val renderer = glRenderer ?: return
         applyRecipeToRenderer(renderer, recipe)
@@ -1577,6 +1662,17 @@ class CameraPreviewView(
     fun unbindCamera() {
         activity.runOnUiThread {
             try {
+                initializedPlatformViewId = null
+                pendingInitialization?.second?.invoke(
+                    Result.failure(
+                        FlutterError(
+                            "CAMERA_RELEASED",
+                            "Camera was released before initialization completed",
+                            null
+                        )
+                    )
+                )
+                pendingInitialization = null
                 previewBindGeneration += 1
                 isLensSwitching = false
                 pendingLensDecision = null

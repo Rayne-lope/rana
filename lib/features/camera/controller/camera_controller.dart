@@ -70,6 +70,19 @@ class CameraController extends _$CameraController {
   /// Triggers asynchronous native initialization and status listening.
   Future<void> initialize() => _lifecycleController.initialize();
 
+  /// Registers the active Android PlatformView before native initialization.
+  void registerPlatformView(int platformViewId) {
+    _platformService.registerPlatformView(
+      CameraPreviewRegistration(
+        platformViewId: platformViewId,
+        aspectRatio: state.aspectRatio.platformValue,
+        lens: state.activeLens.value,
+        flashMode: state.flashMode.name,
+        zoomRatio: state.zoomRatio,
+      ),
+    );
+  }
+
   /// Cycles to the next flash mode (off -> on -> auto).
   Future<void> toggleFlashMode() async {
     if (state.isSelfTimerRunning) return;

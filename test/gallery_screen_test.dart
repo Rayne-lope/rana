@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rana/core/router/app_router.dart';
+import 'package:rana/core/services/camera_platform_service.dart';
 import 'package:rana/features/camera/view/result_screen.dart';
 import 'package:rana/features/film_roll/model/film_roll.dart';
 import 'package:rana/features/gallery/view/gallery_screen.dart';
@@ -22,6 +23,7 @@ void main() {
   const cameraChannel = MethodChannel('com.rana.app/camera_control');
 
   setUp(() {
+    CameraPlatformService.useLegacyChannelsForTests = true;
     SharedPreferences.setMockInitialValues({});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(permissionChannel, (
@@ -42,6 +44,7 @@ void main() {
   });
 
   tearDown(() {
+    CameraPlatformService.useLegacyChannelsForTests = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(permissionChannel, null);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

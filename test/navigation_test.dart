@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rana/core/router/app_router.dart';
+import 'package:rana/core/services/camera_platform_service.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/camera/view/camera_screen.dart';
 import 'package:rana/features/camera/widgets/latest_capture_thumbnail.dart';
@@ -55,6 +56,7 @@ void main() {
     }
 
     setUp(() {
+      CameraPlatformService.useLegacyChannelsForTests = true;
       captureCounter = 0;
       autoCompleteCapture = true;
       pendingCaptureId = null;
@@ -164,6 +166,7 @@ void main() {
     });
 
     tearDown(() {
+      CameraPlatformService.useLegacyChannelsForTests = false;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(permissionChannel, null);
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

@@ -1,0 +1,9 @@
+name: rana_pigeon_tool
+description: Reproducible Pigeon generator isolated from Riverpod codegen.
+publish_to: none
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  pigeon: 27.2.0

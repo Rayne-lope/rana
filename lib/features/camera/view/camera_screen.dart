@@ -321,6 +321,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     }
 
     final controller = ref.read(cameraControllerProvider.notifier);
+    controller.registerPlatformView(platformViewId);
     await controller.initialize();
     if (!mounted ||
         !_isPreviewReady ||
@@ -1848,10 +1849,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                       'camera-preview-${state.aspectRatio.platformValue}-'
                       '$_previewGeneration',
                     ),
-                    aspectRatio: state.aspectRatio,
-                    lens: state.activeLens,
-                    flashMode: state.flashMode,
-                    zoomRatio: state.zoomRatio,
                     onPlatformViewCreated: (platformViewId) {
                       unawaited(
                         _initializePreview(platformViewId, _previewGeneration),
@@ -2340,19 +2337,8 @@ class _ViewfinderGrid extends StatelessWidget {
 }
 
 class _AndroidCameraPreview extends StatelessWidget {
-  const _AndroidCameraPreview({
-    required this.aspectRatio,
-    required this.lens,
-    required this.flashMode,
-    required this.zoomRatio,
-    super.key,
-    this.onPlatformViewCreated,
-  });
+  const _AndroidCameraPreview({super.key, this.onPlatformViewCreated});
 
-  final CameraAspectRatio aspectRatio;
-  final CameraLens lens;
-  final FlashMode flashMode;
-  final double zoomRatio;
   final PlatformViewCreatedCallback? onPlatformViewCreated;
 
   @override
@@ -2360,13 +2346,6 @@ class _AndroidCameraPreview extends StatelessWidget {
     viewType: 'com.rana.app/camera_preview',
     layoutDirection: TextDirection.ltr,
     hitTestBehavior: PlatformViewHitTestBehavior.transparent,
-    creationParams: <String, dynamic>{
-      'aspectRatio': aspectRatio.platformValue,
-      'lens': lens.value,
-      'flashMode': flashMode.name,
-      'zoomRatio': zoomRatio,
-    },
-    creationParamsCodec: const StandardMessageCodec(),
     onPlatformViewCreated: onPlatformViewCreated,
   );
 }
