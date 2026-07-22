@@ -9,6 +9,7 @@ internal data class CaptureStyleMetadata(
     val mediaUri: String,
     val sourceImagePath: String? = null,
     val mediaIsRendered: Boolean = false,
+    val recipeVersion: Int = RENDER_RECIPE_VERSION,
     val presetId: String,
     val undertoneX: Float,
     val undertoneY: Float,
@@ -22,6 +23,7 @@ internal data class CaptureStyleMetadata(
             "mediaUri" to mediaUri,
             "sourceImagePath" to sourceImagePath,
             "mediaIsRendered" to mediaIsRendered,
+            "recipeVersion" to recipeVersion,
             "presetId" to presetId,
             "undertoneX" to undertoneX,
             "undertoneY" to undertoneY,
@@ -49,7 +51,7 @@ internal data class StoredCaptureParameter(
 
 internal object CaptureStyleMetadataSchema {
     const val DATABASE_NAME = "rana_capture_styles.db"
-    const val DATABASE_VERSION = 4
+    const val DATABASE_VERSION = 5
     const val CAPTURES_TABLE = "capture_styles"
     const val PARAMS_TABLE = "capture_style_params"
     const val FILM_ROLL_CAPTURE_SELECTION = "film_roll_id = ?"
@@ -64,6 +66,7 @@ internal object CaptureStyleMetadataSchema {
             source_image_path TEXT,
             media_is_rendered INTEGER NOT NULL DEFAULT 0
                 CHECK (media_is_rendered IN (0, 1)),
+            recipe_version INTEGER NOT NULL,
             preset_id TEXT NOT NULL,
             undertone_x REAL NOT NULL,
             undertone_y REAL NOT NULL,
@@ -150,6 +153,12 @@ internal object CaptureStyleMetadataSchema {
     /** V3 → V4: add optional film_roll_id column for Film Roll feature. */
     val MIGRATE_V3_TO_V4 = listOf(
         "ALTER TABLE $CAPTURES_TABLE ADD COLUMN film_roll_id TEXT"
+    )
+
+    /** V4 → V5: mark legacy flat parameter rows for read-time migration. */
+    val MIGRATE_V4_TO_V5 = listOf(
+        "ALTER TABLE $CAPTURES_TABLE " +
+            "ADD COLUMN recipe_version INTEGER NOT NULL DEFAULT 0"
     )
 }
 
@@ -251,6 +260,9 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
         if (oldVersion < 4) {
             CaptureStyleMetadataSchema.MIGRATE_V3_TO_V4.forEach(db::execSQL)
         }
+        if (oldVersion < 5) {
+            CaptureStyleMetadataSchema.MIGRATE_V4_TO_V5.forEach(db::execSQL)
+        }
     }
 
     fun upsert(metadata: CaptureStyleMetadata) {
@@ -261,6 +273,7 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
                 put("media_uri", metadata.mediaUri)
                 put("source_image_path", metadata.sourceImagePath)
                 put("media_is_rendered", if (metadata.mediaIsRendered) 1 else 0)
+                put("recipe_version", metadata.recipeVersion)
                 put("preset_id", metadata.presetId)
                 put("undertone_x", metadata.undertoneX)
                 put("undertone_y", metadata.undertoneY)
@@ -308,6 +321,7 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
             arrayOf(
                 "source_image_path",
                 "media_is_rendered",
+                "recipe_version",
                 "preset_id",
                 "undertone_x",
                 "undertone_y",
@@ -327,13 +341,14 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
                 mediaUri = mediaUri,
                 sourceImagePath = if (cursor.isNull(0)) null else cursor.getString(0),
                 mediaIsRendered = cursor.getInt(1) != 0,
-                presetId = cursor.getString(2),
-                undertoneX = cursor.getFloat(3),
-                undertoneY = cursor.getFloat(4),
-                createdAtEpochMs = cursor.getLong(5),
-                updatedAtEpochMs = cursor.getLong(6),
+                recipeVersion = migratedRecipeVersion(cursor.getInt(2)),
+                presetId = cursor.getString(3),
+                undertoneX = cursor.getFloat(4),
+                undertoneY = cursor.getFloat(5),
+                createdAtEpochMs = cursor.getLong(6),
+                updatedAtEpochMs = cursor.getLong(7),
                 params = emptyMap(),
-                filmRollId = if (cursor.isNull(7)) null else cursor.getString(7)
+                filmRollId = if (cursor.isNull(8)) null else cursor.getString(8)
             )
         }
 
@@ -372,6 +387,7 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
                 "media_uri",
                 "source_image_path",
                 "media_is_rendered",
+                "recipe_version",
                 "preset_id",
                 "undertone_x",
                 "undertone_y",
@@ -390,13 +406,14 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
                     mediaUri = cursor.getString(0),
                     sourceImagePath = if (cursor.isNull(1)) null else cursor.getString(1),
                     mediaIsRendered = cursor.getInt(2) != 0,
-                    presetId = cursor.getString(3),
-                    undertoneX = cursor.getFloat(4),
-                    undertoneY = cursor.getFloat(5),
-                    createdAtEpochMs = cursor.getLong(6),
-                    updatedAtEpochMs = cursor.getLong(7),
+                    recipeVersion = migratedRecipeVersion(cursor.getInt(3)),
+                    presetId = cursor.getString(4),
+                    undertoneX = cursor.getFloat(5),
+                    undertoneY = cursor.getFloat(6),
+                    createdAtEpochMs = cursor.getLong(7),
+                    updatedAtEpochMs = cursor.getLong(8),
                     params = emptyMap(),
-                    filmRollId = if (cursor.isNull(8)) null else cursor.getString(8)
+                    filmRollId = if (cursor.isNull(9)) null else cursor.getString(9)
                 )
             }
         }
@@ -440,4 +457,9 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
             arrayOf(mediaUri)
         )
     }
+}
+
+private fun migratedRecipeVersion(storedVersion: Int): Int = when (storedVersion) {
+    0, RENDER_RECIPE_VERSION -> RENDER_RECIPE_VERSION
+    else -> throw UnsupportedRenderRecipeVersionException(storedVersion)
 }

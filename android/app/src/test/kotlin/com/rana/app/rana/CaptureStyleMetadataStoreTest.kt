@@ -40,8 +40,8 @@ class CaptureStyleMetadataStoreTest {
     }
 
     @Test
-    fun `version four schema distinguishes rendered media private source and film roll`() {
-        assertEquals(4, CaptureStyleMetadataSchema.DATABASE_VERSION)
+    fun `version five schema stores recipe version and capture context`() {
+        assertEquals(5, CaptureStyleMetadataSchema.DATABASE_VERSION)
         assertTrue(
             CaptureStyleMetadataSchema.CREATE_PARAMS.contains(
                 "FOREIGN KEY (media_uri)"
@@ -67,6 +67,11 @@ class CaptureStyleMetadataStoreTest {
         )
         assertTrue(
             CaptureStyleMetadataSchema.CREATE_CAPTURES.contains("film_roll_id TEXT")
+        )
+        assertTrue(
+            CaptureStyleMetadataSchema.CREATE_CAPTURES.contains(
+                "recipe_version INTEGER NOT NULL"
+            )
         )
     }
 
@@ -100,6 +105,14 @@ class CaptureStyleMetadataStoreTest {
 
         assertFalse(v2ToV3.contains("film_roll_id"))
         assertEquals(1, Regex("film_roll_id").findAll(v3ToV4).count())
+    }
+
+    @Test
+    fun `version five migration marks v4 rows as legacy v0 recipes`() {
+        val migration = CaptureStyleMetadataSchema.MIGRATE_V4_TO_V5.joinToString("\n")
+
+        assertTrue(migration.contains("ALTER TABLE capture_styles"))
+        assertTrue(migration.contains("ADD COLUMN recipe_version INTEGER NOT NULL DEFAULT 0"))
     }
 
     @Test

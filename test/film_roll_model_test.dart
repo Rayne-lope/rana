@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rana/features/film_roll/model/film_roll.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
+import 'package:rana/features/render/model/render_recipe.dart';
 
 void main() {
   final createdAt = DateTime.utc(2026, 7, 15, 16);
@@ -28,6 +29,31 @@ void main() {
     final original = roll(FilmRollSize.twentyFour, exposuresTaken: 7);
 
     expect(FilmRoll.fromJson(original.toJson()), original);
+    expect(original.toJson()['schemaVersion'], currentFilmRollSchemaVersion);
+    expect(original.lockedRecipe.presetId, 'portra');
+  });
+
+  test('Film Roll v1 reconstructs a locked v1 recipe when read', () {
+    final current = roll(FilmRollSize.twelve);
+    final legacy = Map<String, dynamic>.from(current.toJson())
+      ..remove('schemaVersion')
+      ..remove('lockedRecipe');
+
+    final migrated = FilmRoll.fromJson(legacy);
+
+    expect(migrated.lockedRecipe.presetId, current.presetId);
+    expect(migrated.lockedRecipe.aspectRatio, current.aspectRatioPlatformValue);
+    expect(migrated.lockedRecipe.tone, lockedStyle.tone);
+  });
+
+  test('unknown locked recipe is rejected without deleting the roll', () {
+    final stored = roll(FilmRollSize.twelve).toJson();
+    stored['lockedRecipe'] = <String, dynamic>{'recipeVersion': 50};
+
+    expect(
+      () => FilmRoll.fromJson(stored),
+      throwsA(isA<UnsupportedRenderRecipeVersion>()),
+    );
   });
 
   test('FilmRoll preserves terminal archive metadata through JSON', () {

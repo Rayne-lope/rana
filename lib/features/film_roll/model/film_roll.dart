@@ -1,5 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
+import 'package:rana/features/render/model/render_recipe.dart';
+
+const int currentFilmRollSchemaVersion = 2;
+
+final class UnsupportedFilmRollSchemaVersion implements Exception {
+  const UnsupportedFilmRollSchemaVersion(this.version);
+
+  final int version;
+  String get code => 'UNSUPPORTED_FILM_ROLL_SCHEMA';
+}
 
 // ── Domain rules ────────────────────────────────────────────────────────────
 //
@@ -62,7 +72,7 @@ enum FilmRollStatus {
 @immutable
 class FilmRoll {
   /// Main constructor.
-  const FilmRoll({
+  FilmRoll({
     required this.id,
     required this.presetId,
     required this.lockedStyle,
@@ -71,28 +81,65 @@ class FilmRoll {
     required this.exposuresTaken,
     required this.status,
     required this.startedAt,
+    RenderRecipeV1? lockedRecipe,
     this.completedAt,
     this.coverUri,
-  });
+  }) : lockedRecipe =
+           lockedRecipe ??
+           RenderRecipeV1(
+             tone: lockedStyle.tone,
+             color: lockedStyle.color,
+             texture: lockedStyle.textureVal ?? lockedStyle.texture,
+             styleStrength: lockedStyle.styleStrength,
+             undertoneX: lockedStyle.undertoneX,
+             undertoneY: lockedStyle.undertoneY,
+             aspectRatio: aspectRatioPlatformValue,
+             presetId: presetId,
+             isStyleModified: true,
+           );
 
   /// Parses a [FilmRoll] from a JSON map produced by [toJson].
-  factory FilmRoll.fromJson(Map<String, dynamic> json) => FilmRoll(
-    id: json['id'] as String,
-    presetId: json['presetId'] as String,
-    lockedStyle: json['lockedStyle'] is Map<String, dynamic>
+  factory FilmRoll.fromJson(Map<String, dynamic> json) {
+    final schemaVersion = (json['schemaVersion'] as num?)?.toInt() ?? 1;
+    if (schemaVersion < 1 || schemaVersion > currentFilmRollSchemaVersion) {
+      throw UnsupportedFilmRollSchemaVersion(schemaVersion);
+    }
+    final lockedStyle = json['lockedStyle'] is Map<String, dynamic>
         ? RanaStyle.fromJson(json['lockedStyle'] as Map<String, dynamic>)
-        : const RanaStyle(),
-    aspectRatioPlatformValue:
-        json['aspectRatioPlatformValue'] as String? ?? 'portrait_3_4',
-    size: FilmRollSize.fromCount((json['size'] as num?)?.toInt() ?? 36),
-    exposuresTaken: (json['exposuresTaken'] as num?)?.toInt() ?? 0,
-    status: FilmRollStatus.fromString(json['status'] as String?),
-    startedAt: DateTime.parse(json['startedAt'] as String),
-    completedAt: json['completedAt'] != null
-        ? DateTime.parse(json['completedAt'] as String)
-        : null,
-    coverUri: json['coverUri'] as String?,
-  );
+        : const RanaStyle();
+    final presetId = json['presetId'] as String;
+    final aspectRatio =
+        json['aspectRatioPlatformValue'] as String? ?? 'portrait_3_4';
+    final lockedRecipeValue = json['lockedRecipe'];
+    final lockedRecipe = lockedRecipeValue is Map<dynamic, dynamic>
+        ? RenderRecipeV1.fromMap(lockedRecipeValue)
+        : RenderRecipeV1(
+            tone: lockedStyle.tone,
+            color: lockedStyle.color,
+            texture: lockedStyle.textureVal ?? lockedStyle.texture,
+            styleStrength: lockedStyle.styleStrength,
+            undertoneX: lockedStyle.undertoneX,
+            undertoneY: lockedStyle.undertoneY,
+            aspectRatio: aspectRatio,
+            presetId: presetId,
+            isStyleModified: true,
+          );
+    return FilmRoll(
+      id: json['id'] as String,
+      presetId: presetId,
+      lockedStyle: lockedStyle,
+      lockedRecipe: lockedRecipe,
+      aspectRatioPlatformValue: aspectRatio,
+      size: FilmRollSize.fromCount((json['size'] as num?)?.toInt() ?? 36),
+      exposuresTaken: (json['exposuresTaken'] as num?)?.toInt() ?? 0,
+      status: FilmRollStatus.fromString(json['status'] as String?),
+      startedAt: DateTime.parse(json['startedAt'] as String),
+      completedAt: json['completedAt'] != null
+          ? DateTime.parse(json['completedAt'] as String)
+          : null,
+      coverUri: json['coverUri'] as String?,
+    );
+  }
 
   /// Universally unique identifier for this roll (UUID v4).
   final String id;
@@ -105,6 +152,9 @@ class FilmRoll {
   /// The value is stored rather than reconstructed from the current editor
   /// state so an app restart cannot change the recipe of an active roll.
   final RanaStyle lockedStyle;
+
+  /// Full visual recipe frozen when this roll starts (Film Roll schema v2).
+  final RenderRecipeV1 lockedRecipe;
 
   /// Platform aspect-ratio value locked at roll-start time
   /// (e.g. `'portrait_3_4'`, `'square_1_1'`, `'portrait_9_16'`).
@@ -147,9 +197,11 @@ class FilmRoll {
 
   /// Converts this instance to a JSON-serializable map.
   Map<String, dynamic> toJson() => <String, dynamic>{
+    'schemaVersion': currentFilmRollSchemaVersion,
     'id': id,
     'presetId': presetId,
     'lockedStyle': lockedStyle.toJson(),
+    'lockedRecipe': lockedRecipe.toMap(),
     'aspectRatioPlatformValue': aspectRatioPlatformValue,
     'size': size.count,
     'exposuresTaken': exposuresTaken,
@@ -164,6 +216,7 @@ class FilmRoll {
     String? id,
     String? presetId,
     RanaStyle? lockedStyle,
+    RenderRecipeV1? lockedRecipe,
     String? aspectRatioPlatformValue,
     FilmRollSize? size,
     int? exposuresTaken,
@@ -175,6 +228,7 @@ class FilmRoll {
     id: id ?? this.id,
     presetId: presetId ?? this.presetId,
     lockedStyle: lockedStyle ?? this.lockedStyle,
+    lockedRecipe: lockedRecipe ?? this.lockedRecipe,
     aspectRatioPlatformValue:
         aspectRatioPlatformValue ?? this.aspectRatioPlatformValue,
     size: size ?? this.size,
@@ -196,6 +250,7 @@ class FilmRoll {
         other.id == id &&
         other.presetId == presetId &&
         other.lockedStyle == lockedStyle &&
+        other.lockedRecipe == lockedRecipe &&
         other.aspectRatioPlatformValue == aspectRatioPlatformValue &&
         other.size == size &&
         other.exposuresTaken == exposuresTaken &&
@@ -210,6 +265,7 @@ class FilmRoll {
     id,
     presetId,
     lockedStyle,
+    lockedRecipe,
     aspectRatioPlatformValue,
     size,
     exposuresTaken,

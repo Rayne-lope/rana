@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:rana/features/render/model/render_recipe.dart';
 
 @immutable
 class CaptureStyleMetadata {
@@ -8,6 +9,7 @@ class CaptureStyleMetadata {
     required this.undertoneX,
     required this.undertoneY,
     required this.params,
+    this.recipeVersion = currentRenderRecipeVersion,
     this.sourceImagePath,
     this.mediaIsRendered = false,
     this.createdAtEpochMs = 0,
@@ -24,6 +26,9 @@ class CaptureStyleMetadata {
         params: map['params'] != null
             ? Map<String, dynamic>.from(map['params'] as Map<dynamic, dynamic>)
             : const <String, dynamic>{},
+        recipeVersion:
+            (map['recipeVersion'] as num?)?.toInt() ??
+            currentRenderRecipeVersion,
         sourceImagePath: map['sourceImagePath'] as String?,
         mediaIsRendered: map['mediaIsRendered'] as bool? ?? false,
         createdAtEpochMs: (map['createdAtEpochMs'] as num?)?.toInt() ?? 0,
@@ -36,17 +41,25 @@ class CaptureStyleMetadata {
   final double undertoneX;
   final double undertoneY;
   final Map<String, dynamic> params;
+  final int recipeVersion;
   final String? sourceImagePath;
   final bool mediaIsRendered;
   final int createdAtEpochMs;
   final int updatedAtEpochMs;
   final String? filmRollId;
 
+  /// Typed recipe reconstructed from current or legacy-v0 metadata.
+  RenderRecipeV1 get recipe => RenderRecipeV1.fromMap(<String, dynamic>{
+    ...params,
+    'recipeVersion': recipeVersion,
+    'presetId': params['presetId'] ?? presetId,
+    'undertoneX': params['undertoneX'] ?? undertoneX,
+    'undertoneY': params['undertoneY'] ?? undertoneY,
+  });
+
   /// Generates a unique key for LRU caching.
   String get cacheKey {
-    final paramsHash = params.entries
-        .map((e) => '${e.key}:${e.value}')
-        .join(';');
+    final paramsHash = recipe.hashCode;
     return '$mediaUri|$presetId|$undertoneX|$undertoneY|'
         '$updatedAtEpochMs|$paramsHash';
   }
@@ -58,6 +71,7 @@ class CaptureStyleMetadata {
           runtimeType == other.runtimeType &&
           mediaUri == other.mediaUri &&
           presetId == other.presetId &&
+          recipeVersion == other.recipeVersion &&
           undertoneX == other.undertoneX &&
           undertoneY == other.undertoneY &&
           createdAtEpochMs == other.createdAtEpochMs &&
@@ -67,6 +81,7 @@ class CaptureStyleMetadata {
   int get hashCode => Object.hash(
     mediaUri,
     presetId,
+    recipeVersion,
     undertoneX,
     undertoneY,
     createdAtEpochMs,

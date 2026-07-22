@@ -25,13 +25,14 @@ abstract interface class FilmRollRepository {
 ///
 /// Storage keys:
 ///   `rana.film_roll.active`  — single JSON object for the active roll.
-///   `rana.film_rolls.v1`     — JSON array of completed rolls.
+///   `rana.film_rolls.v2`     — JSON array of completed rolls.
 class SharedPreferencesFilmRollRepository implements FilmRollRepository {
   /// Main constructor.
   const SharedPreferencesFilmRollRepository();
 
   static const _activeKey = 'rana.film_roll.active';
-  static const _historyKey = 'rana.film_rolls.v1';
+  static const _historyKey = 'rana.film_rolls.v2';
+  static const _legacyHistoryKey = 'rana.film_rolls.v1';
 
   @override
   Future<FilmRoll?> loadActive() async {
@@ -54,7 +55,8 @@ class SharedPreferencesFilmRollRepository implements FilmRollRepository {
   Future<List<FilmRoll>> loadAll() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_historyKey);
+      final raw =
+          prefs.getString(_historyKey) ?? prefs.getString(_legacyHistoryKey);
       if (raw == null || raw.isEmpty) return const [];
       final dynamic decoded = json.decode(raw);
       if (decoded is! List<dynamic>) return const [];

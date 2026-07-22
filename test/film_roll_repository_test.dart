@@ -85,6 +85,33 @@ void main() {
     expect(await repository.loadAll(), isEmpty);
   });
 
+  test('reads v1 history and rewrites it as schema v2 on next save', () async {
+    final completed = active.copyWith(
+      status: FilmRollStatus.completed,
+      completedAt: DateTime.utc(2026, 7, 15, 17),
+    );
+    final legacy = Map<String, dynamic>.from(completed.toJson())
+      ..remove('schemaVersion')
+      ..remove('lockedRecipe');
+    SharedPreferences.setMockInitialValues({
+      'rana.film_rolls.v1': json.encode(<Map<String, dynamic>>[legacy]),
+    });
+    const repository = SharedPreferencesFilmRollRepository();
+
+    final migrated = (await repository.loadAll()).single;
+    expect(migrated.lockedRecipe.presetId, completed.presetId);
+    await repository.save(migrated);
+
+    final prefs = await SharedPreferences.getInstance();
+    final stored = json.decode(prefs.getString('rana.film_rolls.v2')!) as List;
+    final storedRoll = Map<String, dynamic>.from(stored.single as Map);
+    final storedRecipe = Map<String, dynamic>.from(
+      storedRoll['lockedRecipe'] as Map,
+    );
+    expect(storedRoll['schemaVersion'], currentFilmRollSchemaVersion);
+    expect(storedRecipe['recipeVersion'], 1);
+  });
+
   test('deleting an active roll preserves no grouping record', () async {
     const repository = SharedPreferencesFilmRollRepository();
     await repository.save(active);
