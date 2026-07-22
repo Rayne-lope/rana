@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:rana/features/camera/state/camera_failure.dart';
 
 /// Stateless camera chrome; coordination and controller access stay outside.
 @internal
@@ -101,5 +102,75 @@ final class CameraCaptureFeedbackOverlay extends StatelessWidget {
           ),
         ),
     ],
+  );
+}
+
+@internal
+final class CameraFailureBanner extends StatelessWidget {
+  const CameraFailureBanner({
+    required this.failure,
+    required this.onRecover,
+    required this.onDismiss,
+    super.key,
+  });
+
+  final CameraFailure failure;
+  final VoidCallback onRecover;
+  final VoidCallback onDismiss;
+
+  String get _actionLabel => switch (failure.recoveryAction) {
+    CameraRecoveryAction.openSettings => 'SETTINGS',
+    CameraRecoveryAction.reinitialize => 'RESTART',
+    CameraRecoveryAction.fallbackLens => 'USE 1×',
+    CameraRecoveryAction.freeStorage => 'OK',
+    CameraRecoveryAction.retry => 'RETRY',
+    CameraRecoveryAction.none => 'DISMISS',
+  };
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Align(
+      alignment: Alignment.topCenter,
+      child: Material(
+        key: const ValueKey<String>('camera-failure-banner'),
+        color: const Color(0xF0222328),
+        borderRadius: BorderRadius.circular(14),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFFF4C44F),
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    failure.userMessage,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+                TextButton(
+                  onPressed: failure.isRecoverable ? onRecover : onDismiss,
+                  child: Text(_actionLabel),
+                ),
+                IconButton(
+                  tooltip: 'Dismiss',
+                  onPressed: onDismiss,
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.white54,
+                    size: 18,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 }

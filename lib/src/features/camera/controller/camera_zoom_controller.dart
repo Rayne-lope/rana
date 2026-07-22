@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:rana/core/services/camera_platform_service.dart';
+import 'package:rana/features/camera/state/camera_failure.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 
 /// Owns optimistic zoom state, native dispatch debounce, and stale responses.
@@ -175,7 +176,14 @@ final class CameraZoomController {
       );
     } on Object catch (error) {
       if (generation != _generation) return;
-      _writeState(_readState().copyWith(errorMessage: error.toString()));
+      _writeState(
+        _readState().copyWith(
+          failure: CameraFailure.fromError(
+            error,
+            fallbackCode: CameraFailureCode.physicalLensUnsupported,
+          ),
+        ),
+      );
     }
   }
 

@@ -5,11 +5,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:rana/core/providers/permission_provider.dart';
 import 'package:rana/core/providers/preset_provider.dart';
 import 'package:rana/core/router/app_router.dart';
 import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/camera/controller/camera_controller.dart';
+import 'package:rana/features/camera/state/camera_failure.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/camera/view/permission_screen.dart';
 import 'package:rana/features/camera/widgets/latest_capture_thumbnail.dart';
@@ -685,6 +687,20 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
             showFlash: _showFlash,
             showToast: _showToast,
           ),
+          if (cameraState.failure case final failure?)
+            CameraFailureBanner(
+              failure: failure,
+              onRecover: () {
+                if (failure.recoveryAction ==
+                    CameraRecoveryAction.openSettings) {
+                  unawaited(openAppSettings());
+                  controller.clearFailure();
+                } else {
+                  unawaited(controller.recoverFromFailure());
+                }
+              },
+              onDismiss: controller.clearFailure,
+            ),
         ],
       ),
     );

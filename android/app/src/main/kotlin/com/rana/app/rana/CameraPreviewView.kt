@@ -159,7 +159,7 @@ internal class RanaCameraEngine(
                 OfflineGlProcessor.release()
                 captureProcessor.release()
             } catch (e: Exception) {
-                // Ignore
+                android.util.Log.e("RanaCameraEngine", "Camera disposal failed", e)
             }
         }
     }
@@ -1463,7 +1463,7 @@ internal class RanaCameraEngine(
                 previewUseCase = null
                 imageCapture = null
             } catch (e: Exception) {
-                // Ignore
+                android.util.Log.e("RanaCameraEngine", "Camera release failed", e)
             }
         }
     }
@@ -1494,7 +1494,7 @@ internal class RanaCameraEngine(
                 
                 control.startFocusAndMetering(action)
             } catch (e: Exception) {
-                // Ignore
+                android.util.Log.w("RanaFocusController", "Focus request failed", e)
             }
         }
     }
@@ -1505,7 +1505,7 @@ internal class RanaCameraEngine(
                 val cameraInstance = camera ?: return@runOnUiThread
                 cameraInstance.cameraControl?.cancelFocusAndMetering()
             } catch (e: Exception) {
-                // Ignore
+                android.util.Log.w("RanaFocusController", "Focus cancel failed", e)
             }
         }
     }

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rana/core/providers/preset_provider.dart';
 import 'package:rana/core/services/camera_platform_service.dart';
 import 'package:rana/core/utils/app_logger.dart';
+import 'package:rana/features/camera/state/camera_failure.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/debug/provider/consistency_debug_provider.dart';
 import 'package:rana/features/film_roll/controller/film_roll_controller.dart';
@@ -672,7 +673,10 @@ final class CameraRecipeQueue {
       state = state.copyWith(
         captureStatus: CaptureStatus.idle,
         captureError: e.toString(),
-        errorMessage: e.toString(),
+        failure: CameraFailure.fromError(
+          e,
+          fallbackCode: CameraFailureCode.captureFailed,
+        ),
       );
     }
   }
@@ -800,6 +804,18 @@ final class CameraRecipeQueue {
         _handleCaptureCompleted(event);
       case 'capture_failed':
         _handleCaptureFailed(event);
+      case 'renderer_error':
+        final code = CameraFailureCode.fromWireValue(
+          event['errorCode'] as String? ?? '',
+        );
+        state = state.copyWith(
+          failure: CameraFailure.fromCode(
+            code == CameraFailureCode.unknown
+                ? CameraFailureCode.glRenderFailed
+                : code,
+            developerMessage: event['message'] as String?,
+          ),
+        );
     }
   }
 
@@ -913,6 +929,9 @@ final class CameraRecipeQueue {
         event['message'] as String? ??
         event['errorCode'] as String? ??
         'Capture failed';
+    final failureCode = CameraFailureCode.fromWireValue(
+      event['errorCode'] as String? ?? '',
+    );
     AppLogger.w(
       'RanaCaptureTimeline',
       'captureId=$captureId event=capture_failed '
@@ -927,7 +946,12 @@ final class CameraRecipeQueue {
           : state.activeCaptureId,
       captureElapsedMs: elapsedMs,
       captureError: message,
-      errorMessage: message,
+      failure: CameraFailure.fromCode(
+        failureCode == CameraFailureCode.unknown
+            ? CameraFailureCode.captureFailed
+            : failureCode,
+        developerMessage: message,
+      ),
     );
   }
 

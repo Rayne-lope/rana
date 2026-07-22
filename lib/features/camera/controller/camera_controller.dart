@@ -1,4 +1,5 @@
 import 'package:rana/core/services/camera_platform_service.dart';
+import 'package:rana/features/camera/state/camera_failure.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 import 'package:rana/features/film_roll/model/film_roll.dart';
 import 'package:rana/features/film_roll/model/film_roll_lifecycle.dart';
@@ -91,7 +92,7 @@ class CameraController extends _$CameraController {
       await _platformService.setFlashMode(nextFlash.name);
       state = state.copyWith(flashMode: nextFlash);
     } on Object catch (error) {
-      state = state.copyWith(errorMessage: error.toString());
+      state = state.copyWith(failure: CameraFailure.fromError(error));
     }
   }
 
@@ -112,7 +113,12 @@ class CameraController extends _$CameraController {
         fallbackZoomRatio: userMinZoomRatio,
       );
     } on Object catch (error) {
-      state = state.copyWith(errorMessage: error.toString());
+      state = state.copyWith(
+        failure: CameraFailure.fromError(
+          error,
+          fallbackCode: CameraFailureCode.lensSwitchTimeout,
+        ),
+      );
     }
   }
 
@@ -202,7 +208,7 @@ class CameraController extends _$CameraController {
     try {
       await _platformService.setFocusAndMetering(x, y);
     } on Object catch (error) {
-      state = state.copyWith(errorMessage: error.toString());
+      state = state.copyWith(failure: CameraFailure.fromError(error));
     }
   }
 
@@ -212,7 +218,36 @@ class CameraController extends _$CameraController {
     try {
       await _platformService.cancelFocusAndMetering();
     } on Object catch (error) {
-      state = state.copyWith(errorMessage: error.toString());
+      state = state.copyWith(failure: CameraFailure.fromError(error));
+    }
+  }
+
+  /// Clears a presented structured failure without changing camera state.
+  void clearFailure() {
+    state = state.copyWith(failure: null);
+  }
+
+  /// Executes recovery actions that can be completed inside the camera route.
+  Future<void> recoverFromFailure() async {
+    final failure = state.failure;
+    if (failure == null || !failure.isRecoverable) return;
+    state = state.copyWith(failure: null);
+    switch (failure.recoveryAction) {
+      case CameraRecoveryAction.retry:
+        if (state.isCameraInitialized) {
+          await reapplyActivePreviewParams();
+        } else {
+          await initialize();
+        }
+      case CameraRecoveryAction.reinitialize:
+      case CameraRecoveryAction.fallbackLens:
+        _zoomController.resetPendingRatio(userMinZoomRatio);
+        await releaseCamera();
+        await initialize();
+      case CameraRecoveryAction.none:
+      case CameraRecoveryAction.openSettings:
+      case CameraRecoveryAction.freeStorage:
+        return;
     }
   }
 

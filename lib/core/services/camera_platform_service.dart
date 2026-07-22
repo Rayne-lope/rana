@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:rana/core/utils/app_logger.dart';
+import 'package:rana/features/camera/telemetry/camera_telemetry.dart';
 import 'package:rana/features/preset/model/capture_style_metadata.dart';
 import 'package:rana/features/render/model/render_recipe.dart';
 import 'package:rana/src/platform/rana_camera_api.g.dart' as pigeon;
@@ -386,6 +387,7 @@ final class _CameraFlutterEventHub implements pigeon.RanaCameraFlutterApi {
 
   @override
   void onPreviewMetrics(pigeon.PreviewMetricsMessage event) {
+    CameraTelemetry.instance.record('preview_average_fps', event.fps);
     _events.add(<String, dynamic>{
       'type': 'status_update',
       'fps': event.fps,
@@ -438,6 +440,11 @@ final class _CameraFlutterEventHub implements pigeon.RanaCameraFlutterApi {
 
   @override
   void onTelemetry(pigeon.TelemetryMessage event) {
+    CameraTelemetry.instance.record(
+      event.name,
+      event.value,
+      monotonicTimestampUs: event.monotonicTimestampUs,
+    );
     _events.add(<String, dynamic>{
       'type': 'telemetry',
       'name': event.name,

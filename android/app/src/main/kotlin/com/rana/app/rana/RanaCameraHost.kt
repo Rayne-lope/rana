@@ -18,7 +18,14 @@ internal class RanaCameraHost(private val activity: MainActivity) : RanaCameraHo
             callback(Result.failure(failure))
             return
         }
-        preview.initialize(request, callback)
+        val startedAt = SystemClock.elapsedRealtime()
+        preview.initialize(request) { result ->
+            activity.recordTelemetry(
+                RanaTelemetryMetric.CAMERA_INITIALIZE_MS,
+                (SystemClock.elapsedRealtime() - startedAt).toDouble()
+            )
+            callback(result)
+        }
     }
 
     override fun releaseCamera(): CameraOperationResult {
@@ -71,6 +78,10 @@ internal class RanaCameraHost(private val activity: MainActivity) : RanaCameraHo
         val captureId = activity.nextCaptureId()
         val startedAt = SystemClock.elapsedRealtime()
         callback(Result.success(CaptureAcceptedMessage("capture_started", captureId)))
+        activity.recordTelemetry(
+            RanaTelemetryMetric.CAPTURE_ACCEPT_MS,
+            (SystemClock.elapsedRealtime() - startedAt).toDouble()
+        )
         activity.dispatchCaptureProgress(captureId, "native_request", startedAt)
         preview.takePicture(
             params,

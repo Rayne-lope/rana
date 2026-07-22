@@ -14,6 +14,8 @@ import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Debug
+import android.os.PowerManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -62,6 +64,9 @@ class MainActivity : FlutterActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private val mediaStoreExecutor = Executors.newSingleThreadExecutor()
     private val captureSequence = AtomicInteger(0)
+    private val cameraTelemetry = RanaCameraTelemetry()
+    private val cameraStartupStartedAtMs = SystemClock.elapsedRealtime()
+    private var lastRuntimeTelemetryAtMs = 0L
     private val captureStyleMetadataStore by lazy {
         CaptureStyleMetadataStore(this)
     }
@@ -665,6 +670,8 @@ class MainActivity : FlutterActivity() {
     internal fun openMediaInGallery(uri: Uri) = launchMediaInGallery(uri)
 
     fun dispatchPreviewFps(fps: Int) {
+        recordTelemetry(RanaTelemetryMetric.PREVIEW_AVERAGE_FPS, fps.toDouble())
+        recordRuntimeTelemetry()
         handler.post {
             val event = PreviewMetricsMessage(
                 fps = fps.toLong(),
@@ -706,6 +713,7 @@ class MainActivity : FlutterActivity() {
         startedAt: Long
     ) {
         val elapsedMs = SystemClock.elapsedRealtime() - startedAt
+        recordTelemetry(RanaTelemetryMetric.CAPTURE_PROCESS_MS, elapsedMs.toDouble())
         android.util.Log.d(
             "RanaCaptureTimeline",
             "captureId=$captureId event=capture_completed uri=$uri elapsedMs=$elapsedMs"
@@ -741,6 +749,7 @@ class MainActivity : FlutterActivity() {
         startedAt: Long
     ) {
         val elapsedMs = SystemClock.elapsedRealtime() - startedAt
+        recordTelemetry(RanaTelemetryMetric.CAPTURE_PROCESS_MS, elapsedMs.toDouble())
         android.util.Log.e(
             "RanaCaptureTimeline",
             "captureId=$captureId event=capture_failed code=$errorCode " +
@@ -759,6 +768,10 @@ class MainActivity : FlutterActivity() {
     }
 
     internal fun dispatchPreviewFirstFrame() {
+        recordTelemetry(
+            RanaTelemetryMetric.FIRST_PREVIEW_FRAME_MS,
+            (SystemClock.elapsedRealtime() - cameraStartupStartedAtMs).toDouble()
+        )
         handler.post {
             cameraFlutterApi.onPreviewMetrics(
                 PreviewMetricsMessage(
@@ -777,6 +790,43 @@ class MainActivity : FlutterActivity() {
                 reportFlutterCallbackFailure("renderer_error", it)
             }
         }
+    }
+
+    internal fun recordTelemetry(metric: RanaTelemetryMetric, value: Double) {
+        if (!isDebugBuild || !::cameraFlutterApi.isInitialized) return
+        val sample = cameraTelemetry.record(metric, value) ?: return
+        handler.post {
+            cameraFlutterApi.onTelemetry(
+                TelemetryMessage(
+                    name = sample.name,
+                    monotonicTimestampUs = sample.monotonicTimestampUs,
+                    value = sample.value
+                )
+            ) { reportFlutterCallbackFailure("telemetry", it) }
+        }
+    }
+
+    private fun recordRuntimeTelemetry() {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastRuntimeTelemetryAtMs < 5_000) return
+        lastRuntimeTelemetryAtMs = now
+        val runtime = Runtime.getRuntime()
+        recordTelemetry(
+            RanaTelemetryMetric.MEMORY_JAVA_MB,
+            (runtime.totalMemory() - runtime.freeMemory()).toDouble() / (1024 * 1024)
+        )
+        recordTelemetry(
+            RanaTelemetryMetric.MEMORY_NATIVE_MB,
+            Debug.getNativeHeapAllocatedSize().toDouble() / (1024 * 1024)
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val powerManager = getSystemService(PowerManager::class.java)
+            recordTelemetry(
+                RanaTelemetryMetric.THERMAL_STATUS,
+                powerManager.currentThermalStatus.toDouble()
+            )
+        }
+        recordTelemetry(RanaTelemetryMetric.ACTIVE_RENDER_QUALITY_TIER, 0.0)
     }
 
     private fun reportFlutterCallbackFailure(label: String, result: Result<Unit>) {

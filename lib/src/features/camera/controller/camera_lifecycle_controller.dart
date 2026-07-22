@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:rana/core/services/camera_platform_service.dart';
+import 'package:rana/features/camera/state/camera_failure.dart';
 import 'package:rana/features/camera/state/camera_state.dart';
 
 /// Coordinates native camera initialization, release, and status streaming.
@@ -103,7 +104,9 @@ final class CameraLifecycleController {
       _statusSubscription ??= _platformService.statusStream.listen(
         _handleStatusEvent,
         onError: (Object error) {
-          _writeState(_readState().copyWith(errorMessage: error.toString()));
+          _writeState(
+            _readState().copyWith(failure: CameraFailure.fromError(error)),
+          );
         },
       );
 
@@ -113,7 +116,10 @@ final class CameraLifecycleController {
       _writeState(
         _readState().copyWith(
           isCameraInitialized: false,
-          errorMessage: error.toString(),
+          failure: CameraFailure.fromError(
+            error,
+            fallbackCode: CameraFailureCode.cameraInitializationFailed,
+          ),
         ),
       );
     }
@@ -150,7 +156,14 @@ final class CameraLifecycleController {
       );
     } on Object catch (error) {
       if (lifecycleGeneration != _generation) return;
-      _writeState(_readState().copyWith(errorMessage: error.toString()));
+      _writeState(
+        _readState().copyWith(
+          failure: CameraFailure.fromError(
+            error,
+            fallbackCode: CameraFailureCode.cameraInitializationFailed,
+          ),
+        ),
+      );
     }
   }
 

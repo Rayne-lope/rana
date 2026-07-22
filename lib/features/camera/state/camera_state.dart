@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:rana/features/camera/state/camera_failure.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
 
 const double userMinZoomRatio = 1;
@@ -201,8 +202,9 @@ class CameraState {
     this.captureError,
     this.captureElapsedMs = 0,
     this.lastCaptureOutput,
-    this.errorMessage,
-  });
+    this.failure,
+    String? errorMessage,
+  }) : _compatibilityErrorMessage = errorMessage;
 
   /// Factory constructor for the initial state of the camera.
   factory CameraState.initial() => const CameraState(
@@ -254,7 +256,12 @@ class CameraState {
   final String? captureError;
   final int captureElapsedMs;
   final CaptureOutputMetadata? lastCaptureOutput;
-  final String? errorMessage;
+  final CameraFailure? failure;
+  final String? _compatibilityErrorMessage;
+
+  /// Compatibility view for UI/tests written before structured failures.
+  String? get errorMessage =>
+      failure?.userMessage ?? _compatibilityErrorMessage;
 
   bool get isSelfTimerRunning => selfTimerRemainingSeconds > 0;
 
@@ -300,49 +307,68 @@ class CameraState {
     Object? captureError = _unset,
     int? captureElapsedMs,
     Object? lastCaptureOutput = _unset,
+    Object? failure = _unset,
     Object? errorMessage = _unset,
-  }) => CameraState(
-    flashMode: flashMode ?? this.flashMode,
-    activeLens: activeLens ?? this.activeLens,
-    activePresetId: activePresetId ?? this.activePresetId,
-    aspectRatio: aspectRatio ?? this.aspectRatio,
-    selfTimerMode: selfTimerMode ?? this.selfTimerMode,
-    selfTimerRemainingSeconds:
-        selfTimerRemainingSeconds ?? this.selfTimerRemainingSeconds,
-    captureStatus: captureStatus ?? this.captureStatus,
-    activeFilmRollRecipeStatus:
-        activeFilmRollRecipeStatus ?? this.activeFilmRollRecipeStatus,
-    currentFps: currentFps ?? this.currentFps,
-    isCameraInitialized: isCameraInitialized ?? this.isCameraInitialized,
-    activeStyle: activeStyle ?? this.activeStyle,
-    zoomRatio: zoomRatio ?? this.zoomRatio,
-    minZoomRatio: minZoomRatio ?? this.minZoomRatio,
-    maxZoomRatio: maxZoomRatio ?? this.maxZoomRatio,
-    zoomQualityLabel: zoomQualityLabel ?? this.zoomQualityLabel,
-    hasTelephotoCandidate: hasTelephotoCandidate ?? this.hasTelephotoCandidate,
-    isLikelyDigitalZoom: isLikelyDigitalZoom ?? this.isLikelyDigitalZoom,
-    shouldWarnDigitalZoom: shouldWarnDigitalZoom ?? this.shouldWarnDigitalZoom,
-    physicalCameraCount: physicalCameraCount ?? this.physicalCameraCount,
-    lastCapturedPath: identical(lastCapturedPath, _unset)
-        ? this.lastCapturedPath
-        : lastCapturedPath as String?,
-    activeCaptureId: identical(activeCaptureId, _unset)
-        ? this.activeCaptureId
-        : activeCaptureId as String?,
-    completedCaptureId: identical(completedCaptureId, _unset)
-        ? this.completedCaptureId
-        : completedCaptureId as String?,
-    captureError: identical(captureError, _unset)
-        ? this.captureError
-        : captureError as String?,
-    captureElapsedMs: captureElapsedMs ?? this.captureElapsedMs,
-    lastCaptureOutput: identical(lastCaptureOutput, _unset)
-        ? this.lastCaptureOutput
-        : lastCaptureOutput as CaptureOutputMetadata?,
-    errorMessage: identical(errorMessage, _unset)
-        ? this.errorMessage
-        : errorMessage as String?,
-  );
+  }) {
+    final resolvedFailure = identical(failure, _unset)
+        ? identical(errorMessage, _unset)
+              ? this.failure
+              : switch (errorMessage) {
+                  final String message => CameraFailure.fromLegacyMessage(
+                    message,
+                  ),
+                  _ => null,
+                }
+        : failure as CameraFailure?;
+    final resolvedCompatibilityMessage = identical(errorMessage, _unset)
+        ? identical(failure, _unset)
+              ? _compatibilityErrorMessage
+              : null
+        : null;
+    return CameraState(
+      flashMode: flashMode ?? this.flashMode,
+      activeLens: activeLens ?? this.activeLens,
+      activePresetId: activePresetId ?? this.activePresetId,
+      aspectRatio: aspectRatio ?? this.aspectRatio,
+      selfTimerMode: selfTimerMode ?? this.selfTimerMode,
+      selfTimerRemainingSeconds:
+          selfTimerRemainingSeconds ?? this.selfTimerRemainingSeconds,
+      captureStatus: captureStatus ?? this.captureStatus,
+      activeFilmRollRecipeStatus:
+          activeFilmRollRecipeStatus ?? this.activeFilmRollRecipeStatus,
+      currentFps: currentFps ?? this.currentFps,
+      isCameraInitialized: isCameraInitialized ?? this.isCameraInitialized,
+      activeStyle: activeStyle ?? this.activeStyle,
+      zoomRatio: zoomRatio ?? this.zoomRatio,
+      minZoomRatio: minZoomRatio ?? this.minZoomRatio,
+      maxZoomRatio: maxZoomRatio ?? this.maxZoomRatio,
+      zoomQualityLabel: zoomQualityLabel ?? this.zoomQualityLabel,
+      hasTelephotoCandidate:
+          hasTelephotoCandidate ?? this.hasTelephotoCandidate,
+      isLikelyDigitalZoom: isLikelyDigitalZoom ?? this.isLikelyDigitalZoom,
+      shouldWarnDigitalZoom:
+          shouldWarnDigitalZoom ?? this.shouldWarnDigitalZoom,
+      physicalCameraCount: physicalCameraCount ?? this.physicalCameraCount,
+      lastCapturedPath: identical(lastCapturedPath, _unset)
+          ? this.lastCapturedPath
+          : lastCapturedPath as String?,
+      activeCaptureId: identical(activeCaptureId, _unset)
+          ? this.activeCaptureId
+          : activeCaptureId as String?,
+      completedCaptureId: identical(completedCaptureId, _unset)
+          ? this.completedCaptureId
+          : completedCaptureId as String?,
+      captureError: identical(captureError, _unset)
+          ? this.captureError
+          : captureError as String?,
+      captureElapsedMs: captureElapsedMs ?? this.captureElapsedMs,
+      lastCaptureOutput: identical(lastCaptureOutput, _unset)
+          ? this.lastCaptureOutput
+          : lastCaptureOutput as CaptureOutputMetadata?,
+      failure: resolvedFailure,
+      errorMessage: resolvedCompatibilityMessage,
+    );
+  }
 
   @override
   bool operator ==(Object other) {
@@ -373,7 +399,8 @@ class CameraState {
         other.captureError == captureError &&
         other.captureElapsedMs == captureElapsedMs &&
         other.lastCaptureOutput == lastCaptureOutput &&
-        other.errorMessage == errorMessage;
+        other.failure == failure &&
+        other._compatibilityErrorMessage == _compatibilityErrorMessage;
   }
 
   @override
@@ -403,7 +430,8 @@ class CameraState {
     captureError,
     captureElapsedMs,
     lastCaptureOutput,
-    errorMessage,
+    failure,
+    _compatibilityErrorMessage,
   ]);
 
   @override
@@ -425,5 +453,6 @@ class CameraState {
       'completedCaptureId: $completedCaptureId, '
       'captureElapsedMs: $captureElapsedMs, '
       'lastCaptureOutput: $lastCaptureOutput, '
-      'lastCapturedPath: $lastCapturedPath, errorMessage: $errorMessage)';
+      'lastCapturedPath: $lastCapturedPath, failure: $failure, '
+      'errorMessage: $errorMessage)';
 }
