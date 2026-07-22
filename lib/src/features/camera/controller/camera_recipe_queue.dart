@@ -15,15 +15,9 @@ import 'package:rana/features/film_roll/model/roll_capture_entry.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:rana/features/preset/model/rana_style_mood.dart';
+import 'package:rana/features/render/model/render_recipe.dart';
 import 'package:rana/features/settings/provider/settings_provider.dart';
 import 'package:rana/src/features/camera/controller/camera_recipe_builder.dart';
-
-final class _LockedCaptureRecipe {
-  const _LockedCaptureRecipe({required this.preset, required this.style});
-
-  final PresetModel preset;
-  final RanaStyle style;
-}
 
 /// Serializes camera recipe mutations and owns Film Roll capture reservations.
 @internal
@@ -67,6 +61,7 @@ final class CameraRecipeQueue {
   Future<void> _recipeQueue = Future<void>.value();
   int? _currentPreviewVariant;
   PresetModel? _selectedPreset;
+  RenderRecipeV1? _activeRecipe;
   final Set<String> _pendingCaptureIds = <String>{};
   final Map<String, FilmRollExposureReservation> _rollReservations =
       <String, FilmRollExposureReservation>{};
@@ -212,13 +207,15 @@ final class CameraRecipeQueue {
         _currentPreviewVariant = targetVariant;
       }
 
-      final paramsMap = _buildPreviewParams(preset, style: effectiveStyle);
+      final recipe = _buildRecipe(preset, style: effectiveStyle);
+      final paramsMap = _recipeBuilder.previewParamsFor(recipe);
       AppLogger.glParams('PREVIEW', paramsMap);
       ref
           .read(consistencyDebugProvider.notifier)
           .update((state) => GlParamsState(lastPreviewParams: paramsMap));
       await _platformService.selectPreset(preset.id, paramsMap);
       _selectedPreset = preset;
+      _activeRecipe = recipe;
       state = state.copyWith(
         activePresetId: preset.id,
         activeStyle: effectiveStyle,
@@ -245,12 +242,14 @@ final class CameraRecipeQueue {
     }
 
     try {
-      final paramsMap = _buildPreviewParams(activePreset, style: clampedStyle);
+      final recipe = _buildRecipe(activePreset, style: clampedStyle);
+      final paramsMap = _recipeBuilder.previewParamsFor(recipe);
       AppLogger.glParams('PREVIEW_STYLE_UPDATE', paramsMap);
       ref
           .read(consistencyDebugProvider.notifier)
           .update((state) => state.copyWith(lastPreviewParams: paramsMap));
       await _platformService.selectPreset(activePreset.id, paramsMap);
+      _activeRecipe = recipe;
       state = state.copyWith(activeStyle: clampedStyle);
     } on Object catch (e) {
       state = state.copyWith(errorMessage: e.toString());
@@ -283,15 +282,14 @@ final class CameraRecipeQueue {
     }
 
     try {
-      final paramsMap = _buildPreviewParams(
-        activePreset,
-        style: state.activeStyle,
-      );
+      final recipe = _buildRecipe(activePreset, style: state.activeStyle);
+      final paramsMap = _recipeBuilder.previewParamsFor(recipe);
       AppLogger.glParams('PREVIEW_REAPPLY', paramsMap);
       ref
           .read(consistencyDebugProvider.notifier)
           .update((state) => state.copyWith(lastPreviewParams: paramsMap));
       await _platformService.selectPreset(activePreset.id, paramsMap);
+      _activeRecipe = recipe;
     } on Object catch (e) {
       state = state.copyWith(errorMessage: e.toString());
     }
@@ -344,10 +342,13 @@ final class CameraRecipeQueue {
       // recipe even if UI code later creates a new style value.
       final lockedStyle = state.activeStyle;
       final lockedAspectRatio = state.aspectRatio;
+      final lockedRecipe =
+          _activeRecipe ?? _buildRecipe(preset, style: lockedStyle);
       final filmRollController = ref.read(filmRollControllerProvider.notifier);
       final result = await filmRollController.startRoll(
         presetId: preset.id,
         lockedStyle: lockedStyle,
+        lockedRecipe: lockedRecipe,
         size: size,
         aspectRatioPlatformValue: lockedAspectRatio.platformValue,
       );
@@ -554,7 +555,7 @@ final class CameraRecipeQueue {
       return;
     }
 
-    _LockedCaptureRecipe? lockedRecipe;
+    RenderRecipeV1? lockedRecipe;
     if (rollState.hasActiveRoll) {
       lockedRecipe = _verifiedLockedCaptureRecipe(rollState.activeRoll!);
       if (lockedRecipe == null) return;
@@ -587,10 +588,13 @@ final class CameraRecipeQueue {
     _awaitingNativeCaptureAcceptance = true;
     AppLogger.i('RanaCaptureTimeline', 'event=shutter_tap elapsedMs=0');
 
-    final captureParams = _buildCaptureParams(
+    final captureRecipe =
+        lockedRecipe ??
+        _activeRecipe ??
+        _buildRecipe(_activePreset(), style: state.activeStyle);
+    final captureParams = _recipeBuilder.captureParamsFor(
+      captureRecipe,
       filmRollId: reservation?.filmRollId,
-      presetOverride: lockedRecipe?.preset,
-      styleOverride: lockedRecipe?.style,
     );
     final activePreviewParams = ref
         .read(consistencyDebugProvider)
@@ -715,7 +719,7 @@ final class CameraRecipeQueue {
     return null;
   }
 
-  _LockedCaptureRecipe? _verifiedLockedCaptureRecipe(FilmRoll roll) {
+  RenderRecipeV1? _verifiedLockedCaptureRecipe(FilmRoll roll) {
     final expectedAspectRatio = CameraAspectRatio.values.where(
       (ratio) => ratio.platformValue == roll.aspectRatioPlatformValue,
     );
@@ -728,7 +732,8 @@ final class CameraRecipeQueue {
         preset.id != roll.presetId ||
         state.activePresetId != roll.presetId ||
         state.activeStyle != roll.lockedStyle ||
-        state.aspectRatio != expectedAspect) {
+        state.aspectRatio != expectedAspect ||
+        _activeRecipe != roll.lockedRecipe) {
       const message =
           'The locked Film Roll recipe no longer matches the camera. Retry '
           'the recipe before shooting.';
@@ -745,7 +750,7 @@ final class CameraRecipeQueue {
       );
       return null;
     }
-    return _LockedCaptureRecipe(preset: preset, style: roll.lockedStyle);
+    return roll.lockedRecipe;
   }
 
   void _randomizeNextVariantForPreview() {
@@ -769,13 +774,15 @@ final class CameraRecipeQueue {
 
         if (activePreset.effects.lightLeak.variant == -1) {
           _currentPreviewVariant = _randomizeVariant();
-          final paramsMap = _buildPreviewParams(activePreset);
+          final recipe = _buildRecipe(activePreset, style: state.activeStyle);
+          final paramsMap = _recipeBuilder.previewParamsFor(recipe);
 
           AppLogger.glParams('PREVIEW_UPDATE_RANDOM', paramsMap);
           ref
               .read(consistencyDebugProvider.notifier)
               .update((state) => state.copyWith(lastPreviewParams: paramsMap));
           await _platformService.selectPreset(activePreset.id, paramsMap);
+          _activeRecipe = recipe;
         }
       }),
     );
@@ -1103,7 +1110,27 @@ final class CameraRecipeQueue {
         );
         return false;
       }
-      return _applyPreset(preset, style: roll.lockedStyle);
+      var lockedRecipe = roll.lockedRecipe;
+      if (roll.needsRecipeMigration) {
+        lockedRecipe = _buildRecipe(preset, style: roll.lockedStyle);
+        final upgraded = await ref
+            .read(filmRollControllerProvider.notifier)
+            .upgradeActiveLockedRecipe(
+              expectedRollId: roll.id,
+              recipe: lockedRecipe,
+            );
+        if (upgraded == null) return false;
+      }
+      final paramsMap = _recipeBuilder.previewParamsFor(lockedRecipe);
+      AppLogger.glParams('PREVIEW_FILM_ROLL_RESTORE', paramsMap);
+      await _platformService.selectPreset(preset.id, paramsMap);
+      _selectedPreset = preset;
+      _activeRecipe = lockedRecipe;
+      state = state.copyWith(
+        activePresetId: preset.id,
+        activeStyle: roll.lockedStyle,
+      );
+      return true;
     } on Object catch (e) {
       state = state.copyWith(errorMessage: e.toString());
       return false;
@@ -1213,35 +1240,17 @@ final class CameraRecipeQueue {
     return null;
   }
 
-  Map<String, dynamic> _buildCaptureParams({
-    String? filmRollId,
-    PresetModel? presetOverride,
-    RanaStyle? styleOverride,
-  }) {
-    final activePreset = presetOverride ?? _activePreset();
-    final style =
-        styleOverride ??
-        (activePreset != null ? state.activeStyle : const RanaStyle());
+  RenderRecipeV1 _buildRecipe(PresetModel? preset, {required RanaStyle style}) {
     final outputQuality =
         ref.read(outputQualityProvider).valueOrNull ?? OutputQuality.highJpeg;
-
-    return _recipeBuilder.buildCaptureParams(
-      preset: activePreset,
+    return _recipeBuilder.buildRecipe(
+      preset: preset,
       style: style,
       previewVariant: _currentPreviewVariant,
       outputQuality: outputQuality,
-      filmRollId: filmRollId,
+      aspectRatio: state.aspectRatio.platformValue,
     );
   }
-
-  Map<String, dynamic> _buildPreviewParams(
-    PresetModel preset, {
-    RanaStyle? style,
-  }) => _recipeBuilder.buildPreviewParams(
-    preset: preset,
-    style: style ?? state.activeStyle,
-    previewVariant: _currentPreviewVariant,
-  );
 
   RanaStyle _clampStyle(RanaStyle style) => _recipeBuilder.clampStyle(style);
 

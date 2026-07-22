@@ -149,16 +149,17 @@ class _StyledImageViewState extends State<StyledImageView> {
       final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, width, height));
 
       final shader = _cachedProgram!.fragmentShader();
+      final recipe = meta.recipe;
       shader.setFloat(0, width);
       shader.setFloat(1, height);
       shader.setImageSampler(0, baseImage);
-      shader.setFloat(2, meta.undertoneX);
-      shader.setFloat(3, meta.undertoneY);
+      shader.setFloat(2, recipe.undertoneX);
+      shader.setFloat(3, recipe.undertoneY);
 
       // Extract custom parameters (exposure, contrast, saturation)
-      final exposure = (meta.params['exposure'] as num?)?.toDouble() ?? 0.0;
-      final contrast = (meta.params['contrast'] as num?)?.toDouble() ?? 1.0;
-      final saturation = (meta.params['saturation'] as num?)?.toDouble() ?? 1.0;
+      const exposure = 0.0;
+      final contrast = recipe.contrast;
+      final saturation = recipe.saturation;
 
       shader.setFloat(4, exposure);
       shader.setFloat(5, contrast);

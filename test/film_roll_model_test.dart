@@ -41,6 +41,7 @@ void main() {
 
     final migrated = FilmRoll.fromJson(legacy);
 
+    expect(migrated.needsRecipeMigration, isTrue);
     expect(migrated.lockedRecipe.presetId, current.presetId);
     expect(migrated.lockedRecipe.aspectRatio, current.aspectRatioPlatformValue);
     expect(migrated.lockedRecipe.tone, lockedStyle.tone);

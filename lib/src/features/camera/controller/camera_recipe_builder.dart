@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:rana/features/preset/utils/rana_texture_mapper.dart';
+import 'package:rana/features/render/model/render_recipe.dart';
 import 'package:rana/features/settings/provider/settings_provider.dart';
 
 /// Builds the native preview and capture parameter maps for a locked recipe.
@@ -20,6 +21,45 @@ final class CameraRecipeBuilder {
     undertoneX: style.undertoneX.clamp(-1.0, 1.0),
     undertoneY: style.undertoneY.clamp(-1.0, 1.0),
   );
+
+  /// Produces the canonical recipe snapshot for every rendering consumer.
+  RenderRecipeV1 buildRecipe({
+    required PresetModel? preset,
+    required RanaStyle style,
+    required int? previewVariant,
+    required OutputQuality outputQuality,
+    required String aspectRatio,
+  }) => RenderRecipeV1.fromMap(<String, dynamic>{
+    ...buildCaptureParams(
+      preset: preset,
+      style: style,
+      previewVariant: previewVariant,
+      outputQuality: outputQuality,
+    ),
+    'aspectRatio': aspectRatio,
+  });
+
+  /// Temporary flat-map adapter retained until the Pigeon bridge lands.
+  Map<String, dynamic> previewParamsFor(RenderRecipeV1 recipe) =>
+      Map<String, dynamic>.from(recipe.toMap())
+        ..remove('recipeVersion')
+        ..remove('dustOffsetX')
+        ..remove('dustOffsetY')
+        ..remove('outputQuality')
+        ..remove('aspectRatio')
+        ..remove('presetId')
+        ..remove('isStyleModified');
+
+  /// Temporary capture adapter. Capture identity remains outside the recipe.
+  Map<String, dynamic> captureParamsFor(
+    RenderRecipeV1 recipe, {
+    String? filmRollId,
+  }) => Map<String, dynamic>.from(recipe.toMap())
+    ..remove('recipeVersion')
+    ..remove('dustOffsetX')
+    ..remove('dustOffsetY')
+    ..remove('aspectRatio')
+    ..['filmRollId'] = filmRollId;
 
   Map<String, dynamic> buildCaptureParams({
     required PresetModel? preset,

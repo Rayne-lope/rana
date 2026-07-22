@@ -85,7 +85,7 @@ class CameraPreviewView(
     private var imageCapture: ImageCapture? = null
     private var previewUseCase: Preview? = null
     private var glRenderer: CameraGlRenderer? = null
-    private var lastPresetParams: Map<String, Any>? = null
+    private var lastRenderRecipe: RenderRecipeV1? = null
     private var currentAspectRatio = CameraAspectRatio.fromChannelValue(
         creationParams?.get("aspectRatio") as? String
     )
@@ -166,7 +166,7 @@ class CameraPreviewView(
                     }
                 )
                 glRenderer = renderer
-                lastPresetParams?.let { applyPresetParamsToRenderer(renderer, it) }
+                lastRenderRecipe?.let { applyRecipeToRenderer(renderer, it) }
             }
 
             override fun onSurfaceTextureSizeChanged(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
@@ -784,16 +784,17 @@ class CameraPreviewView(
     }
 
     fun setPresetParams(params: Map<String, Any>) {
-        lastPresetParams = params
+        val recipe = RenderRecipeV1.fromMap(params)
+        lastRenderRecipe = recipe
         val renderer = glRenderer ?: return
-        applyPresetParamsToRenderer(renderer, params)
+        applyRecipeToRenderer(renderer, recipe)
     }
 
-    private fun applyPresetParamsToRenderer(
+    private fun applyRecipeToRenderer(
         renderer: CameraGlRenderer,
-        params: Map<String, Any>
+        recipe: RenderRecipeV1
     ) {
-        val processParams = offlineProcessParamsFromArguments(params)
+        val processParams = recipe.toOfflineProcessParams()
 
         renderer.applyPresetParams(
             temperature = processParams.temperature,
@@ -1086,7 +1087,8 @@ class CameraPreviewView(
                     }
                 val storedRenderParams = effectiveParams.copy(
                     dustOffsetX = (0..1000).random() / 1000f,
-                    dustOffsetY = (0..1000).random() / 1000f
+                    dustOffsetY = (0..1000).random() / 1000f,
+                    aspectRatio = currentAspectRatio.channelValue
                 )
                 inputBitmap = cropCapturedBitmap(
                     decodedBitmap,

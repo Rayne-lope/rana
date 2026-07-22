@@ -61,167 +61,137 @@ data class OfflineProcessParams(
     val highlightsTintG: Float = 0f,
     val highlightsTintB: Float = 0f,
     val outputQuality: OutputQualityProfile = OutputQualityProfile.HIGH_JPEG,
+    val aspectRatio: String = "portrait_3_4",
     val presetId: String = "normal",
     val isStyleModified: Boolean = false,
     /** Film roll UUID, or null when shooting without a roll. */
     val filmRollId: String? = null
 )
 
-/** Stable flat payload persisted for later non-destructive rendering. */
-internal fun OfflineProcessParams.asMetadataParams(): Map<String, Any?> = mapOf(
-    "temperature" to temperature,
-    "saturation" to saturation,
-    "contrast" to contrast,
-    "colorMatrix" to colorMatrix.toList(),
-    "grain" to grain,
-    "vignette" to vignette,
-    "vignetteColorR" to vignetteColorR,
-    "vignetteColorG" to vignetteColorG,
-    "vignetteColorB" to vignetteColorB,
-    "vignetteRoundness" to vignetteRoundness,
-    "lutPath" to lutAssetPath,
-    "lutStrength" to lutStrength,
-    "lightLeakIntensity" to lightLeakIntensity,
-    "lightLeakVariant" to lightLeakVariant,
-    "dustIntensity" to dustIntensity,
-    "dustOffsetX" to dustOffsetX,
-    "dustOffsetY" to dustOffsetY,
-    "bloomThreshold" to bloomThreshold,
-    "bloomIntensity" to bloomIntensity,
-    "halationIntensity" to halationIntensity,
-    "halationRadius" to halationRadius,
-    "halationColorR" to halationColorR,
-    "halationColorG" to halationColorG,
-    "halationColorB" to halationColorB,
-    "lensDistortionStrength" to lensDistortionStrength,
-    "tone" to tone,
-    "color" to color,
-    "textureVal" to textureVal,
-    "styleStrength" to styleStrength,
-    "undertoneX" to undertoneX,
-    "undertoneY" to undertoneY,
-    "grainSize" to grainSize,
-    "grainShadowsLimit" to grainShadowsLimit,
-    "grainHighlightsLimit" to grainHighlightsLimit,
-    "softness" to softness,
-    "chromaticAberrationIntensity" to chromaticAberrationIntensity,
-    "fade" to fade,
-    "highlightRollOff" to highlightRollOff,
-    "shadowRollOff" to shadowRollOff,
-    "filmBorderStyle" to filmBorderStyle,
-    "dateStampEnable" to dateStampEnable,
-    "shadowsTintR" to shadowsTintR,
-    "shadowsTintG" to shadowsTintG,
-    "shadowsTintB" to shadowsTintB,
-    "highlightsTintR" to highlightsTintR,
-    "highlightsTintG" to highlightsTintG,
-    "highlightsTintB" to highlightsTintB,
-    "outputQuality" to outputQuality.channelValue,
-    "presetId" to presetId,
-    "isStyleModified" to isStyleModified
+/** Converts the stable recipe into renderer uniforms and capture settings. */
+internal fun RenderRecipeV1.toOfflineProcessParams(
+    filmRollId: String? = null
+): OfflineProcessParams = OfflineProcessParams(
+    temperature = temperature,
+    saturation = saturation,
+    contrast = contrast,
+    colorMatrix = colorMatrix.toFloatArray(),
+    grain = grain,
+    vignette = vignette,
+    vignetteColorR = vignetteColor[0],
+    vignetteColorG = vignetteColor[1],
+    vignetteColorB = vignetteColor[2],
+    vignetteRoundness = vignetteRoundness,
+    lutAssetPath = lutPath,
+    lutStrength = lutStrength,
+    lightLeakIntensity = lightLeakIntensity,
+    lightLeakVariant = lightLeakVariant,
+    dustIntensity = dustIntensity,
+    dustOffsetX = dustOffsetX,
+    dustOffsetY = dustOffsetY,
+    bloomThreshold = bloomThreshold,
+    bloomIntensity = bloomIntensity,
+    halationIntensity = halationIntensity,
+    halationRadius = halationRadius,
+    halationColorR = halationColor[0],
+    halationColorG = halationColor[1],
+    halationColorB = halationColor[2],
+    lensDistortionStrength = lensDistortionStrength,
+    tone = tone,
+    color = color,
+    textureVal = texture,
+    styleStrength = styleStrength,
+    undertoneX = undertoneX,
+    undertoneY = undertoneY,
+    grainSize = grainSize,
+    grainShadowsLimit = grainShadowsLimit,
+    grainHighlightsLimit = grainHighlightsLimit,
+    softness = softness,
+    chromaticAberrationIntensity = chromaticAberrationIntensity,
+    fade = fade,
+    highlightRollOff = highlightRollOff,
+    shadowRollOff = shadowRollOff,
+    filmBorderStyle = filmBorderStyle,
+    dateStampEnable = dateStampEnable,
+    shadowsTintR = shadowsTint[0],
+    shadowsTintG = shadowsTint[1],
+    shadowsTintB = shadowsTint[2],
+    highlightsTintR = highlightsTint[0],
+    highlightsTintG = highlightsTint[1],
+    highlightsTintB = highlightsTint[2],
+    outputQuality = OutputQualityProfile.fromChannelValue(outputQuality),
+    aspectRatio = aspectRatio,
+    presetId = presetId,
+    isStyleModified = isStyleModified,
+    filmRollId = filmRollId
 )
 
-/** Parses MethodChannel arguments while preserving neutral legacy defaults. */
-internal fun offlineProcessParamsFromArguments(
-    arguments: Any?
-): OfflineProcessParams {
-    val args = arguments as? Map<*, *>
-    fun numberArg(key: String, default: Float = 0f): Float {
-        return (args?.get(key) as? Number)?.toFloat() ?: default
-    }
-    fun colorMatrixArg(): FloatArray {
-        val values = args?.get("colorMatrix") as? List<*>
-            ?: return IDENTITY_COLOR_MATRIX.copyOf()
-        if (values.size != 9 || values.any { it !is Number }) {
-            return IDENTITY_COLOR_MATRIX.copyOf()
-        }
-        val parsed = FloatArray(9) { index ->
-            (values[index] as Number).toFloat()
-        }
-        return if (parsed.all(Float::isFinite)) {
-            parsed
-        } else {
-            IDENTITY_COLOR_MATRIX.copyOf()
-        }
-    }
+/** Stable typed payload persisted for later non-destructive rendering. */
+internal fun OfflineProcessParams.asRenderRecipe(): RenderRecipeV1 =
+    RenderRecipeV1.fromMap(
+        mapOf(
+            "temperature" to temperature,
+            "saturation" to saturation,
+            "contrast" to contrast,
+            "colorMatrix" to colorMatrix.toList(),
+            "grain" to grain,
+            "vignette" to vignette,
+            "vignetteColorR" to vignetteColorR,
+            "vignetteColorG" to vignetteColorG,
+            "vignetteColorB" to vignetteColorB,
+            "vignetteRoundness" to vignetteRoundness,
+            "lutPath" to lutAssetPath,
+            "lutStrength" to lutStrength,
+            "lightLeakIntensity" to lightLeakIntensity,
+            "lightLeakVariant" to lightLeakVariant,
+            "dustIntensity" to dustIntensity,
+            "dustOffsetX" to dustOffsetX,
+            "dustOffsetY" to dustOffsetY,
+            "bloomThreshold" to bloomThreshold,
+            "bloomIntensity" to bloomIntensity,
+            "halationIntensity" to halationIntensity,
+            "halationRadius" to halationRadius,
+            "halationColorR" to halationColorR,
+            "halationColorG" to halationColorG,
+            "halationColorB" to halationColorB,
+            "lensDistortionStrength" to lensDistortionStrength,
+            "tone" to tone,
+            "color" to color,
+            "textureVal" to textureVal,
+            "styleStrength" to styleStrength,
+            "undertoneX" to undertoneX,
+            "undertoneY" to undertoneY,
+            "grainSize" to grainSize,
+            "grainShadowsLimit" to grainShadowsLimit,
+            "grainHighlightsLimit" to grainHighlightsLimit,
+            "softness" to softness,
+            "chromaticAberrationIntensity" to chromaticAberrationIntensity,
+            "fade" to fade,
+            "highlightRollOff" to highlightRollOff,
+            "shadowRollOff" to shadowRollOff,
+            "filmBorderStyle" to filmBorderStyle,
+            "dateStampEnable" to dateStampEnable,
+            "shadowsTintR" to shadowsTintR,
+            "shadowsTintG" to shadowsTintG,
+            "shadowsTintB" to shadowsTintB,
+            "highlightsTintR" to highlightsTintR,
+            "highlightsTintG" to highlightsTintG,
+            "highlightsTintB" to highlightsTintB,
+            "outputQuality" to outputQuality.channelValue,
+            "aspectRatio" to aspectRatio,
+            "presetId" to presetId,
+            "isStyleModified" to isStyleModified
+        )
+    )
 
-    return OfflineProcessParams(
-        temperature = numberArg("temperature"),
-        saturation = numberArg("saturation"),
-        contrast = numberArg("contrast"),
-        colorMatrix = colorMatrixArg(),
-        grain = numberArg("grain"),
-        vignette = numberArg("vignette"),
-        vignetteColorR = normalizedVignetteColor(
-            numberArg("vignetteColorR")
-        ),
-        vignetteColorG = normalizedVignetteColor(
-            numberArg("vignetteColorG")
-        ),
-        vignetteColorB = normalizedVignetteColor(
-            numberArg("vignetteColorB")
-        ),
-        vignetteRoundness = normalizedVignetteRoundness(
-            numberArg("vignetteRoundness")
-        ),
-        lutAssetPath = args?.get("lutPath") as? String,
-        lutStrength = numberArg("lutStrength"),
-        lightLeakIntensity = numberArg("lightLeakIntensity"),
-        lightLeakVariant = (args?.get("lightLeakVariant") as? Number)?.toInt() ?: -1,
-        dustIntensity = numberArg("dustIntensity"),
-        dustOffsetX = numberArg("dustOffsetX", -1f),
-        dustOffsetY = numberArg("dustOffsetY", -1f),
-        bloomThreshold = numberArg("bloomThreshold", 0.8f),
-        bloomIntensity = numberArg("bloomIntensity"),
-        halationIntensity = numberArg("halationIntensity"),
-        halationRadius = numberArg("halationRadius", 1f),
-        halationColorR = normalizedHalationColor(
-            numberArg("halationColorR", 1f),
-            1f
-        ),
-        halationColorG = normalizedHalationColor(
-            numberArg("halationColorG", 0.35f),
-            0.35f
-        ),
-        halationColorB = normalizedHalationColor(
-            numberArg("halationColorB", 0.15f),
-            0.15f
-        ),
-        lensDistortionStrength = numberArg("lensDistortionStrength"),
-        tone = numberArg("tone"),
-        color = numberArg("color"),
-        textureVal = numberArg("textureVal"),
-        styleStrength = numberArg("styleStrength", 100f),
-        undertoneX = numberArg("undertoneX"),
-        undertoneY = numberArg("undertoneY"),
-        grainSize = numberArg("grainSize", 1f),
-        grainShadowsLimit = normalizedGrainShadowsLimit(
-            numberArg("grainShadowsLimit", DEFAULT_GRAIN_SHADOWS_LIMIT)
-        ),
-        grainHighlightsLimit = normalizedGrainHighlightsLimit(
-            numberArg("grainHighlightsLimit", DEFAULT_GRAIN_HIGHLIGHTS_LIMIT)
-        ),
-        softness = numberArg("softness"),
-        chromaticAberrationIntensity = numberArg("chromaticAberrationIntensity"),
-        fade = numberArg("fade"),
-        highlightRollOff = numberArg("highlightRollOff"),
-        shadowRollOff = numberArg("shadowRollOff"),
-        filmBorderStyle = normalizedFilmBorderStyle(
-            (args?.get("filmBorderStyle") as? Number)?.toInt() ?: 0
-        ),
-        dateStampEnable = args?.get("dateStampEnable") as? Boolean ?: false,
-        shadowsTintR = numberArg("shadowsTintR"),
-        shadowsTintG = numberArg("shadowsTintG"),
-        shadowsTintB = numberArg("shadowsTintB"),
-        highlightsTintR = numberArg("highlightsTintR"),
-        highlightsTintG = numberArg("highlightsTintG"),
-        highlightsTintB = numberArg("highlightsTintB"),
-        outputQuality = OutputQualityProfile.fromChannelValue(
-            args?.get("outputQuality") as? String
-        ),
-        presetId = args?.get("presetId") as? String ?: "normal",
-        isStyleModified = args?.get("isStyleModified") as? Boolean ?: false,
-        filmRollId = args?.get("filmRollId") as? String
+internal fun OfflineProcessParams.asMetadataParams(): Map<String, Any?> =
+    asRenderRecipe().toMap()
+
+/** Temporary compatibility parser for legacy MethodChannel payloads. */
+internal fun offlineProcessParamsFromArguments(arguments: Any?): OfflineProcessParams {
+    val args = arguments as? Map<*, *> ?: emptyMap<Any?, Any?>()
+    return RenderRecipeV1.fromMap(args).toOfflineProcessParams(
+        filmRollId = args["filmRollId"] as? String
     )
 }
 

@@ -180,8 +180,9 @@ internal data class RenderRecipeV1(
                 chromaticAberrationIntensity = unit("chromaticAberrationIntensity", 0f),
                 highlightRollOff = unit("highlightRollOff", 0f),
                 shadowRollOff = unit("shadowRollOff", 0f),
-                filmBorderStyle = ((source["filmBorderStyle"] as? Number)?.toInt() ?: 0)
-                    .coerceIn(0, 3),
+                filmBorderStyle = normalizedFilmBorderStyle(
+                    (source["filmBorderStyle"] as? Number)?.toInt() ?: 0
+                ),
                 dateStampEnable = source["dateStampEnable"] as? Boolean ?: false,
                 shadowsTint = rgb("shadowsTint", "shadowsTint", listOf(0f, 0f, 0f)),
                 highlightsTint = rgb(

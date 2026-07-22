@@ -82,6 +82,7 @@ class FilmRoll {
     required this.status,
     required this.startedAt,
     RenderRecipeV1? lockedRecipe,
+    this.needsRecipeMigration = false,
     this.completedAt,
     this.coverUri,
   }) : lockedRecipe =
@@ -129,6 +130,7 @@ class FilmRoll {
       presetId: presetId,
       lockedStyle: lockedStyle,
       lockedRecipe: lockedRecipe,
+      needsRecipeMigration: lockedRecipeValue is! Map<dynamic, dynamic>,
       aspectRatioPlatformValue: aspectRatio,
       size: FilmRollSize.fromCount((json['size'] as num?)?.toInt() ?? 36),
       exposuresTaken: (json['exposuresTaken'] as num?)?.toInt() ?? 0,
@@ -155,6 +157,9 @@ class FilmRoll {
 
   /// Full visual recipe frozen when this roll starts (Film Roll schema v2).
   final RenderRecipeV1 lockedRecipe;
+
+  /// True only while a schema-v1 roll awaits preset-aware reconstruction.
+  final bool needsRecipeMigration;
 
   /// Platform aspect-ratio value locked at roll-start time
   /// (e.g. `'portrait_3_4'`, `'square_1_1'`, `'portrait_9_16'`).
@@ -217,6 +222,7 @@ class FilmRoll {
     String? presetId,
     RanaStyle? lockedStyle,
     RenderRecipeV1? lockedRecipe,
+    bool? needsRecipeMigration,
     String? aspectRatioPlatformValue,
     FilmRollSize? size,
     int? exposuresTaken,
@@ -229,6 +235,7 @@ class FilmRoll {
     presetId: presetId ?? this.presetId,
     lockedStyle: lockedStyle ?? this.lockedStyle,
     lockedRecipe: lockedRecipe ?? this.lockedRecipe,
+    needsRecipeMigration: needsRecipeMigration ?? this.needsRecipeMigration,
     aspectRatioPlatformValue:
         aspectRatioPlatformValue ?? this.aspectRatioPlatformValue,
     size: size ?? this.size,
@@ -251,6 +258,7 @@ class FilmRoll {
         other.presetId == presetId &&
         other.lockedStyle == lockedStyle &&
         other.lockedRecipe == lockedRecipe &&
+        other.needsRecipeMigration == needsRecipeMigration &&
         other.aspectRatioPlatformValue == aspectRatioPlatformValue &&
         other.size == size &&
         other.exposuresTaken == exposuresTaken &&
@@ -266,6 +274,7 @@ class FilmRoll {
     presetId,
     lockedStyle,
     lockedRecipe,
+    needsRecipeMigration,
     aspectRatioPlatformValue,
     size,
     exposuresTaken,

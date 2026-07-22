@@ -9,6 +9,7 @@ import 'package:rana/features/film_roll/model/roll_capture_entry.dart';
 import 'package:rana/features/film_roll/repository/film_roll_repository.dart';
 import 'package:rana/features/film_roll/state/film_roll_state.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
+import 'package:rana/features/render/model/render_recipe.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'film_roll_controller.g.dart';
@@ -63,6 +64,7 @@ class FilmRollController extends _$FilmRollController {
     required RanaStyle lockedStyle,
     required FilmRollSize size,
     required String aspectRatioPlatformValue,
+    RenderRecipeV1? lockedRecipe,
   }) async {
     await _restoration;
     return _enqueueLifecycle(() async {
@@ -91,6 +93,7 @@ class FilmRollController extends _$FilmRollController {
         id: _generateUuid(),
         presetId: presetId,
         lockedStyle: lockedStyle,
+        lockedRecipe: lockedRecipe,
         aspectRatioPlatformValue: aspectRatioPlatformValue,
         size: size,
         exposuresTaken: 0,
@@ -128,6 +131,25 @@ class FilmRollController extends _$FilmRollController {
 
   /// Waits for persisted active-roll restoration after app startup.
   Future<void> waitUntilRestored() => _restoration;
+
+  /// Persists the complete recipe reconstructed for a schema-v1 active roll.
+  Future<FilmRoll?> upgradeActiveLockedRecipe({
+    required String expectedRollId,
+    required RenderRecipeV1 recipe,
+  }) async {
+    await _restoration;
+    return _enqueueLifecycle(() async {
+      final active = state.activeRoll;
+      if (active == null || active.id != expectedRollId) return null;
+      final upgraded = active.copyWith(
+        lockedRecipe: recipe,
+        needsRecipeMigration: false,
+      );
+      await _repository.save(upgraded);
+      state = state.copyWith(activeRoll: upgraded);
+      return upgraded;
+    });
+  }
 
   /// Atomically reserves capacity before a native capture starts.
   ///

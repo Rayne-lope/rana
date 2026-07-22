@@ -112,7 +112,10 @@ internal class DynamicCaptureRenderer(
         metadata: CaptureStyleMetadata
     ): ByteArray? {
         val cleanBitmap = decodeCleanBitmap(uri, targetSize)
-        val params = offlineProcessParamsFromArguments(metadata.params)
+        val recipe = RenderRecipeV1.fromMap(
+            metadata.params + ("recipeVersion" to metadata.recipeVersion)
+        )
+        val params = recipe.toOfflineProcessParams()
         val processed = OfflineGlProcessor.processImage(
             appContext,
             cleanBitmap,

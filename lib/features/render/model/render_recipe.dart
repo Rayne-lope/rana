@@ -152,8 +152,11 @@ final class RenderRecipeV1 {
       dustIntensity: unit('dustIntensity', 0),
       dustOffsetX: number('dustOffsetX', -1),
       dustOffsetY: number('dustOffsetY', -1),
-      filmBorderStyle: ((source['filmBorderStyle'] as num?)?.toInt() ?? 0)
-          .clamp(0, 3),
+      filmBorderStyle: switch ((source['filmBorderStyle'] as num?)?.toInt() ??
+          0) {
+        final value when value >= 0 && value <= 3 => value,
+        _ => 0,
+      },
       dateStampEnable: source['dateStampEnable'] as bool? ?? false,
       lensDistortionStrength: unit('lensDistortionStrength', 0),
       chromaticAberrationIntensity: unit('chromaticAberrationIntensity', 0),

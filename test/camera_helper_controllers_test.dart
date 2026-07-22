@@ -88,6 +88,28 @@ void main() {
       expect(capture['filmRollId'], equals('roll-1'));
     });
 
+    test('derives preview and capture adapters from one typed snapshot', () {
+      const builder = CameraRecipeBuilder();
+      const style = RanaStyle(tone: 8, texture: 35, styleStrength: 45);
+      final recipe = builder.buildRecipe(
+        preset: preset,
+        style: style,
+        previewVariant: 2,
+        outputQuality: OutputQuality.highJpeg,
+        aspectRatio: 'square_1_1',
+      );
+      final preview = builder.previewParamsFor(recipe);
+      final capture = builder.captureParamsFor(recipe, filmRollId: 'roll-1');
+
+      for (final entry in preview.entries) {
+        expect(capture[entry.key], equals(entry.value), reason: entry.key);
+      }
+      expect(recipe.aspectRatio, 'square_1_1');
+      expect(recipe.presetId, preset.id);
+      expect(capture['filmRollId'], 'roll-1');
+      expect(capture, isNot(contains('aspectRatio')));
+    });
+
     test('clamps every editable style dimension', () {
       const builder = CameraRecipeBuilder();
       final clamped = builder.clampStyle(
