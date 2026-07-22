@@ -6,11 +6,14 @@ import android.content.ContentUris
 import android.content.ClipData
 import android.content.Intent
 import android.content.IntentSender
+import android.content.res.Configuration
 import android.database.Cursor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -47,6 +50,32 @@ class MainActivity : FlutterActivity() {
     private var pendingDeleteResult: MethodChannel.Result? = null
     private var pendingDeleteUri: Uri? = null
     var activePreviewView: CameraPreviewView? = null
+    private val startupSessionId = "${SystemClock.elapsedRealtime()}-${android.os.Process.myPid()}"
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        logWindowState("onCreate")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        logWindowState("onResume")
+    }
+
+    override fun onPause() {
+        logWindowState("onPause")
+        super.onPause()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        logWindowState("onWindowFocusChanged($hasFocus)")
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        logWindowState("onConfigurationChanged(${newConfig.orientation})")
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -82,15 +111,27 @@ class MainActivity : FlutterActivity() {
                 }
                 "initializeCamera" -> {
                     val preview = activePreviewView
-                    if (preview != null) {
-                        preview.bindPreview()
+                    if (preview == null) {
+                        val availabilityError = CameraInitializationPolicy.errorFor(
+                            hasActivePreview = false
+                        )!!
+                        logWindowState("initializeCamera(no-preview)")
+                        result.error(
+                            availabilityError.code,
+                            availabilityError.message,
+                            null
+                        )
+                        return@setMethodCallHandler
                     }
-                    val lensStr = if (preview?.getCurrentLensFacing() == CameraSelector.LENS_FACING_FRONT) "front" else "back"
+
+                    preview.bindPreview()
+                    logWindowState("initializeCamera", preview.getView())
+                    val lensStr = if (preview.getCurrentLensFacing() == CameraSelector.LENS_FACING_FRONT) "front" else "back"
                     val response = mutableMapOf<String, Any>(
                         "status" to "initialized",
                         "lens" to lensStr
                     )
-                    preview?.zoomStateFields()?.let { response.putAll(it) }
+                    response.putAll(preview.zoomStateFields())
                     result.success(response)
                 }
                 "setFocusAndMetering" -> {
@@ -1254,5 +1295,39 @@ class MainActivity : FlutterActivity() {
 
     private fun android.graphics.Bitmap.safeRecycle() {
         if (!isRecycled) recycle()
+    }
+
+    internal fun logCameraPreviewCreated(viewId: Int, view: android.view.View) {
+        logWindowState("previewCreated($viewId)", view)
+    }
+
+    internal fun logCameraPreviewDisposed(viewId: Int, view: android.view.View) {
+        logWindowState("previewDisposed($viewId)", view)
+    }
+
+    private fun logWindowState(
+        event: String,
+        previewView: android.view.View? = activePreviewView?.getView()
+    ) {
+        val isDebuggable =
+            applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
+        if (!isDebuggable) return
+        window.decorView.post {
+            val windowBounds = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                windowManager.currentWindowMetrics.bounds
+            } else {
+                Rect(0, 0, window.decorView.width, window.decorView.height)
+            }
+            val previewBounds = Rect()
+            val hasPreviewBounds = previewView?.getGlobalVisibleRect(previewBounds) == true
+            android.util.Log.d(
+                "RanaStartup",
+                "session=$startupSessionId event=$event " +
+                    "orientation=${resources.configuration.orientation} " +
+                    "rotation=${window.decorView.display?.rotation} " +
+                    "window=$windowBounds preview=" +
+                    if (hasPreviewBounds) previewBounds.toString() else "none"
+            )
+        }
     }
 }

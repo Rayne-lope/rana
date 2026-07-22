@@ -14,6 +14,7 @@ class CameraPreviewFactory(
         val creationParams = args as Map<String, Any>?
         val view = CameraPreviewView(context, activity, viewId, creationParams)
         activity.activePreviewView = view
+        activity.logCameraPreviewCreated(viewId, view.getView())
         return view
     }
 }

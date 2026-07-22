@@ -194,6 +194,7 @@ class CameraPreviewView(
     override fun dispose() {
         activity.runOnUiThread {
             try {
+                activity.logCameraPreviewDisposed(viewId, previewContainer)
                 if (activity.activePreviewView == this) {
                     activity.activePreviewView = null
                 }

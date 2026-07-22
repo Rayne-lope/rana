@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -60,6 +62,17 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   ShutterStatus _shutterStatus = ShutterStatus.ready;
   bool _showFlash = false;
   bool _showToast = false;
+
+  Size? _stableWindowSize;
+  Size? _candidateWindowSize;
+  int _candidateWindowFrames = 0;
+  int _metricsCheckGeneration = 0;
+  int _previewGeneration = 0;
+  int? _readyPreviewGeneration;
+  bool _previewMetricsStable = false;
+  bool _isPreviewReady = false;
+  final String _startupSessionId = DateTime.now().microsecondsSinceEpoch
+      .toString();
 
   ProviderSubscription<CameraState>? _captureFeedbackSubscription;
   ProviderSubscription<FilmRollState>? _filmRollSubscription;
@@ -193,19 +206,20 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _handleFilmRollState(null, ref.read(filmRollControllerProvider));
+      _scheduleWindowMetricsCheck();
     });
 
-    // Verify permissions first, then initialize platform connection if granted
+    // The native preview is mounted only after permission and window metrics
+    // are ready. Its creation callback owns camera initialization.
     Future.microtask(() async {
       await ref.read(cameraPermissionControllerProvider.notifier).refresh();
-      if (ref.read(cameraPermissionControllerProvider).isGranted) {
-        await ref.read(cameraControllerProvider.notifier).initialize();
-      }
     });
   }
 
   @override
   void dispose() {
+    _metricsCheckGeneration += 1;
+    _isPreviewReady = false;
     _captureFeedbackSubscription?.close();
     _filmRollSubscription?.close();
     _flashTimer?.cancel();
@@ -214,6 +228,117 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     _focusResetTimer?.cancel();
     _focusAnimationController.dispose();
     super.dispose();
+  }
+
+  Size _currentLogicalWindowSize() => MediaQuery.sizeOf(context);
+
+  void _scheduleWindowMetricsCheck() {
+    final checkGeneration = ++_metricsCheckGeneration;
+    _candidateWindowSize = null;
+    _candidateWindowFrames = 0;
+    _queueWindowMetricsSample(checkGeneration);
+  }
+
+  void _queueWindowMetricsSample(int checkGeneration) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || checkGeneration != _metricsCheckGeneration) return;
+
+      final logicalSize = _currentLogicalWindowSize();
+      if (logicalSize.isEmpty) {
+        _queueWindowMetricsSample(checkGeneration);
+        return;
+      }
+
+      if (_stableWindowSize == logicalSize && _previewMetricsStable) {
+        return;
+      }
+
+      if (_candidateWindowSize == logicalSize) {
+        _candidateWindowFrames += 1;
+      } else {
+        _candidateWindowSize = logicalSize;
+        _candidateWindowFrames = 1;
+      }
+
+      if (_stableWindowSize != null &&
+          _stableWindowSize != logicalSize &&
+          _previewMetricsStable) {
+        final previousGeneration = _previewGeneration;
+        setState(() {
+          _previewMetricsStable = false;
+          _isPreviewReady = false;
+          _readyPreviewGeneration = null;
+        });
+        AppLogger.d(
+          'CameraStartup',
+          'session=$_startupSessionId Window metrics changed: '
+              'old=$_stableWindowSize new=$logicalSize '
+              'previewGeneration=$previousGeneration',
+        );
+        unawaited(ref.read(cameraControllerProvider.notifier).releaseCamera());
+      }
+
+      if (_candidateWindowFrames >= 2) {
+        setState(() {
+          _stableWindowSize = logicalSize;
+          _previewMetricsStable = true;
+          _previewGeneration += 1;
+          _isPreviewReady = false;
+          _readyPreviewGeneration = null;
+        });
+        AppLogger.d(
+          'CameraStartup',
+          'session=$_startupSessionId Window metrics stable: '
+              'size=$logicalSize '
+              'previewGeneration=$_previewGeneration',
+        );
+        return;
+      }
+
+      _queueWindowMetricsSample(checkGeneration);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  Future<void> _initializePreview(
+    int platformViewId,
+    int previewGeneration,
+  ) async {
+    if (!mounted ||
+        !_previewMetricsStable ||
+        previewGeneration != _previewGeneration) {
+      return;
+    }
+
+    if (_readyPreviewGeneration != previewGeneration) {
+      _readyPreviewGeneration = previewGeneration;
+      _isPreviewReady = true;
+      AppLogger.d(
+        'CameraStartup',
+        'session=$_startupSessionId PlatformView ready: id=$platformViewId '
+            'previewGeneration=$previewGeneration size=$_stableWindowSize',
+      );
+    }
+
+    final controller = ref.read(cameraControllerProvider.notifier);
+    await controller.initialize();
+    if (!mounted ||
+        !_isPreviewReady ||
+        previewGeneration != _previewGeneration) {
+      return;
+    }
+    await controller.reapplyActivePreviewParams();
+  }
+
+  void _logPointerDown(PointerDownEvent event) {
+    if (!kDebugMode) return;
+    AppLogger.d(
+      'CameraInput',
+      'session=$_startupSessionId PointerDown position=${event.position} '
+          'local=${event.localPosition} '
+          'size=$_stableWindowSize previewGeneration=$_previewGeneration '
+          'previewReady=$_isPreviewReady',
+    );
   }
 
   void _handleViewfinderTap(TapUpDetails details, BoxConstraints constraints) {
@@ -470,17 +595,37 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    AppLogger.i('CameraScreen', 'App lifecycle changed to: $state');
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive) {
-      ref.read(cameraControllerProvider.notifier).releaseCamera();
+    AppLogger.i(
+      'CameraScreen',
+      'session=$_startupSessionId App lifecycle changed to: $state',
+    );
+    if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      unawaited(ref.read(cameraControllerProvider.notifier).releaseCamera());
     } else if (state == AppLifecycleState.resumed) {
       ref.read(cameraPermissionControllerProvider.notifier).refresh().then((_) {
-        if (ref.read(cameraPermissionControllerProvider).isGranted) {
-          ref.read(cameraControllerProvider.notifier).initialize();
+        if (!mounted) return;
+        if (!ref.read(cameraPermissionControllerProvider).isGranted) {
+          _isPreviewReady = false;
+          _readyPreviewGeneration = null;
+          return;
         }
+        if (!_isPreviewReady) {
+          return;
+        }
+        unawaited(_initializePreview(-1, _previewGeneration));
       });
     }
+  }
+
+  @override
+  void didChangeMetrics() {
+    AppLogger.d(
+      'CameraStartup',
+      'session=$_startupSessionId Window metrics notification received',
+    );
+    _scheduleWindowMetricsCheck();
   }
 
   @override
@@ -490,7 +635,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final rollState = ref.watch(filmRollControllerProvider);
     final controller = ref.read(cameraControllerProvider.notifier);
 
-    if (permissionState.isChecking) {
+    if (permissionState.isChecking && !permissionState.isGranted) {
       return const Scaffold(
         backgroundColor: Color(0xFF242424),
         body: Center(
@@ -507,109 +652,113 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
     final isEditing = _isEditingStyle || _isEditingUndertone;
     final editingTitle = _isEditingUndertone ? 'Undertone' : 'Rana Styles';
-    return Stack(
-      children: [
-        DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF2D3037), // Top sheet titanium
-                Color(0xFF1E2025), // Mid sheet gunmetal
-                Color(0xFF121316), // Bottom sheet deep charcoal metal
-              ],
-              stops: [0.0, 0.5, 1.0],
-            ),
-          ),
-          child: Scaffold(
-            backgroundColor: Colors.transparent,
-            body: SafeArea(
-              child: Column(
-                children: [
-                  if (isEditing)
-                    _buildStylesEditingHeader(
-                      editingTitle,
-                      cameraState,
-                      controller,
-                    )
-                  else if (_isSelectingPreset)
-                    _buildPresetSelectionHeader(cameraState, controller)
-                  else
-                    const SizedBox.shrink(),
-
-                  Expanded(
-                    child: _buildViewfinder(
-                      cameraState,
-                      controller,
-                      rollState: rollState,
-                      layoutMode: (isEditing || _isSelectingPreset)
-                          ? _ViewfinderLayoutMode.styleEditor
-                          : _ViewfinderLayoutMode.capture,
-                    ),
-                  ),
-
-                  if (isEditing)
-                    _buildStylesEditingContent(cameraState, controller)
-                  else if (_isSelectingPreset)
-                    _buildPresetSelectionContent(cameraState, controller)
-                  else
-                    _buildBottomPanel(
-                      cameraState,
-                      controller,
-                      rollState: rollState,
-                    ),
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: _logPointerDown,
+      child: Stack(
+        children: [
+          DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFF2D3037), // Top sheet titanium
+                  Color(0xFF1E2025), // Mid sheet gunmetal
+                  Color(0xFF121316), // Bottom sheet deep charcoal metal
                 ],
+                stops: [0.0, 0.5, 1.0],
               ),
             ),
-          ),
-        ),
-        if (_showFlash)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Container(
-                key: const ValueKey<String>('capture-screen-flash'),
-                color: Colors.white,
-              ),
-            ),
-          ),
-        if (_showToast)
-          Positioned(
-            key: const ValueKey<String>('capture-completed-toast'),
-            bottom: 120,
-            left: 0,
-            right: 0,
-            child: IgnorePointer(
-              child: Center(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xCC141416),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.08),
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              body: SafeArea(
+                child: Column(
+                  children: [
+                    if (isEditing)
+                      _buildStylesEditingHeader(
+                        editingTitle,
+                        cameraState,
+                        controller,
+                      )
+                    else if (_isSelectingPreset)
+                      _buildPresetSelectionHeader(cameraState, controller)
+                    else
+                      const SizedBox.shrink(),
+
+                    Expanded(
+                      child: _buildViewfinder(
+                        cameraState,
+                        controller,
+                        rollState: rollState,
+                        layoutMode: (isEditing || _isSelectingPreset)
+                            ? _ViewfinderLayoutMode.styleEditor
+                            : _ViewfinderLayoutMode.capture,
                       ),
                     ),
-                    child: const Text(
-                      'PHOTO CAPTURED',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.5,
-                        fontFamily: 'monospace',
+
+                    if (isEditing)
+                      _buildStylesEditingContent(cameraState, controller)
+                    else if (_isSelectingPreset)
+                      _buildPresetSelectionContent(cameraState, controller)
+                    else
+                      _buildBottomPanel(
+                        cameraState,
+                        controller,
+                        rollState: rollState,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (_showFlash)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Container(
+                  key: const ValueKey<String>('capture-screen-flash'),
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          if (_showToast)
+            Positioned(
+              key: const ValueKey<String>('capture-completed-toast'),
+              bottom: 120,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xCC141416),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      child: const Text(
+                        'PHOTO CAPTURED',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.5,
+                          fontFamily: 'monospace',
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1692,18 +1841,27 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
             fit: StackFit.expand,
             children: [
               // Live Camera Viewfinder Preview
-              _AndroidCameraPreview(
-                key: ValueKey<String>(
-                  'camera-preview-${state.aspectRatio.platformValue}',
+              if (_previewMetricsStable)
+                _AndroidCameraPreview(
+                  key: ValueKey<String>(
+                    'camera-preview-${state.aspectRatio.platformValue}-'
+                    '$_previewGeneration',
+                  ),
+                  aspectRatio: state.aspectRatio,
+                  lens: state.activeLens,
+                  flashMode: state.flashMode,
+                  zoomRatio: state.zoomRatio,
+                  onPlatformViewCreated: (platformViewId) {
+                    unawaited(
+                      _initializePreview(platformViewId, _previewGeneration),
+                    );
+                  },
+                )
+              else
+                const ColoredBox(
+                  key: ValueKey<String>('camera-preview-metrics-gate'),
+                  color: Colors.black,
                 ),
-                aspectRatio: state.aspectRatio,
-                lens: state.activeLens,
-                flashMode: state.flashMode,
-                zoomRatio: state.zoomRatio,
-                onPlatformViewCreated: (_) {
-                  unawaited(controller.reapplyActivePreviewParams());
-                },
-              ),
 
               // 3x3 Composition Grid Lines
               if (ref.watch(gridLinesProvider)) const _ViewfinderGrid(),
@@ -2198,6 +2356,7 @@ class _AndroidCameraPreview extends StatelessWidget {
   Widget build(BuildContext context) => AndroidView(
     viewType: 'com.rana.app/camera_preview',
     layoutDirection: TextDirection.ltr,
+    hitTestBehavior: PlatformViewHitTestBehavior.transparent,
     creationParams: <String, dynamic>{
       'aspectRatio': aspectRatio.platformValue,
       'lens': lens.value,

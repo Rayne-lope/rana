@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +31,7 @@ void main() {
       'flutter.baseflow.com/permissions/methods',
     );
     const cameraChannel = MethodChannel('com.rana.app/camera_control');
+    const platformViewsChannel = MethodChannel('flutter/platform_views');
     var captureCounter = 0;
     var autoCompleteCapture = true;
     String? pendingCaptureId;
@@ -38,6 +40,8 @@ void main() {
     var contactSheetShareCalls = 0;
     String? exportedContactSheetRollId;
     String? exportedContactSheetPresetName;
+    var initializeCameraCalls = 0;
+    var releaseCameraCalls = 0;
 
     Future<void> dispatchCameraStatusEvent(Map<String, dynamic> event) async {
       const codec = StandardMethodCodec();
@@ -59,6 +63,8 @@ void main() {
       contactSheetShareCalls = 0;
       exportedContactSheetRollId = null;
       exportedContactSheetPresetName = null;
+      initializeCameraCalls = 0;
+      releaseCameraCalls = 0;
       SharedPreferences.setMockInitialValues({});
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(permissionChannel, (
@@ -84,7 +90,11 @@ void main() {
           ) async {
             switch (methodCall.method) {
               case 'initializeCamera':
+                initializeCameraCalls += 1;
                 return {'status': 'initialized', 'lens': 'back'};
+              case 'releaseCamera':
+                releaseCameraCalls += 1;
+                return {'status': 'released'};
               case 'executeCapture':
                 return {
                   'status': 'captured',
@@ -137,6 +147,20 @@ void main() {
             }
             return null;
           });
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(platformViewsChannel, (
+            MethodCall methodCall,
+          ) async {
+            if (methodCall.method == 'create') return 0;
+            if (methodCall.method == 'resize') {
+              final arguments = methodCall.arguments as Map<dynamic, dynamic>;
+              return <String, double>{
+                'width': arguments['width'] as double,
+                'height': arguments['height'] as double,
+              };
+            }
+            return null;
+          });
     });
 
     tearDown(() {
@@ -144,6 +168,8 @@ void main() {
           .setMockMethodCallHandler(permissionChannel, null);
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(cameraChannel, null);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(platformViewsChannel, null);
     });
 
     testWidgets('app starts on SplashScreen', (WidgetTester tester) async {
@@ -490,6 +516,138 @@ void main() {
 
       expect(find.text('Settings'), findsWidgets);
     });
+
+    testWidgets('camera initializes only after the native preview is created', (
+      WidgetTester tester,
+    ) async {
+      final createCompleter = Completer<int>();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(platformViewsChannel, (
+            MethodCall methodCall,
+          ) async {
+            if (methodCall.method == 'create') {
+              return createCompleter.future;
+            }
+            if (methodCall.method == 'resize') {
+              final arguments = methodCall.arguments as Map<dynamic, dynamic>;
+              return <String, double>{
+                'width': arguments['width'] as double,
+                'height': arguments['height'] as double,
+              };
+            }
+            return null;
+          });
+
+      await tester.pumpWidget(const ProviderScope(child: RanaApp()));
+      await tester.pump(const Duration(milliseconds: 1300));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(AndroidView), findsOneWidget);
+      expect(initializeCameraCalls, equals(0));
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(initializeCameraCalls, equals(0));
+
+      createCompleter.complete(0);
+      await tester.pumpAndSettle();
+
+      expect(initializeCameraCalls, equals(1));
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(initializeCameraCalls, equals(1));
+    });
+
+    testWidgets('transient inactive keeps the camera initialized', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(const ProviderScope(child: RanaApp()));
+      await tester.pump(const Duration(milliseconds: 1300));
+      await tester.pumpAndSettle();
+      expect(initializeCameraCalls, equals(1));
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      expect(releaseCameraCalls, equals(0));
+    });
+
+    for (final terminalState in <AppLifecycleState>[
+      AppLifecycleState.hidden,
+      AppLifecycleState.paused,
+      AppLifecycleState.detached,
+    ]) {
+      testWidgets('$terminalState releases the camera', (
+        WidgetTester tester,
+      ) async {
+        await tester.pumpWidget(const ProviderScope(child: RanaApp()));
+        await tester.pump(const Duration(milliseconds: 1300));
+        await tester.pumpAndSettle();
+        expect(initializeCameraCalls, equals(1));
+
+        tester.binding.handleAppLifecycleStateChanged(terminalState);
+        await tester.pump();
+        expect(releaseCameraCalls, equals(1));
+      });
+    }
+
+    testWidgets(
+      'metrics change recreates a transparent preview and keeps UI tappable',
+      (WidgetTester tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(400, 800);
+        addTearDown(() {
+          tester.view.resetDevicePixelRatio();
+          tester.view.resetPhysicalSize();
+        });
+
+        await tester.pumpWidget(const ProviderScope(child: RanaApp()));
+        await tester.pump(const Duration(milliseconds: 1300));
+        await tester.pumpAndSettle();
+
+        final initialPreview = tester.widget<AndroidView>(
+          find.byType(AndroidView),
+        );
+        expect(
+          initialPreview.hitTestBehavior,
+          PlatformViewHitTestBehavior.transparent,
+        );
+        expect(initializeCameraCalls, equals(1));
+
+        tester.view.physicalSize = const Size(800, 400);
+        await tester.pump();
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey<String>('camera-preview-metrics-gate')),
+          findsOneWidget,
+        );
+
+        await tester.pumpAndSettle();
+        final recreatedPreview = tester.widget<AndroidView>(
+          find.byType(AndroidView),
+        );
+        expect(
+          recreatedPreview.hitTestBehavior,
+          PlatformViewHitTestBehavior.transparent,
+        );
+        expect(releaseCameraCalls, equals(1));
+        expect(initializeCameraCalls, equals(2));
+
+        await tester.tap(find.byIcon(Icons.settings_rounded));
+        await tester.pumpAndSettle();
+        expect(find.text('Settings'), findsWidgets);
+
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.photo_library_outlined));
+        await tester.pumpAndSettle();
+        expect(find.text('RANA GALLERY'), findsWidgets);
+      },
+    );
 
     testWidgets('Film action loads a roll and disables style editing', (
       WidgetTester tester,

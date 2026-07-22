@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rana/core/providers/global_error_provider.dart';
 import 'package:rana/core/router/app_router.dart';
@@ -9,7 +8,6 @@ import 'package:rana/core/widgets/global_error_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   final container = ProviderContainer();
 
