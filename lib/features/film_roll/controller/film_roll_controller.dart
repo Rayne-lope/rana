@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:math';
 
+import 'package:rana/core/services/camera_feedback_service.dart';
 import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/film_roll/model/film_roll.dart';
 import 'package:rana/features/film_roll/model/film_roll_lifecycle.dart';
@@ -676,6 +678,7 @@ class FilmRollController extends _$FilmRollController {
         await _repository.save(next);
         _removePending(reservationId);
         state = state.copyWith(activeRoll: next, lastActionError: null);
+        unawaited(CameraFeedbackService.instance.playFilmWind());
         AppLogger.i(
           'FilmRollController',
           'Exposure recorded: id=${next.id} '
@@ -707,6 +710,7 @@ class FilmRollController extends _$FilmRollController {
         loadStatus: FilmRollLoadStatus.loaded,
         lastActionError: null,
       );
+      unawaited(CameraFeedbackService.instance.playRollComplete());
       AppLogger.i(
         'FilmRollController',
         'Film Roll automatically completed: id=${completed.id}',

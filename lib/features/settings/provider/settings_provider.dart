@@ -107,3 +107,46 @@ final outputCapabilitiesProvider = FutureProvider<OutputCapabilities>((
     );
   }
 });
+
+const _soundEffectsStorageKey = 'rana.sound_effects_enabled.v1';
+const _hapticFeedbackStorageKey = 'rana.haptic_feedback_enabled.v1';
+
+class SoundEffectsController extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_soundEffectsStorageKey) ?? true;
+  }
+
+  Future<void> setEnabled(bool enabled) async {
+    state = AsyncData(enabled);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_soundEffectsStorageKey, enabled);
+  }
+}
+
+final soundEffectsEnabledProvider =
+    AsyncNotifierProvider<SoundEffectsController, bool>(
+  SoundEffectsController.new,
+);
+
+class HapticFeedbackController extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_hapticFeedbackStorageKey) ?? true;
+  }
+
+  Future<void> setEnabled(bool enabled) async {
+    state = AsyncData(enabled);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_hapticFeedbackStorageKey, enabled);
+  }
+}
+
+final hapticFeedbackEnabledProvider =
+    AsyncNotifierProvider<HapticFeedbackController, bool>(
+  HapticFeedbackController.new,
+);
+
+

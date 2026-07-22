@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:rana/core/services/camera_feedback_service.dart';
 
 /// Shutter status enum.
 enum ShutterStatus { ready, focusing, focusLock, captured }
@@ -129,8 +130,8 @@ class _PremiumShutterButtonState extends State<PremiumShutterButton>
       curve: Curves.easeOutCubic,
     );
 
-    // Trigger Haptic & Callback
-    HapticFeedback.mediumImpact();
+    // Trigger Sound, Haptic & Callback
+    unawaited(CameraFeedbackService.instance.playShutter());
     widget.onStatusChanged(ShutterStatus.captured);
     widget.onCapture();
 

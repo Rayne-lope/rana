@@ -8,6 +8,7 @@ environment:
   sdk: ^3.11.5
 
 dependencies:
+  audioplayers: ^6.1.0
   cupertino_icons: ^1.0.8
   flutter:
     sdk: flutter
@@ -39,6 +40,7 @@ flutter:
     - assets/icons/
     - assets/luts/
     - assets/textures/
+    - assets/sounds/
 
   shaders:
     - assets/shaders/rana_preset_filter.frag

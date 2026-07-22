@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:rana/core/services/camera_feedback_service.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 import 'package:rana/features/preset/model/rana_style.dart';
 import 'package:rana/features/preset/model/rana_style_mood.dart';
@@ -31,7 +34,10 @@ class StyleMoodChips extends StatelessWidget {
             key: Key('style-mood-chip-${mood.id}'),
             mood: mood,
             isSelected: selectedMood?.id == mood.id,
-            onTap: () => onSelected(mood),
+            onTap: () {
+              unawaited(CameraFeedbackService.instance.playDialTick());
+              onSelected(mood);
+            },
           );
         },
         separatorBuilder: (context, index) => const SizedBox(width: 8),
