@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:rana/features/preset/model/capture_style_metadata.dart';
 import 'package:rana/features/render/model/render_recipe.dart';
+import 'package:rana/src/features/camera/performance/device_capability_profile.dart';
 import 'package:rana/src/platform/rana_camera_api.g.dart' as pigeon;
 
 @internal
@@ -157,3 +158,35 @@ CaptureStyleMetadata metadataFromPigeon(
     filmRollId: metadata.filmRollId,
   );
 }
+
+@internal
+DeviceCapabilityProfile deviceCapabilityFromPigeon(
+  pigeon.DeviceCapabilityMessage message,
+) => DeviceCapabilityProfile(
+  schemaVersion: message.schemaVersion,
+  manufacturer: message.manufacturer,
+  model: message.model,
+  sdkInt: message.sdkInt,
+  totalMemoryMb: message.totalMemoryMb,
+  appMemoryClassMb: message.appMemoryClassMb,
+  isLowRamDevice: message.isLowRamDevice,
+  gpuRenderer: message.gpuRenderer,
+  thermalStatusSupported: message.thermalStatusSupported,
+  cameraHardwareLevel: message.cameraHardwareLevel,
+  rearCameraCount: message.rearCameraCount,
+  physicalRearCameraCount: message.physicalRearCameraCount,
+  logicalMultiCameraSupported: message.logicalMultiCameraSupported,
+  heicSupported: message.heicSupported,
+  recentRendererFailureCount: message.recentRendererFailureCount,
+  performanceClass: DevicePerformanceClass.fromWire(message.performanceClass),
+  decisionReason: message.decisionReason,
+  budget: PerformanceBudget(
+    targetPreviewFps: message.budget.targetPreviewFps,
+    minimumPreviewFps: message.budget.minimumPreviewFps,
+    maxP95FrameMs: message.budget.maxP95FrameMs,
+    maxDroppedFramePercent: message.budget.maxDroppedFramePercent,
+    minimumFreeMemoryMb: message.budget.minimumFreeMemoryMb,
+    glCacheBudgetMb: message.budget.glCacheBudgetMb,
+    maxPreviewLongEdge: message.budget.maxPreviewLongEdge,
+  ),
+);

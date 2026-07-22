@@ -45,4 +45,32 @@ class RanaCameraPigeonMapperTest {
             assertEquals("INVALID_RECIPE", error.code)
         }
     }
+
+    @Test
+    fun `device capability profile maps to typed Pigeon message`() {
+        val profile = DeviceCapabilityRegistry.resolve(
+            DeviceCapabilityInputs(
+                manufacturer = "Google",
+                model = "Pixel",
+                sdkInt = 35,
+                totalMemoryMb = 8192,
+                appMemoryClassMb = 512,
+                gpuRenderer = "Adreno 740",
+                thermalStatusSupported = true,
+                cameraHardwareLevel = "full",
+                rearCameraCount = 2,
+                physicalRearCameraCount = 2,
+                logicalMultiCameraSupported = true,
+                heicSupported = true
+            )
+        )
+
+        val message = profile.toPigeonMessage()
+
+        assertEquals(DEVICE_CAPABILITY_SCHEMA_VERSION.toLong(), message.schemaVersion)
+        assertEquals("high", message.performanceClass)
+        assertEquals(30L, message.budget.targetPreviewFps)
+        assertEquals(96L, message.budget.glCacheBudgetMb)
+        assertEquals("Adreno 740", message.gpuRenderer)
+    }
 }

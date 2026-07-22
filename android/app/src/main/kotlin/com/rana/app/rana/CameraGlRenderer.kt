@@ -25,6 +25,7 @@ class CameraGlRenderer(
     private val onInputSurfaceReady: (SurfaceTexture) -> Unit,
     private val onFpsUpdate: (Int) -> Unit,
     private val onGlError: (String) -> Unit,
+    private val onGpuRendererDetected: (String?) -> Unit = {},
     private val onPreviewFrameRendered: (Int) -> Unit = {}
 ) {
     private companion object {
@@ -298,6 +299,7 @@ class CameraGlRenderer(
         renderHandler.post {
             try {
                 initEgl()
+                onGpuRendererDetected(GLES20.glGetString(GLES20.GL_RENDERER))
                 setupSinglePassShader()
                 setupInputSurface()
                 renderHandler.post(dustAnimRunnable)

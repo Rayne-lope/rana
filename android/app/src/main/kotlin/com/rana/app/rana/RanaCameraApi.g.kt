@@ -408,6 +408,172 @@ data class PermissionCapabilitiesMessage (
 }
 
 /** Generated class from Pigeon that represents data sent in messages. */
+data class PerformanceBudgetMessage (
+  val targetPreviewFps: Long,
+  val minimumPreviewFps: Long,
+  val maxP95FrameMs: Double,
+  val maxDroppedFramePercent: Double,
+  val minimumFreeMemoryMb: Long,
+  val glCacheBudgetMb: Long,
+  val maxPreviewLongEdge: Long
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): PerformanceBudgetMessage {
+      val targetPreviewFps = pigeonVar_list[0] as Long
+      val minimumPreviewFps = pigeonVar_list[1] as Long
+      val maxP95FrameMs = pigeonVar_list[2] as Double
+      val maxDroppedFramePercent = pigeonVar_list[3] as Double
+      val minimumFreeMemoryMb = pigeonVar_list[4] as Long
+      val glCacheBudgetMb = pigeonVar_list[5] as Long
+      val maxPreviewLongEdge = pigeonVar_list[6] as Long
+      return PerformanceBudgetMessage(targetPreviewFps, minimumPreviewFps, maxP95FrameMs, maxDroppedFramePercent, minimumFreeMemoryMb, glCacheBudgetMb, maxPreviewLongEdge)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      targetPreviewFps,
+      minimumPreviewFps,
+      maxP95FrameMs,
+      maxDroppedFramePercent,
+      minimumFreeMemoryMb,
+      glCacheBudgetMb,
+      maxPreviewLongEdge,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as PerformanceBudgetMessage
+    return RanaCameraApiPigeonUtils.deepEquals(this.targetPreviewFps, other.targetPreviewFps) && RanaCameraApiPigeonUtils.deepEquals(this.minimumPreviewFps, other.minimumPreviewFps) && RanaCameraApiPigeonUtils.deepEquals(this.maxP95FrameMs, other.maxP95FrameMs) && RanaCameraApiPigeonUtils.deepEquals(this.maxDroppedFramePercent, other.maxDroppedFramePercent) && RanaCameraApiPigeonUtils.deepEquals(this.minimumFreeMemoryMb, other.minimumFreeMemoryMb) && RanaCameraApiPigeonUtils.deepEquals(this.glCacheBudgetMb, other.glCacheBudgetMb) && RanaCameraApiPigeonUtils.deepEquals(this.maxPreviewLongEdge, other.maxPreviewLongEdge)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.targetPreviewFps)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.minimumPreviewFps)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.maxP95FrameMs)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.maxDroppedFramePercent)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.minimumFreeMemoryMb)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.glCacheBudgetMb)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.maxPreviewLongEdge)
+    return result
+  }
+  override fun toString(): String {
+    return "PerformanceBudgetMessage(targetPreviewFps=$targetPreviewFps, minimumPreviewFps=$minimumPreviewFps, maxP95FrameMs=$maxP95FrameMs, maxDroppedFramePercent=$maxDroppedFramePercent, minimumFreeMemoryMb=$minimumFreeMemoryMb, glCacheBudgetMb=$glCacheBudgetMb, maxPreviewLongEdge=$maxPreviewLongEdge)"
+  }
+}
+
+/** Generated class from Pigeon that represents data sent in messages. */
+data class DeviceCapabilityMessage (
+  val schemaVersion: Long,
+  val manufacturer: String,
+  val model: String,
+  val sdkInt: Long,
+  val totalMemoryMb: Long,
+  val appMemoryClassMb: Long,
+  val isLowRamDevice: Boolean,
+  val gpuRenderer: String? = null,
+  val thermalStatusSupported: Boolean,
+  val cameraHardwareLevel: String,
+  val rearCameraCount: Long,
+  val physicalRearCameraCount: Long,
+  val logicalMultiCameraSupported: Boolean,
+  val heicSupported: Boolean,
+  val recentRendererFailureCount: Long,
+  val performanceClass: String,
+  val decisionReason: String,
+  val budget: PerformanceBudgetMessage
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): DeviceCapabilityMessage {
+      val schemaVersion = pigeonVar_list[0] as Long
+      val manufacturer = pigeonVar_list[1] as String
+      val model = pigeonVar_list[2] as String
+      val sdkInt = pigeonVar_list[3] as Long
+      val totalMemoryMb = pigeonVar_list[4] as Long
+      val appMemoryClassMb = pigeonVar_list[5] as Long
+      val isLowRamDevice = pigeonVar_list[6] as Boolean
+      val gpuRenderer = pigeonVar_list[7] as String?
+      val thermalStatusSupported = pigeonVar_list[8] as Boolean
+      val cameraHardwareLevel = pigeonVar_list[9] as String
+      val rearCameraCount = pigeonVar_list[10] as Long
+      val physicalRearCameraCount = pigeonVar_list[11] as Long
+      val logicalMultiCameraSupported = pigeonVar_list[12] as Boolean
+      val heicSupported = pigeonVar_list[13] as Boolean
+      val recentRendererFailureCount = pigeonVar_list[14] as Long
+      val performanceClass = pigeonVar_list[15] as String
+      val decisionReason = pigeonVar_list[16] as String
+      val budget = pigeonVar_list[17] as PerformanceBudgetMessage
+      return DeviceCapabilityMessage(schemaVersion, manufacturer, model, sdkInt, totalMemoryMb, appMemoryClassMb, isLowRamDevice, gpuRenderer, thermalStatusSupported, cameraHardwareLevel, rearCameraCount, physicalRearCameraCount, logicalMultiCameraSupported, heicSupported, recentRendererFailureCount, performanceClass, decisionReason, budget)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      schemaVersion,
+      manufacturer,
+      model,
+      sdkInt,
+      totalMemoryMb,
+      appMemoryClassMb,
+      isLowRamDevice,
+      gpuRenderer,
+      thermalStatusSupported,
+      cameraHardwareLevel,
+      rearCameraCount,
+      physicalRearCameraCount,
+      logicalMultiCameraSupported,
+      heicSupported,
+      recentRendererFailureCount,
+      performanceClass,
+      decisionReason,
+      budget,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other == null || other.javaClass != javaClass) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    val other = other as DeviceCapabilityMessage
+    return RanaCameraApiPigeonUtils.deepEquals(this.schemaVersion, other.schemaVersion) && RanaCameraApiPigeonUtils.deepEquals(this.manufacturer, other.manufacturer) && RanaCameraApiPigeonUtils.deepEquals(this.model, other.model) && RanaCameraApiPigeonUtils.deepEquals(this.sdkInt, other.sdkInt) && RanaCameraApiPigeonUtils.deepEquals(this.totalMemoryMb, other.totalMemoryMb) && RanaCameraApiPigeonUtils.deepEquals(this.appMemoryClassMb, other.appMemoryClassMb) && RanaCameraApiPigeonUtils.deepEquals(this.isLowRamDevice, other.isLowRamDevice) && RanaCameraApiPigeonUtils.deepEquals(this.gpuRenderer, other.gpuRenderer) && RanaCameraApiPigeonUtils.deepEquals(this.thermalStatusSupported, other.thermalStatusSupported) && RanaCameraApiPigeonUtils.deepEquals(this.cameraHardwareLevel, other.cameraHardwareLevel) && RanaCameraApiPigeonUtils.deepEquals(this.rearCameraCount, other.rearCameraCount) && RanaCameraApiPigeonUtils.deepEquals(this.physicalRearCameraCount, other.physicalRearCameraCount) && RanaCameraApiPigeonUtils.deepEquals(this.logicalMultiCameraSupported, other.logicalMultiCameraSupported) && RanaCameraApiPigeonUtils.deepEquals(this.heicSupported, other.heicSupported) && RanaCameraApiPigeonUtils.deepEquals(this.recentRendererFailureCount, other.recentRendererFailureCount) && RanaCameraApiPigeonUtils.deepEquals(this.performanceClass, other.performanceClass) && RanaCameraApiPigeonUtils.deepEquals(this.decisionReason, other.decisionReason) && RanaCameraApiPigeonUtils.deepEquals(this.budget, other.budget)
+  }
+
+  override fun hashCode(): Int {
+    var result = javaClass.hashCode()
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.schemaVersion)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.manufacturer)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.model)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.sdkInt)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.totalMemoryMb)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.appMemoryClassMb)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.isLowRamDevice)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.gpuRenderer)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.thermalStatusSupported)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.cameraHardwareLevel)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.rearCameraCount)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.physicalRearCameraCount)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.logicalMultiCameraSupported)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.heicSupported)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.recentRendererFailureCount)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.performanceClass)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.decisionReason)
+    result = 31 * result + RanaCameraApiPigeonUtils.deepHash(this.budget)
+    return result
+  }
+  override fun toString(): String {
+    return "DeviceCapabilityMessage(schemaVersion=$schemaVersion, manufacturer=$manufacturer, model=$model, sdkInt=$sdkInt, totalMemoryMb=$totalMemoryMb, appMemoryClassMb=$appMemoryClassMb, isLowRamDevice=$isLowRamDevice, gpuRenderer=$gpuRenderer, thermalStatusSupported=$thermalStatusSupported, cameraHardwareLevel=$cameraHardwareLevel, rearCameraCount=$rearCameraCount, physicalRearCameraCount=$physicalRearCameraCount, logicalMultiCameraSupported=$logicalMultiCameraSupported, heicSupported=$heicSupported, recentRendererFailureCount=$recentRendererFailureCount, performanceClass=$performanceClass, decisionReason=$decisionReason, budget=$budget)"
+  }
+}
+
+/** Generated class from Pigeon that represents data sent in messages. */
 data class RenderRecipeMessage (
   val recipeVersion: Long,
   val temperature: Double,
@@ -1183,60 +1349,70 @@ private open class RanaCameraApiPigeonCodec : StandardMessageCodec() {
       }
       133.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          RenderRecipeMessage.fromList(it)
+          PerformanceBudgetMessage.fromList(it)
         }
       }
       134.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          CaptureRequestMessage.fromList(it)
+          DeviceCapabilityMessage.fromList(it)
         }
       }
       135.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          CaptureAcceptedMessage.fromList(it)
+          RenderRecipeMessage.fromList(it)
         }
       }
       136.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          CaptureResultMessage.fromList(it)
+          CaptureRequestMessage.fromList(it)
         }
       }
       137.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          FilmRollCaptureMessage.fromList(it)
+          CaptureAcceptedMessage.fromList(it)
         }
       }
       138.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          CaptureStyleMetadataMessage.fromList(it)
+          CaptureResultMessage.fromList(it)
         }
       }
       139.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          PreviewMetricsMessage.fromList(it)
+          FilmRollCaptureMessage.fromList(it)
         }
       }
       140.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          CaptureProgressMessage.fromList(it)
+          CaptureStyleMetadataMessage.fromList(it)
         }
       }
       141.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          CaptureCompletedMessage.fromList(it)
+          PreviewMetricsMessage.fromList(it)
         }
       }
       142.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          CaptureFailureMessage.fromList(it)
+          CaptureProgressMessage.fromList(it)
         }
       }
       143.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          RendererErrorMessage.fromList(it)
+          CaptureCompletedMessage.fromList(it)
         }
       }
       144.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          CaptureFailureMessage.fromList(it)
+        }
+      }
+      145.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          RendererErrorMessage.fromList(it)
+        }
+      }
+      146.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
           TelemetryMessage.fromList(it)
         }
@@ -1262,52 +1438,60 @@ private open class RanaCameraApiPigeonCodec : StandardMessageCodec() {
         stream.write(132)
         writeValue(stream, value.toList())
       }
-      is RenderRecipeMessage -> {
+      is PerformanceBudgetMessage -> {
         stream.write(133)
         writeValue(stream, value.toList())
       }
-      is CaptureRequestMessage -> {
+      is DeviceCapabilityMessage -> {
         stream.write(134)
         writeValue(stream, value.toList())
       }
-      is CaptureAcceptedMessage -> {
+      is RenderRecipeMessage -> {
         stream.write(135)
         writeValue(stream, value.toList())
       }
-      is CaptureResultMessage -> {
+      is CaptureRequestMessage -> {
         stream.write(136)
         writeValue(stream, value.toList())
       }
-      is FilmRollCaptureMessage -> {
+      is CaptureAcceptedMessage -> {
         stream.write(137)
         writeValue(stream, value.toList())
       }
-      is CaptureStyleMetadataMessage -> {
+      is CaptureResultMessage -> {
         stream.write(138)
         writeValue(stream, value.toList())
       }
-      is PreviewMetricsMessage -> {
+      is FilmRollCaptureMessage -> {
         stream.write(139)
         writeValue(stream, value.toList())
       }
-      is CaptureProgressMessage -> {
+      is CaptureStyleMetadataMessage -> {
         stream.write(140)
         writeValue(stream, value.toList())
       }
-      is CaptureCompletedMessage -> {
+      is PreviewMetricsMessage -> {
         stream.write(141)
         writeValue(stream, value.toList())
       }
-      is CaptureFailureMessage -> {
+      is CaptureProgressMessage -> {
         stream.write(142)
         writeValue(stream, value.toList())
       }
-      is RendererErrorMessage -> {
+      is CaptureCompletedMessage -> {
         stream.write(143)
         writeValue(stream, value.toList())
       }
-      is TelemetryMessage -> {
+      is CaptureFailureMessage -> {
         stream.write(144)
+        writeValue(stream, value.toList())
+      }
+      is RendererErrorMessage -> {
+        stream.write(145)
+        writeValue(stream, value.toList())
+      }
+      is TelemetryMessage -> {
+        stream.write(146)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)
@@ -1322,6 +1506,7 @@ interface RanaCameraHostApi {
   fun releaseCamera(): CameraOperationResult
   fun getOutputCapabilities(): OutputCapabilitiesMessage
   fun getPermissionCapabilities(): PermissionCapabilitiesMessage
+  fun getDeviceCapabilityProfile(): DeviceCapabilityMessage
   fun applyRecipe(recipe: RenderRecipeMessage): CameraOperationResult
   fun beginCapture(request: CaptureRequestMessage, callback: (Result<CaptureAcceptedMessage>) -> Unit)
   fun executeCapture(request: CaptureRequestMessage, callback: (Result<CaptureResultMessage>) -> Unit)
@@ -1402,6 +1587,21 @@ interface RanaCameraHostApi {
           channel.setMessageHandler { _, reply ->
             val wrapped: List<Any?> = try {
               listOf(api.getPermissionCapabilities())
+            } catch (exception: Throwable) {
+              RanaCameraApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.rana.RanaCameraHostApi.getDeviceCapabilityProfile$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            val wrapped: List<Any?> = try {
+              listOf(api.getDeviceCapabilityProfile())
             } catch (exception: Throwable) {
               RanaCameraApiPigeonUtils.wrapError(exception)
             }

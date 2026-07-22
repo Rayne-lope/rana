@@ -32,6 +32,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 class MainActivity : FlutterActivity() {
     private companion object {
@@ -64,6 +65,7 @@ class MainActivity : FlutterActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private val mediaStoreExecutor = Executors.newSingleThreadExecutor()
     private val captureSequence = AtomicInteger(0)
+    private val rendererCapabilityGeneration = AtomicLong(0)
     private val cameraTelemetry = RanaCameraTelemetry()
     private val cameraStartupStartedAtMs = SystemClock.elapsedRealtime()
     private var lastRuntimeTelemetryAtMs = 0L
@@ -74,6 +76,14 @@ class MainActivity : FlutterActivity() {
     private val dynamicCaptureRenderer by lazy {
         DynamicCaptureRenderer(this, captureStyleMetadataStore)
     }
+    private val deviceCapabilityRegistry = DeviceCapabilityRegistry(
+        DeviceCapabilityInputs(
+            manufacturer = Build.MANUFACTURER.orEmpty(),
+            model = Build.MODEL.orEmpty(),
+            sdkInt = Build.VERSION.SDK_INT
+        ),
+        defaultDeviceCapabilityOverrides
+    )
     private var pendingDeleteResult: MethodChannel.Result? = null
     private var pendingDeleteUri: Uri? = null
     internal var activePreviewView: CameraPreviewView? = null
@@ -114,6 +124,12 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         cleanupShareCache()
         mediaStoreExecutor.execute(::pruneMissingCaptureData)
+        mediaStoreExecutor.execute {
+            val collected = AndroidDeviceCapabilityCollector(this).collect()
+            logDeviceCapabilityProfile(
+                deviceCapabilityRegistry.updateCollectedInputs(collected)
+            )
+        }
 
         // Register the camera preview platform view
         flutterEngine.platformViewsController.registry.registerViewFactory(
@@ -651,6 +667,18 @@ class MainActivity : FlutterActivity() {
     internal fun nextCaptureId(): String =
         "capture-${System.currentTimeMillis()}-${captureSequence.incrementAndGet()}"
 
+    internal fun nextRendererCapabilityGeneration(): Long =
+        rendererCapabilityGeneration.incrementAndGet()
+
+    internal fun recordGpuRenderer(renderer: String?, generation: Long) {
+        logDeviceCapabilityProfile(
+            deviceCapabilityRegistry.updateGpuRenderer(renderer, generation)
+        )
+    }
+
+    internal fun deviceCapabilityProfile(): DeviceCapabilityProfile =
+        deviceCapabilityRegistry.snapshot().also(::logDeviceCapabilityProfile)
+
     internal fun executeMediaTask(task: () -> Unit) {
         mediaStoreExecutor.execute(task)
     }
@@ -785,11 +813,17 @@ class MainActivity : FlutterActivity() {
     }
 
     internal fun dispatchRendererError(code: String, message: String) {
+        logDeviceCapabilityProfile(deviceCapabilityRegistry.recordRendererFailure())
         handler.post {
             cameraFlutterApi.onRendererError(RendererErrorMessage(code, message)) {
                 reportFlutterCallbackFailure("renderer_error", it)
             }
         }
+    }
+
+    private fun logDeviceCapabilityProfile(profile: DeviceCapabilityProfile) {
+        if (!isDebugBuild) return
+        android.util.Log.d("RanaCapabilities", profile.toSafeLogValue())
     }
 
     internal fun recordTelemetry(metric: RanaTelemetryMetric, value: Double) {

@@ -54,6 +54,9 @@ internal class RanaCameraHost(private val activity: MainActivity) : RanaCameraHo
             }
         )
 
+    override fun getDeviceCapabilityProfile(): DeviceCapabilityMessage =
+        activity.deviceCapabilityProfile().toPigeonMessage()
+
     override fun applyRecipe(recipe: RenderRecipeMessage): CameraOperationResult {
         activity.requireActiveCameraPreview().applyRecipe(recipe.toDomainRecipe())
         return CameraOperationResult(status = "preset_selected")

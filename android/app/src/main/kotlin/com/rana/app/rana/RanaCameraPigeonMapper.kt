@@ -155,3 +155,36 @@ internal fun CaptureStyleMetadata.toPigeonMessage(): CaptureStyleMetadataMessage
         filmRollId = filmRollId
     )
 }
+
+internal fun DeviceCapabilityProfile.toPigeonMessage(): DeviceCapabilityMessage =
+    DeviceCapabilityMessage(
+        schemaVersion = schemaVersion.toLong(),
+        manufacturer = manufacturer,
+        model = model,
+        sdkInt = sdkInt.toLong(),
+        totalMemoryMb = totalMemoryMb.toLong(),
+        appMemoryClassMb = appMemoryClassMb.toLong(),
+        isLowRamDevice = isLowRamDevice,
+        gpuRenderer = gpuRenderer,
+        thermalStatusSupported = thermalStatusSupported,
+        cameraHardwareLevel = cameraHardwareLevel,
+        rearCameraCount = rearCameraCount.toLong(),
+        physicalRearCameraCount = physicalRearCameraCount.toLong(),
+        logicalMultiCameraSupported = logicalMultiCameraSupported,
+        heicSupported = heicSupported,
+        recentRendererFailureCount = recentRendererFailureCount.toLong(),
+        performanceClass = performanceClass.wireValue,
+        decisionReason = decisionReason,
+        budget = budget.toPigeonMessage()
+    )
+
+private fun PerformanceBudget.toPigeonMessage(): PerformanceBudgetMessage =
+    PerformanceBudgetMessage(
+        targetPreviewFps = targetPreviewFps.toLong(),
+        minimumPreviewFps = minimumPreviewFps.toLong(),
+        maxP95FrameMs = maxP95FrameMs,
+        maxDroppedFramePercent = maxDroppedFramePercent,
+        minimumFreeMemoryMb = minimumFreeMemoryMb.toLong(),
+        glCacheBudgetMb = glCacheBudgetMb.toLong(),
+        maxPreviewLongEdge = maxPreviewLongEdge.toLong()
+    )

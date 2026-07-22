@@ -74,6 +74,68 @@ class PermissionCapabilitiesMessage {
   String galleryReadPermission;
 }
 
+class PerformanceBudgetMessage {
+  PerformanceBudgetMessage({
+    required this.targetPreviewFps,
+    required this.minimumPreviewFps,
+    required this.maxP95FrameMs,
+    required this.maxDroppedFramePercent,
+    required this.minimumFreeMemoryMb,
+    required this.glCacheBudgetMb,
+    required this.maxPreviewLongEdge,
+  });
+
+  int targetPreviewFps;
+  int minimumPreviewFps;
+  double maxP95FrameMs;
+  double maxDroppedFramePercent;
+  int minimumFreeMemoryMb;
+  int glCacheBudgetMb;
+  int maxPreviewLongEdge;
+}
+
+class DeviceCapabilityMessage {
+  DeviceCapabilityMessage({
+    required this.schemaVersion,
+    required this.manufacturer,
+    required this.model,
+    required this.sdkInt,
+    required this.totalMemoryMb,
+    required this.appMemoryClassMb,
+    required this.isLowRamDevice,
+    required this.gpuRenderer,
+    required this.thermalStatusSupported,
+    required this.cameraHardwareLevel,
+    required this.rearCameraCount,
+    required this.physicalRearCameraCount,
+    required this.logicalMultiCameraSupported,
+    required this.heicSupported,
+    required this.recentRendererFailureCount,
+    required this.performanceClass,
+    required this.decisionReason,
+    required this.budget,
+  });
+
+  int schemaVersion;
+  String manufacturer;
+  String model;
+  int sdkInt;
+  int totalMemoryMb;
+  int appMemoryClassMb;
+  bool isLowRamDevice;
+  String? gpuRenderer;
+  bool thermalStatusSupported;
+  String cameraHardwareLevel;
+  int rearCameraCount;
+  int physicalRearCameraCount;
+  bool logicalMultiCameraSupported;
+  bool heicSupported;
+  int recentRendererFailureCount;
+  String performanceClass;
+  String decisionReason;
+  PerformanceBudgetMessage budget;
+}
+
 class RenderRecipeMessage {
   RenderRecipeMessage({
     required this.recipeVersion,
@@ -322,6 +384,7 @@ abstract class RanaCameraHostApi {
   CameraOperationResult releaseCamera();
   OutputCapabilitiesMessage getOutputCapabilities();
   PermissionCapabilitiesMessage getPermissionCapabilities();
+  DeviceCapabilityMessage getDeviceCapabilityProfile();
   CameraOperationResult applyRecipe(RenderRecipeMessage recipe);
 
   @async

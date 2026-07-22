@@ -367,6 +367,211 @@ class PermissionCapabilitiesMessage {
   }
 }
 
+class PerformanceBudgetMessage {
+  PerformanceBudgetMessage({
+    required this.targetPreviewFps,
+    required this.minimumPreviewFps,
+    required this.maxP95FrameMs,
+    required this.maxDroppedFramePercent,
+    required this.minimumFreeMemoryMb,
+    required this.glCacheBudgetMb,
+    required this.maxPreviewLongEdge,
+  });
+
+  int targetPreviewFps;
+
+  int minimumPreviewFps;
+
+  double maxP95FrameMs;
+
+  double maxDroppedFramePercent;
+
+  int minimumFreeMemoryMb;
+
+  int glCacheBudgetMb;
+
+  int maxPreviewLongEdge;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      targetPreviewFps,
+      minimumPreviewFps,
+      maxP95FrameMs,
+      maxDroppedFramePercent,
+      minimumFreeMemoryMb,
+      glCacheBudgetMb,
+      maxPreviewLongEdge,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static PerformanceBudgetMessage decode(Object result) {
+    result as List<Object?>;
+    return PerformanceBudgetMessage(
+      targetPreviewFps: result[0]! as int,
+      minimumPreviewFps: result[1]! as int,
+      maxP95FrameMs: result[2]! as double,
+      maxDroppedFramePercent: result[3]! as double,
+      minimumFreeMemoryMb: result[4]! as int,
+      glCacheBudgetMb: result[5]! as int,
+      maxPreviewLongEdge: result[6]! as int,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PerformanceBudgetMessage || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(targetPreviewFps, other.targetPreviewFps) && _deepEquals(minimumPreviewFps, other.minimumPreviewFps) && _deepEquals(maxP95FrameMs, other.maxP95FrameMs) && _deepEquals(maxDroppedFramePercent, other.maxDroppedFramePercent) && _deepEquals(minimumFreeMemoryMb, other.minimumFreeMemoryMb) && _deepEquals(glCacheBudgetMb, other.glCacheBudgetMb) && _deepEquals(maxPreviewLongEdge, other.maxPreviewLongEdge);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'PerformanceBudgetMessage(targetPreviewFps: $targetPreviewFps, minimumPreviewFps: $minimumPreviewFps, maxP95FrameMs: $maxP95FrameMs, maxDroppedFramePercent: $maxDroppedFramePercent, minimumFreeMemoryMb: $minimumFreeMemoryMb, glCacheBudgetMb: $glCacheBudgetMb, maxPreviewLongEdge: $maxPreviewLongEdge)';
+  }
+}
+
+class DeviceCapabilityMessage {
+  DeviceCapabilityMessage({
+    required this.schemaVersion,
+    required this.manufacturer,
+    required this.model,
+    required this.sdkInt,
+    required this.totalMemoryMb,
+    required this.appMemoryClassMb,
+    required this.isLowRamDevice,
+    this.gpuRenderer,
+    required this.thermalStatusSupported,
+    required this.cameraHardwareLevel,
+    required this.rearCameraCount,
+    required this.physicalRearCameraCount,
+    required this.logicalMultiCameraSupported,
+    required this.heicSupported,
+    required this.recentRendererFailureCount,
+    required this.performanceClass,
+    required this.decisionReason,
+    required this.budget,
+  });
+
+  int schemaVersion;
+
+  String manufacturer;
+
+  String model;
+
+  int sdkInt;
+
+  int totalMemoryMb;
+
+  int appMemoryClassMb;
+
+  bool isLowRamDevice;
+
+  String? gpuRenderer;
+
+  bool thermalStatusSupported;
+
+  String cameraHardwareLevel;
+
+  int rearCameraCount;
+
+  int physicalRearCameraCount;
+
+  bool logicalMultiCameraSupported;
+
+  bool heicSupported;
+
+  int recentRendererFailureCount;
+
+  String performanceClass;
+
+  String decisionReason;
+
+  PerformanceBudgetMessage budget;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      schemaVersion,
+      manufacturer,
+      model,
+      sdkInt,
+      totalMemoryMb,
+      appMemoryClassMb,
+      isLowRamDevice,
+      gpuRenderer,
+      thermalStatusSupported,
+      cameraHardwareLevel,
+      rearCameraCount,
+      physicalRearCameraCount,
+      logicalMultiCameraSupported,
+      heicSupported,
+      recentRendererFailureCount,
+      performanceClass,
+      decisionReason,
+      budget,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static DeviceCapabilityMessage decode(Object result) {
+    result as List<Object?>;
+    return DeviceCapabilityMessage(
+      schemaVersion: result[0]! as int,
+      manufacturer: result[1]! as String,
+      model: result[2]! as String,
+      sdkInt: result[3]! as int,
+      totalMemoryMb: result[4]! as int,
+      appMemoryClassMb: result[5]! as int,
+      isLowRamDevice: result[6]! as bool,
+      gpuRenderer: result[7] as String?,
+      thermalStatusSupported: result[8]! as bool,
+      cameraHardwareLevel: result[9]! as String,
+      rearCameraCount: result[10]! as int,
+      physicalRearCameraCount: result[11]! as int,
+      logicalMultiCameraSupported: result[12]! as bool,
+      heicSupported: result[13]! as bool,
+      recentRendererFailureCount: result[14]! as int,
+      performanceClass: result[15]! as String,
+      decisionReason: result[16]! as String,
+      budget: result[17]! as PerformanceBudgetMessage,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! DeviceCapabilityMessage || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(schemaVersion, other.schemaVersion) && _deepEquals(manufacturer, other.manufacturer) && _deepEquals(model, other.model) && _deepEquals(sdkInt, other.sdkInt) && _deepEquals(totalMemoryMb, other.totalMemoryMb) && _deepEquals(appMemoryClassMb, other.appMemoryClassMb) && _deepEquals(isLowRamDevice, other.isLowRamDevice) && _deepEquals(gpuRenderer, other.gpuRenderer) && _deepEquals(thermalStatusSupported, other.thermalStatusSupported) && _deepEquals(cameraHardwareLevel, other.cameraHardwareLevel) && _deepEquals(rearCameraCount, other.rearCameraCount) && _deepEquals(physicalRearCameraCount, other.physicalRearCameraCount) && _deepEquals(logicalMultiCameraSupported, other.logicalMultiCameraSupported) && _deepEquals(heicSupported, other.heicSupported) && _deepEquals(recentRendererFailureCount, other.recentRendererFailureCount) && _deepEquals(performanceClass, other.performanceClass) && _deepEquals(decisionReason, other.decisionReason) && _deepEquals(budget, other.budget);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'DeviceCapabilityMessage(schemaVersion: $schemaVersion, manufacturer: $manufacturer, model: $model, sdkInt: $sdkInt, totalMemoryMb: $totalMemoryMb, appMemoryClassMb: $appMemoryClassMb, isLowRamDevice: $isLowRamDevice, gpuRenderer: $gpuRenderer, thermalStatusSupported: $thermalStatusSupported, cameraHardwareLevel: $cameraHardwareLevel, rearCameraCount: $rearCameraCount, physicalRearCameraCount: $physicalRearCameraCount, logicalMultiCameraSupported: $logicalMultiCameraSupported, heicSupported: $heicSupported, recentRendererFailureCount: $recentRendererFailureCount, performanceClass: $performanceClass, decisionReason: $decisionReason, budget: $budget)';
+  }
+}
+
 class RenderRecipeMessage {
   RenderRecipeMessage({
     required this.recipeVersion,
@@ -1312,41 +1517,47 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is PermissionCapabilitiesMessage) {
       buffer.putUint8(132);
       writeValue(buffer, value.encode());
-    }    else if (value is RenderRecipeMessage) {
+    }    else if (value is PerformanceBudgetMessage) {
       buffer.putUint8(133);
       writeValue(buffer, value.encode());
-    }    else if (value is CaptureRequestMessage) {
+    }    else if (value is DeviceCapabilityMessage) {
       buffer.putUint8(134);
       writeValue(buffer, value.encode());
-    }    else if (value is CaptureAcceptedMessage) {
+    }    else if (value is RenderRecipeMessage) {
       buffer.putUint8(135);
       writeValue(buffer, value.encode());
-    }    else if (value is CaptureResultMessage) {
+    }    else if (value is CaptureRequestMessage) {
       buffer.putUint8(136);
       writeValue(buffer, value.encode());
-    }    else if (value is FilmRollCaptureMessage) {
+    }    else if (value is CaptureAcceptedMessage) {
       buffer.putUint8(137);
       writeValue(buffer, value.encode());
-    }    else if (value is CaptureStyleMetadataMessage) {
+    }    else if (value is CaptureResultMessage) {
       buffer.putUint8(138);
       writeValue(buffer, value.encode());
-    }    else if (value is PreviewMetricsMessage) {
+    }    else if (value is FilmRollCaptureMessage) {
       buffer.putUint8(139);
       writeValue(buffer, value.encode());
-    }    else if (value is CaptureProgressMessage) {
+    }    else if (value is CaptureStyleMetadataMessage) {
       buffer.putUint8(140);
       writeValue(buffer, value.encode());
-    }    else if (value is CaptureCompletedMessage) {
+    }    else if (value is PreviewMetricsMessage) {
       buffer.putUint8(141);
       writeValue(buffer, value.encode());
-    }    else if (value is CaptureFailureMessage) {
+    }    else if (value is CaptureProgressMessage) {
       buffer.putUint8(142);
       writeValue(buffer, value.encode());
-    }    else if (value is RendererErrorMessage) {
+    }    else if (value is CaptureCompletedMessage) {
       buffer.putUint8(143);
       writeValue(buffer, value.encode());
-    }    else if (value is TelemetryMessage) {
+    }    else if (value is CaptureFailureMessage) {
       buffer.putUint8(144);
+      writeValue(buffer, value.encode());
+    }    else if (value is RendererErrorMessage) {
+      buffer.putUint8(145);
+      writeValue(buffer, value.encode());
+    }    else if (value is TelemetryMessage) {
+      buffer.putUint8(146);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -1365,28 +1576,32 @@ class _PigeonCodec extends StandardMessageCodec {
       case 132:
         return PermissionCapabilitiesMessage.decode(readValue(buffer)!);
       case 133:
-        return RenderRecipeMessage.decode(readValue(buffer)!);
+        return PerformanceBudgetMessage.decode(readValue(buffer)!);
       case 134:
-        return CaptureRequestMessage.decode(readValue(buffer)!);
+        return DeviceCapabilityMessage.decode(readValue(buffer)!);
       case 135:
-        return CaptureAcceptedMessage.decode(readValue(buffer)!);
+        return RenderRecipeMessage.decode(readValue(buffer)!);
       case 136:
-        return CaptureResultMessage.decode(readValue(buffer)!);
+        return CaptureRequestMessage.decode(readValue(buffer)!);
       case 137:
-        return FilmRollCaptureMessage.decode(readValue(buffer)!);
+        return CaptureAcceptedMessage.decode(readValue(buffer)!);
       case 138:
-        return CaptureStyleMetadataMessage.decode(readValue(buffer)!);
+        return CaptureResultMessage.decode(readValue(buffer)!);
       case 139:
-        return PreviewMetricsMessage.decode(readValue(buffer)!);
+        return FilmRollCaptureMessage.decode(readValue(buffer)!);
       case 140:
-        return CaptureProgressMessage.decode(readValue(buffer)!);
+        return CaptureStyleMetadataMessage.decode(readValue(buffer)!);
       case 141:
-        return CaptureCompletedMessage.decode(readValue(buffer)!);
+        return PreviewMetricsMessage.decode(readValue(buffer)!);
       case 142:
-        return CaptureFailureMessage.decode(readValue(buffer)!);
+        return CaptureProgressMessage.decode(readValue(buffer)!);
       case 143:
-        return RendererErrorMessage.decode(readValue(buffer)!);
+        return CaptureCompletedMessage.decode(readValue(buffer)!);
       case 144:
+        return CaptureFailureMessage.decode(readValue(buffer)!);
+      case 145:
+        return RendererErrorMessage.decode(readValue(buffer)!);
+      case 146:
         return TelemetryMessage.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -1481,6 +1696,25 @@ class RanaCameraHostApi {
     )
     ;
     return pigeonVar_replyValue! as PermissionCapabilitiesMessage;
+  }
+
+  Future<DeviceCapabilityMessage> getDeviceCapabilityProfile() async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.rana.RanaCameraHostApi.getDeviceCapabilityProfile$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: false,
+    )
+    ;
+    return pigeonVar_replyValue! as DeviceCapabilityMessage;
   }
 
   Future<CameraOperationResult> applyRecipe(RenderRecipeMessage recipe) async {

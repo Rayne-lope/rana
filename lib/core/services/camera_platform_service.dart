@@ -1,10 +1,12 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:rana/core/utils/app_logger.dart';
 import 'package:rana/features/camera/telemetry/camera_telemetry.dart';
 import 'package:rana/features/preset/model/capture_style_metadata.dart';
 import 'package:rana/features/render/model/render_recipe.dart';
+import 'package:rana/src/features/camera/performance/device_capability_profile.dart';
 import 'package:rana/src/platform/rana_camera_api.g.dart' as pigeon;
 import 'package:rana/src/platform/rana_camera_pigeon_mapper.dart';
 
@@ -161,6 +163,22 @@ class CameraPlatformService {
     },
     debugLegacyCall: () => _legacyMap('getPermissionCapabilities'),
   );
+
+  Future<DeviceCapabilityProfile> getDeviceCapabilityProfile() async {
+    try {
+      return deviceCapabilityFromPigeon(
+        await _hostApi.getDeviceCapabilityProfile(),
+      );
+    } on Object catch (error, stackTrace) {
+      AppLogger.e(
+        'CameraPlatformService',
+        'Unable to read the typed device capability profile',
+        error,
+        stackTrace,
+      );
+      rethrow;
+    }
+  }
 
   Future<Map<String, dynamic>> selectPreset(
     String presetId,

@@ -47,6 +47,7 @@ internal class RanaCameraEngine(
     private val previewSurface = RanaCameraSurface(
         context = context,
         onAvailable = { surfaceTexture, width, height ->
+            val capabilityGeneration = activity.nextRendererCapabilityGeneration()
             val renderer = CameraGlRenderer(
                 context,
                 surfaceTexture,
@@ -63,6 +64,9 @@ internal class RanaCameraEngine(
                         "RENDERER_INITIALIZATION_FAILED",
                         error
                     )
+                },
+                onGpuRendererDetected = { gpuRenderer ->
+                    activity.recordGpuRenderer(gpuRenderer, capabilityGeneration)
                 },
                 onPreviewFrameRendered = { bindingGeneration ->
                     activity.runOnUiThread {
