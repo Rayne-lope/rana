@@ -6,9 +6,11 @@ part of 'camera_controller.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$cameraControllerHash() => r'5b1f663765d63e4be6fedad85cf8c6d7183c2186';
+String _$cameraControllerHash() => r'3b933757169a1a59c9eb7ce452e262334c911115';
 
-/// See also [CameraController].
+/// UI-facing camera facade. Stateful workflows live in composed helpers.
+///
+/// Copied from [CameraController].
 @ProviderFor(CameraController)
 final cameraControllerProvider =
     NotifierProvider<CameraController, CameraState>.internal(
