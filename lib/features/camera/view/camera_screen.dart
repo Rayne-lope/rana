@@ -1524,6 +1524,12 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         !state.isSelfTimerRunning;
     final activeRoll = rollState.activeRoll;
     final isRollActive = rollState.hasActiveRoll;
+    final presetLeadingIcon = isRollActive
+        ? Icons.lock_outline_rounded
+        : Icons.photo_camera_back_rounded;
+    final presetTrailingIcon = isRollActive
+        ? Icons.lock_rounded
+        : Icons.keyboard_arrow_up_rounded;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -1597,7 +1603,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                       ),
                     ),
 
-                  // Floating Preset selector overlay at the bottom center of the viewfinder
+                  // Floating preset selector at the viewfinder bottom center.
                   if (layoutMode == _ViewfinderLayoutMode.capture)
                     Positioned(
                       bottom: 16,
@@ -1611,7 +1617,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                               ? 'Preset locked by Film Roll'
                               : 'Select preset',
                           hint: isRollActive
-                              ? 'End or abandon the Film Roll to change the preset'
+                              ? 'End or abandon the Film Roll to change '
+                                    'the preset'
                               : null,
                           child: Material(
                             color: Colors.transparent,
@@ -1677,10 +1684,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(
-                                            isRollActive
-                                                ? Icons.lock_outline_rounded
-                                                : Icons
-                                                      .photo_camera_back_rounded,
+                                            presetLeadingIcon,
                                             size: 12,
                                             color: const Color(0xFFF39C12),
                                           ),
@@ -1705,10 +1709,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
                                           ),
                                           const SizedBox(width: 4),
                                           Icon(
-                                            isRollActive
-                                                ? Icons.lock_rounded
-                                                : Icons
-                                                      .keyboard_arrow_up_rounded,
+                                            presetTrailingIcon,
                                             size: 13,
                                             color: Colors.white60,
                                           ),
@@ -1827,125 +1828,125 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     return Size(fittedWidth, fittedWidth / aspectRatio);
   }
 
-  Widget _buildPreviewGate(CameraState state, CameraController controller) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: LayoutBuilder(
-        builder: (context, constraints) => GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapUp: (details) => _handleViewfinderTap(details, constraints),
-          onScaleStart: _handleViewfinderScaleStart,
-          onScaleUpdate: _handleViewfinderScaleUpdate,
-          onScaleEnd: _handleViewfinderScaleEnd,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Live Camera Viewfinder Preview
-              if (_previewMetricsStable)
-                _AndroidCameraPreview(
-                  key: ValueKey<String>(
-                    'camera-preview-${state.aspectRatio.platformValue}-'
-                    '$_previewGeneration',
+  Widget _buildPreviewGate(CameraState state, CameraController controller) =>
+      ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: LayoutBuilder(
+          builder: (context, constraints) => GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapUp: (details) => _handleViewfinderTap(details, constraints),
+            onScaleStart: _handleViewfinderScaleStart,
+            onScaleUpdate: _handleViewfinderScaleUpdate,
+            onScaleEnd: _handleViewfinderScaleEnd,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Live Camera Viewfinder Preview
+                if (_previewMetricsStable)
+                  _AndroidCameraPreview(
+                    key: ValueKey<String>(
+                      'camera-preview-${state.aspectRatio.platformValue}-'
+                      '$_previewGeneration',
+                    ),
+                    aspectRatio: state.aspectRatio,
+                    lens: state.activeLens,
+                    flashMode: state.flashMode,
+                    zoomRatio: state.zoomRatio,
+                    onPlatformViewCreated: (platformViewId) {
+                      unawaited(
+                        _initializePreview(platformViewId, _previewGeneration),
+                      );
+                    },
+                  )
+                else
+                  const ColoredBox(
+                    key: ValueKey<String>('camera-preview-metrics-gate'),
+                    color: Colors.black,
                   ),
-                  aspectRatio: state.aspectRatio,
-                  lens: state.activeLens,
-                  flashMode: state.flashMode,
-                  zoomRatio: state.zoomRatio,
-                  onPlatformViewCreated: (platformViewId) {
-                    unawaited(
-                      _initializePreview(platformViewId, _previewGeneration),
-                    );
-                  },
-                )
-              else
-                const ColoredBox(
-                  key: ValueKey<String>('camera-preview-metrics-gate'),
-                  color: Colors.black,
-                ),
 
-              // 3x3 Composition Grid Lines
-              if (ref.watch(gridLinesProvider)) const _ViewfinderGrid(),
+                // 3x3 Composition Grid Lines
+                if (ref.watch(gridLinesProvider)) const _ViewfinderGrid(),
 
-              // Focus lock point indicator (Focus Ring)
-              if (_tapFocusPoint != null)
-                Positioned(
-                  left: _tapFocusPoint!.dx - 30,
-                  top: _tapFocusPoint!.dy - 30,
-                  child: _FocusRing(controller: _focusAnimationController),
-                ),
+                // Focus lock point indicator (Focus Ring)
+                if (_tapFocusPoint != null)
+                  Positioned(
+                    left: _tapFocusPoint!.dx - 30,
+                    top: _tapFocusPoint!.dy - 30,
+                    child: _FocusRing(controller: _focusAnimationController),
+                  ),
 
-              // AE/AF Lock indicator
-              if (_isFocusLocked)
-                Positioned(
-                  top: 46,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: GestureDetector(
-                      onTap: _resetFocus,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: const Color(0xFFF39C12)),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.lock_outline_rounded,
-                              color: Color(0xFFF39C12),
-                              size: 12,
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              'AE/AF LOCK',
-                              style: TextStyle(
+                // AE/AF Lock indicator
+                if (_isFocusLocked)
+                  Positioned(
+                    top: 46,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: _resetFocus,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFF39C12)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.lock_outline_rounded,
                                 color: Color(0xFFF39C12),
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.1,
+                                size: 12,
                               ),
-                            ),
-                          ],
+                              SizedBox(width: 4),
+                              Text(
+                                'AE/AF LOCK',
+                                style: TextStyle(
+                                  color: Color(0xFFF39C12),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              // Native zoom indicator and reset affordance (placed cleanly
-              // above the floating preset selector overlay).
-              if (state.isCameraInitialized)
-                Positioned(
-                  bottom: 64,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: _ZoomIndicator(
-                      zoomRatio: state.zoomRatio,
-                      isEnabled:
-                          state.captureStatus == CaptureStatus.idle &&
-                          !state.isSelfTimerRunning,
-                      isLimited:
-                          state.isZoomLimited &&
-                          state.zoomRatio >= state.effectiveMaxZoomRatio - 0.01,
-                      shouldWarnDigitalZoom: state.shouldWarnDigitalZoom,
-                      onReset: () {
-                        unawaited(controller.setZoomRatio(userMinZoomRatio));
-                      },
+                // Native zoom indicator and reset affordance (placed cleanly
+                // above the floating preset selector overlay).
+                if (state.isCameraInitialized)
+                  Positioned(
+                    bottom: 64,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: _ZoomIndicator(
+                        zoomRatio: state.zoomRatio,
+                        isEnabled:
+                            state.captureStatus == CaptureStatus.idle &&
+                            !state.isSelfTimerRunning,
+                        isLimited:
+                            state.isZoomLimited &&
+                            state.zoomRatio >=
+                                state.effectiveMaxZoomRatio - 0.01,
+                        shouldWarnDigitalZoom: state.shouldWarnDigitalZoom,
+                        onReset: () {
+                          unawaited(controller.setZoomRatio(userMinZoomRatio));
+                        },
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
-  }
+      );
 
   Widget _buildBottomPanel(
     CameraState state,
@@ -2136,7 +2137,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     if (rollState.recipeStatus == FilmRollRecipeStatus.unavailable ||
         state.activeFilmRollRecipeStatus ==
             ActiveFilmRollRecipeStatus.unavailable) {
-      return 'The locked Film Roll recipe is unavailable. Retry Recipe, End Roll, or Abandon Roll.';
+      return 'The locked Film Roll recipe is unavailable. '
+          'Retry Recipe, End Roll, or Abandon Roll.';
     }
     if (rollState.recipeStatus == FilmRollRecipeStatus.applying ||
         state.activeFilmRollRecipeStatus ==
@@ -2144,7 +2146,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       return 'The locked Film Roll recipe is restoring.';
     }
     if (rollState.hasPendingSaveRecovery) {
-      return 'A saved Film Roll frame needs recovery before you can shoot again.';
+      return 'A saved Film Roll frame needs recovery before you can '
+          'shoot again.';
     }
     if (rollState.cannotReserveExposure) {
       return 'Film Roll capacity is full, including frames still processing.';

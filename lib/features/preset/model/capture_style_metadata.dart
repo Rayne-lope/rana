@@ -15,22 +15,21 @@ class CaptureStyleMetadata {
     this.filmRollId,
   });
 
-  factory CaptureStyleMetadata.fromMap(Map<dynamic, dynamic> map) {
-    return CaptureStyleMetadata(
-      mediaUri: map['mediaUri'] as String? ?? '',
-      presetId: map['presetId'] as String? ?? 'normal',
-      undertoneX: (map['undertoneX'] as num?)?.toDouble() ?? 0.0,
-      undertoneY: (map['undertoneY'] as num?)?.toDouble() ?? 0.0,
-      params: map['params'] != null
-          ? Map<String, dynamic>.from(map['params'] as Map<dynamic, dynamic>)
-          : const <String, dynamic>{},
-      sourceImagePath: map['sourceImagePath'] as String?,
-      mediaIsRendered: map['mediaIsRendered'] as bool? ?? false,
-      createdAtEpochMs: (map['createdAtEpochMs'] as num?)?.toInt() ?? 0,
-      updatedAtEpochMs: (map['updatedAtEpochMs'] as num?)?.toInt() ?? 0,
-      filmRollId: map['filmRollId'] as String?,
-    );
-  }
+  factory CaptureStyleMetadata.fromMap(Map<dynamic, dynamic> map) =>
+      CaptureStyleMetadata(
+        mediaUri: map['mediaUri'] as String? ?? '',
+        presetId: map['presetId'] as String? ?? 'normal',
+        undertoneX: (map['undertoneX'] as num?)?.toDouble() ?? 0.0,
+        undertoneY: (map['undertoneY'] as num?)?.toDouble() ?? 0.0,
+        params: map['params'] != null
+            ? Map<String, dynamic>.from(map['params'] as Map<dynamic, dynamic>)
+            : const <String, dynamic>{},
+        sourceImagePath: map['sourceImagePath'] as String?,
+        mediaIsRendered: map['mediaIsRendered'] as bool? ?? false,
+        createdAtEpochMs: (map['createdAtEpochMs'] as num?)?.toInt() ?? 0,
+        updatedAtEpochMs: (map['updatedAtEpochMs'] as num?)?.toInt() ?? 0,
+        filmRollId: map['filmRollId'] as String?,
+      );
 
   final String mediaUri;
   final String presetId;
@@ -48,7 +47,8 @@ class CaptureStyleMetadata {
     final paramsHash = params.entries
         .map((e) => '${e.key}:${e.value}')
         .join(';');
-    return '$mediaUri|$presetId|$undertoneX|$undertoneY|$updatedAtEpochMs|$paramsHash';
+    return '$mediaUri|$presetId|$undertoneX|$undertoneY|'
+        '$updatedAtEpochMs|$paramsHash';
   }
 
   @override
@@ -65,11 +65,11 @@ class CaptureStyleMetadata {
 
   @override
   int get hashCode => Object.hash(
-        mediaUri,
-        presetId,
-        undertoneX,
-        undertoneY,
-        createdAtEpochMs,
-        updatedAtEpochMs,
-      );
+    mediaUri,
+    presetId,
+    undertoneX,
+    undertoneY,
+    createdAtEpochMs,
+    updatedAtEpochMs,
+  );
 }

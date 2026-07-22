@@ -15,13 +15,12 @@ class GlParamsState {
     Map<String, dynamic>? lastPreviewParams,
     Map<String, dynamic>? lastExportParams,
     Map<String, dynamic>? lastCapturedPreviewParams,
-  }) =>
-      GlParamsState(
-        lastPreviewParams: lastPreviewParams ?? this.lastPreviewParams,
-        lastExportParams: lastExportParams ?? this.lastExportParams,
-        lastCapturedPreviewParams:
-            lastCapturedPreviewParams ?? this.lastCapturedPreviewParams,
-      );
+  }) => GlParamsState(
+    lastPreviewParams: lastPreviewParams ?? this.lastPreviewParams,
+    lastExportParams: lastExportParams ?? this.lastExportParams,
+    lastCapturedPreviewParams:
+        lastCapturedPreviewParams ?? this.lastCapturedPreviewParams,
+  );
 }
 
 final consistencyDebugProvider = StateProvider<GlParamsState>(

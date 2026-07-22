@@ -17,40 +17,48 @@ class PresetIllustrationPainter extends CustomPainter {
     final categoryLower = preset.category.toLowerCase();
 
     // Classification logic for preset categories
-    final isMonochrome = idLower.contains('bw') ||
+    final isMonochrome =
+        idLower.contains('bw') ||
         idLower.contains('mono') ||
         idLower.contains('ilford') ||
         idLower.contains('scala') ||
         (preset.color.saturation <= -0.8);
 
-    final isLomo = idLower.contains('lomo') ||
+    final isLomo =
+        idLower.contains('lomo') ||
         idLower.contains('toy') ||
         idLower.contains('metropolis');
 
-    final isCinematic = categoryLower == 'cinematic' ||
+    final isCinematic =
+        categoryLower == 'cinematic' ||
         idLower.contains('cinestill') ||
         idLower.contains('cinema');
 
-    final isDisposable = categoryLower == 'disposable' ||
+    final isDisposable =
+        categoryLower == 'disposable' ||
         idLower.contains('quicksnap') ||
         idLower.contains('lebox') ||
         idLower.contains('disposable');
 
-    final isInstant = categoryLower == 'instant' ||
+    final isInstant =
+        categoryLower == 'instant' ||
         idLower.contains('instax') ||
         idLower.contains('polaroid');
 
-    final isCool = idLower.contains('aurora') ||
+    final isCool =
+        idLower.contains('aurora') ||
         idLower.contains('cool') ||
         (preset.color.temperature < -0.05);
 
-    final isForest = idLower.contains('dusk') ||
+    final isForest =
+        idLower.contains('dusk') ||
         idLower.contains('rust') ||
         idLower.contains('nocturne') ||
         idLower.contains('purple') ||
         idLower.contains('lomochrome');
 
-    final isWarm = idLower.contains('gold') ||
+    final isWarm =
+        idLower.contains('gold') ||
         idLower.contains('portra') ||
         idLower.contains('warm') ||
         idLower.contains('ektar') ||
@@ -138,15 +146,12 @@ class PresetIllustrationPainter extends CustomPainter {
 
     // Inner glowing sphere
     final glowPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          Colors.white.withValues(alpha: 0.35),
-          Colors.transparent,
-        ],
-      ).createShader(Rect.fromCircle(
-        center: Offset(centerX, centerY),
-        radius: radius,
-      ));
+      ..shader =
+          RadialGradient(
+            colors: [Colors.white.withValues(alpha: 0.35), Colors.transparent],
+          ).createShader(
+            Rect.fromCircle(center: Offset(centerX, centerY), radius: radius),
+          );
     canvas.drawCircle(Offset(centerX, centerY), radius, glowPaint);
   }
 
@@ -306,16 +311,17 @@ class PresetIllustrationPainter extends CustomPainter {
     final sunRadius = size.width * 0.16;
 
     final sunGlow = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          const Color(0xFFFFE066).withValues(alpha: 0.95),
-          const Color(0xFFE74C3C).withValues(alpha: 0.1),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.7, 1.0],
-      ).createShader(
-        Rect.fromCircle(center: sunCenter, radius: sunRadius * 1.8),
-      );
+      ..shader =
+          RadialGradient(
+            colors: [
+              const Color(0xFFFFE066).withValues(alpha: 0.95),
+              const Color(0xFFE74C3C).withValues(alpha: 0.1),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.7, 1.0],
+          ).createShader(
+            Rect.fromCircle(center: sunCenter, radius: sunRadius * 1.8),
+          );
 
     canvas.drawCircle(sunCenter, sunRadius * 1.8, sunGlow);
     canvas.drawCircle(
@@ -326,46 +332,11 @@ class PresetIllustrationPainter extends CustomPainter {
 
     // 3. Silhouette pine trees at the bottom
     const treeColor = Color(0xFF140D0B);
-    _drawTree(
-      canvas,
-      size.width * 0.16,
-      size.height * 0.84,
-      18,
-      11,
-      treeColor,
-    );
-    _drawTree(
-      canvas,
-      size.width * 0.34,
-      size.height * 0.88,
-      14,
-      9,
-      treeColor,
-    );
-    _drawTree(
-      canvas,
-      size.width * 0.50,
-      size.height * 0.90,
-      24,
-      14,
-      treeColor,
-    );
-    _drawTree(
-      canvas,
-      size.width * 0.68,
-      size.height * 0.86,
-      16,
-      10,
-      treeColor,
-    );
-    _drawTree(
-      canvas,
-      size.width * 0.84,
-      size.height * 0.83,
-      20,
-      12,
-      treeColor,
-    );
+    _drawTree(canvas, size.width * 0.16, size.height * 0.84, 18, 11, treeColor);
+    _drawTree(canvas, size.width * 0.34, size.height * 0.88, 14, 9, treeColor);
+    _drawTree(canvas, size.width * 0.50, size.height * 0.90, 24, 14, treeColor);
+    _drawTree(canvas, size.width * 0.68, size.height * 0.86, 16, 10, treeColor);
+    _drawTree(canvas, size.width * 0.84, size.height * 0.83, 20, 12, treeColor);
 
     // Ground block
     canvas.drawRect(
@@ -409,14 +380,15 @@ class PresetIllustrationPainter extends CustomPainter {
       orbCenter,
       orbRadius * 1.5,
       Paint()
-        ..shader = RadialGradient(
-          colors: [
-            const Color(0xFFFF5722).withValues(alpha: 0.35),
-            Colors.transparent,
-          ],
-        ).createShader(
-          Rect.fromCircle(center: orbCenter, radius: orbRadius * 1.5),
-        ),
+        ..shader =
+            RadialGradient(
+              colors: [
+                const Color(0xFFFF5722).withValues(alpha: 0.35),
+                Colors.transparent,
+              ],
+            ).createShader(
+              Rect.fromCircle(center: orbCenter, radius: orbRadius * 1.5),
+            ),
     );
 
     // Clean white center
@@ -505,9 +477,9 @@ class PresetIllustrationPainter extends CustomPainter {
         text: TextSpan(
           text: "'98 07 12",
           style: TextStyle(
-            color: const Color(0xFFFF5722).withValues(
-              alpha: 0.92,
-            ), // Retro digital orange-red
+            color: const Color(
+              0xFFFF5722,
+            ).withValues(alpha: 0.92), // Retro digital orange-red
             fontSize: size.width * 0.11,
             fontWeight: FontWeight.w900,
             fontFamily: 'monospace',
@@ -631,15 +603,15 @@ class PresetIllustrationPainter extends CustomPainter {
       Offset(centerX, centerY),
       size.width * 0.12,
       Paint()
-        ..shader = RadialGradient(
-          colors: [
-            const Color(0xFF5DADE2),
-            const Color(0xFF2E4053),
-          ],
-        ).createShader(Rect.fromCircle(
-          center: Offset(centerX, centerY),
-          radius: size.width * 0.12,
-        )),
+        ..shader =
+            const RadialGradient(
+              colors: [Color(0xFF5DADE2), Color(0xFF2E4053)],
+            ).createShader(
+              Rect.fromCircle(
+                center: Offset(centerX, centerY),
+                radius: size.width * 0.12,
+              ),
+            ),
     );
 
     // 4. Glowing flash element in top-right
@@ -648,16 +620,19 @@ class PresetIllustrationPainter extends CustomPainter {
     final flashRadius = size.width * 0.1;
 
     final flashGlow = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          Colors.white,
-          const Color(0xFFF1C40F).withValues(alpha: 0.6),
-          Colors.transparent,
-        ],
-      ).createShader(Rect.fromCircle(
-        center: Offset(flashX, flashY),
-        radius: flashRadius * 2,
-      ));
+      ..shader =
+          RadialGradient(
+            colors: [
+              Colors.white,
+              const Color(0xFFF1C40F).withValues(alpha: 0.6),
+              Colors.transparent,
+            ],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(flashX, flashY),
+              radius: flashRadius * 2,
+            ),
+          );
     canvas.drawCircle(Offset(flashX, flashY), flashRadius * 2, flashGlow);
     canvas.drawCircle(
       Offset(flashX, flashY),
@@ -711,10 +686,7 @@ class PresetIllustrationPainter extends CustomPainter {
     );
 
     // Draw the white paper border of the instant photo
-    canvas.drawRRect(
-      frameRect,
-      Paint()..color = const Color(0xFFF4F6F7),
-    );
+    canvas.drawRRect(frameRect, Paint()..color = const Color(0xFFF4F6F7));
 
     // Draw the dark inner image area inside the instant photo
     final photoWidth = frameWidth * 0.8;
@@ -762,13 +734,11 @@ class PresetIllustrationPainter extends CustomPainter {
     // 2. Vertical film strip sprocket pattern on the left side
     final stripWidth = size.width * 0.16;
     final stripPaint = Paint()..color = const Color(0xFF050B0D);
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, stripWidth, size.height),
-      stripPaint,
-    );
+    canvas.drawRect(Rect.fromLTWH(0, 0, stripWidth, size.height), stripPaint);
 
     // Draw tiny sprocket holes (rounded rectangles)
-    final holePaint = Paint()..color = const Color(0xFFD5DBDB).withValues(alpha: 0.8);
+    final holePaint = Paint()
+      ..color = const Color(0xFFD5DBDB).withValues(alpha: 0.8);
     final holeWidth = stripWidth * 0.5;
     final holeHeight = size.height * 0.08;
     final holeLeft = (stripWidth - holeWidth) / 2;
@@ -794,17 +764,20 @@ class PresetIllustrationPainter extends CustomPainter {
       Offset(centerX, centerY),
       radius * 1.6,
       Paint()
-        ..shader = RadialGradient(
-          colors: [
-            const Color(0xFFFF3333).withValues(alpha: 0.48),
-            const Color(0xFFFF6600).withValues(alpha: 0.12),
-            Colors.transparent,
-          ],
-          stops: const [0.0, 0.6, 1.0],
-        ).createShader(Rect.fromCircle(
-          center: Offset(centerX, centerY),
-          radius: radius * 1.6,
-        )),
+        ..shader =
+            RadialGradient(
+              colors: [
+                const Color(0xFFFF3333).withValues(alpha: 0.48),
+                const Color(0xFFFF6600).withValues(alpha: 0.12),
+                Colors.transparent,
+              ],
+              stops: const [0.0, 0.6, 1.0],
+            ).createShader(
+              Rect.fromCircle(
+                center: Offset(centerX, centerY),
+                radius: radius * 1.6,
+              ),
+            ),
     );
 
     // Inner bright golden light source
@@ -812,16 +785,16 @@ class PresetIllustrationPainter extends CustomPainter {
       Offset(centerX, centerY),
       radius,
       Paint()
-        ..shader = RadialGradient(
-          colors: [
-            Colors.white,
-            const Color(0xFFFFF0B3),
-            const Color(0xFFFF9933).withValues(alpha: 0.2),
-          ],
-        ).createShader(Rect.fromCircle(
-          center: Offset(centerX, centerY),
-          radius: radius,
-        )),
+        ..shader =
+            RadialGradient(
+              colors: [
+                Colors.white,
+                const Color(0xFFFFF0B3),
+                const Color(0xFFFF9933).withValues(alpha: 0.2),
+              ],
+            ).createShader(
+              Rect.fromCircle(center: Offset(centerX, centerY), radius: radius),
+            ),
     );
   }
 

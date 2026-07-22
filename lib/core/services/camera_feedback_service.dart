@@ -4,19 +4,21 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
 import 'package:rana/core/utils/app_logger.dart';
 
-/// Centralized service managing analog camera audio effects and haptic feedback.
+/// Manages analog camera audio effects and haptic feedback.
 class CameraFeedbackService {
   CameraFeedbackService._internal();
 
-  static final CameraFeedbackService instance = CameraFeedbackService._internal();
+  static final CameraFeedbackService instance =
+      CameraFeedbackService._internal();
 
   AudioPlayer? _player;
   bool _audioInitAttempted = false;
 
   bool _isBindingInitialized() {
     try {
-      return ServicesBinding.instance != null;
-    } catch (_) {
+      ServicesBinding.instance;
+      return true;
+    } on Object catch (_) {
       return false;
     }
   }
@@ -27,22 +29,25 @@ class CameraFeedbackService {
     _audioInitAttempted = true;
     try {
       final player = AudioPlayer();
-      player.setAudioContext(
-        AudioContext(
-          android: const AudioContextAndroid(
-            usageType: AndroidUsageType.assistanceSonification,
-            contentType: AndroidContentType.sonification,
-            audioFocus: AndroidAudioFocus.none,
-          ),
-          iOS: AudioContextIOS(
-            category: AVAudioSessionCategory.ambient,
-          ),
-        ),
-      ).catchError((_) {});
+      player
+          .setAudioContext(
+            AudioContext(
+              android: const AudioContextAndroid(
+                usageType: AndroidUsageType.assistanceSonification,
+                contentType: AndroidContentType.sonification,
+                audioFocus: AndroidAudioFocus.none,
+              ),
+              iOS: AudioContextIOS(category: AVAudioSessionCategory.ambient),
+            ),
+          )
+          .catchError((_) {});
       _player = player;
       return player;
     } on Object catch (e) {
-      AppLogger.w('CameraFeedbackService', 'AudioPlayer unavailable in current environment: $e');
+      AppLogger.w(
+        'CameraFeedbackService',
+        'AudioPlayer unavailable in current environment: $e',
+      );
       return null;
     }
   }
@@ -54,7 +59,7 @@ class CameraFeedbackService {
   }) async {
     if (playHaptic && _isBindingInitialized()) {
       try {
-        HapticFeedback.mediumImpact().catchError((_) {});
+        unawaited(HapticFeedback.mediumImpact().catchError((_) {}));
       } on Object catch (_) {}
     }
     if (playSound) {
@@ -62,9 +67,16 @@ class CameraFeedbackService {
       if (player != null) {
         try {
           await player.stop().catchError((_) {});
-          await player.play(AssetSource('sounds/shutter_click.wav')).catchError((_) {});
+          await player
+              .play(AssetSource('sounds/shutter_click.wav'))
+              .catchError((_) {});
         } on Object catch (e, stack) {
-          AppLogger.e('CameraFeedbackService', 'Failed playing shutter sound', e, stack);
+          AppLogger.e(
+            'CameraFeedbackService',
+            'Failed playing shutter sound',
+            e,
+            stack,
+          );
         }
       }
     }
@@ -77,7 +89,7 @@ class CameraFeedbackService {
   }) async {
     if (playHaptic && _isBindingInitialized()) {
       try {
-        HapticFeedback.selectionClick().catchError((_) {});
+        unawaited(HapticFeedback.selectionClick().catchError((_) {}));
       } on Object catch (_) {}
     }
     if (playSound) {
@@ -85,9 +97,16 @@ class CameraFeedbackService {
       if (player != null) {
         try {
           await player.stop().catchError((_) {});
-          await player.play(AssetSource('sounds/dial_tick.wav')).catchError((_) {});
+          await player
+              .play(AssetSource('sounds/dial_tick.wav'))
+              .catchError((_) {});
         } on Object catch (e, stack) {
-          AppLogger.e('CameraFeedbackService', 'Failed playing dial tick sound', e, stack);
+          AppLogger.e(
+            'CameraFeedbackService',
+            'Failed playing dial tick sound',
+            e,
+            stack,
+          );
         }
       }
     }
@@ -100,7 +119,7 @@ class CameraFeedbackService {
   }) async {
     if (playHaptic && _isBindingInitialized()) {
       try {
-        HapticFeedback.selectionClick().catchError((_) {});
+        unawaited(HapticFeedback.selectionClick().catchError((_) {}));
       } on Object catch (_) {}
     }
     if (playSound) {
@@ -108,9 +127,16 @@ class CameraFeedbackService {
       if (player != null) {
         try {
           await player.stop().catchError((_) {});
-          await player.play(AssetSource('sounds/film_wind.wav')).catchError((_) {});
+          await player
+              .play(AssetSource('sounds/film_wind.wav'))
+              .catchError((_) {});
         } on Object catch (e, stack) {
-          AppLogger.e('CameraFeedbackService', 'Failed playing film wind sound', e, stack);
+          AppLogger.e(
+            'CameraFeedbackService',
+            'Failed playing film wind sound',
+            e,
+            stack,
+          );
         }
       }
     }
@@ -123,7 +149,7 @@ class CameraFeedbackService {
   }) async {
     if (playHaptic && _isBindingInitialized()) {
       try {
-        HapticFeedback.heavyImpact().catchError((_) {});
+        unawaited(HapticFeedback.heavyImpact().catchError((_) {}));
       } on Object catch (_) {}
     }
     if (playSound) {
@@ -131,9 +157,16 @@ class CameraFeedbackService {
       if (player != null) {
         try {
           await player.stop().catchError((_) {});
-          await player.play(AssetSource('sounds/roll_complete.wav')).catchError((_) {});
+          await player
+              .play(AssetSource('sounds/roll_complete.wav'))
+              .catchError((_) {});
         } on Object catch (e, stack) {
-          AppLogger.e('CameraFeedbackService', 'Failed playing roll complete sound', e, stack);
+          AppLogger.e(
+            'CameraFeedbackService',
+            'Failed playing roll complete sound',
+            e,
+            stack,
+          );
         }
       }
     }

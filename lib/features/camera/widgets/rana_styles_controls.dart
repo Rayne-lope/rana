@@ -824,8 +824,9 @@ class _PremiumSliderPainter extends CustomPainter {
         knob,
         thumbRadius * (1.35 + pulseValue * 0.22),
         Paint()
-          ..color = const Color(0xFFF4C44F)
-              .withValues(alpha: 0.18 + pulseValue * 0.08)
+          ..color = const Color(
+            0xFFF4C44F,
+          ).withValues(alpha: 0.18 + pulseValue * 0.08)
           ..maskFilter = ui.MaskFilter.blur(
             ui.BlurStyle.normal,
             6 + pulseValue * 3,
@@ -842,11 +843,7 @@ class _PremiumSliderPainter extends CustomPainter {
       Paint()
         ..shader = const RadialGradient(
           center: Alignment(-0.18, -0.22),
-          colors: [
-            Color(0xFF4C4F56),
-            Color(0xFF282A2F),
-            Color(0xFF121316),
-          ],
+          colors: [Color(0xFF4C4F56), Color(0xFF282A2F), Color(0xFF121316)],
           stops: [0, 0.68, 1],
         ).createShader(knobRect),
     );

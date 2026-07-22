@@ -18,7 +18,7 @@ abstract interface class PresetRepository {
 class AssetPresetRepository implements PresetRepository {
   /// Creates an [AssetPresetRepository] with the given [AssetBundle].
   const AssetPresetRepository({required AssetBundle assetBundle})
-      : _assetBundle = assetBundle;
+    : _assetBundle = assetBundle;
 
   final AssetBundle _assetBundle;
 
@@ -31,8 +31,7 @@ class AssetPresetRepository implements PresetRepository {
 
       final presetKeys = assetKeys
           .where(
-            (key) =>
-                key.startsWith('assets/presets/') && key.endsWith('.json'),
+            (key) => key.startsWith('assets/presets/') && key.endsWith('.json'),
           )
           .toList();
 
@@ -43,10 +42,7 @@ class AssetPresetRepository implements PresetRepository {
           if (decoded is Map<String, dynamic>) {
             presets.add(PresetModel.fromJson(decoded));
           } else {
-            AppLogger.e(
-              'AssetPresetRepository',
-              'JSON at $key is not a map',
-            );
+            AppLogger.e('AssetPresetRepository', 'JSON at $key is not a map');
           }
         } on Object catch (e, stackTrace) {
           AppLogger.e(

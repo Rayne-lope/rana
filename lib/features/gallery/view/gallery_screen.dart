@@ -1559,8 +1559,6 @@ class _GalleryTileState extends State<_GalleryTile> {
             StyledImageView(
               mediaUri: widget.item.contentUri,
               metadata: widget.item.styleMetadata,
-              targetSize: 360,
-              fit: BoxFit.cover,
             ),
             const DecoratedBox(
               decoration: BoxDecoration(

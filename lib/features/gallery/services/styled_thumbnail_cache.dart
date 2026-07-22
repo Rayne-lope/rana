@@ -25,11 +25,14 @@ class StyledThumbnailCache {
     try {
       final tempPath = Directory.systemTemp.path;
       _cacheDir = Directory('$tempPath/rana_styled_thumbnails');
-      if (!await _cacheDir!.exists()) {
-        await _cacheDir!.create(recursive: true);
-      }
-    } catch (e, stack) {
-      AppLogger.e('StyledThumbnailCache', 'Failed to initialize cache directory', e, stack);
+      await _cacheDir!.create(recursive: true);
+    } on FileSystemException catch (e, stack) {
+      AppLogger.e(
+        'StyledThumbnailCache',
+        'Failed to initialize cache directory',
+        e,
+        stack,
+      );
     }
   }
 
@@ -47,14 +50,15 @@ class StyledThumbnailCache {
     if (_cacheDir == null) return null;
 
     final file = File('${_cacheDir!.path}/${_sanitizeKey(cacheKey)}.jpg');
-    if (await file.exists()) {
-      try {
-        final bytes = await file.readAsBytes();
-        _putInMemory(cacheKey, bytes);
-        return bytes;
-      } catch (e) {
-        AppLogger.w('StyledThumbnailCache', 'Failed reading disk cache for key: $cacheKey');
-      }
+    try {
+      final bytes = await file.readAsBytes();
+      _putInMemory(cacheKey, bytes);
+      return bytes;
+    } on FileSystemException {
+      AppLogger.w(
+        'StyledThumbnailCache',
+        'Failed reading disk cache for key: $cacheKey',
+      );
     }
 
     return null;
@@ -70,8 +74,13 @@ class StyledThumbnailCache {
     try {
       final file = File('${_cacheDir!.path}/${_sanitizeKey(cacheKey)}.jpg');
       await file.writeAsBytes(bytes, flush: true);
-    } catch (e, stack) {
-      AppLogger.e('StyledThumbnailCache', 'Failed writing disk cache for key: $cacheKey', e, stack);
+    } on FileSystemException catch (e, stack) {
+      AppLogger.e(
+        'StyledThumbnailCache',
+        'Failed writing disk cache for key: $cacheKey',
+        e,
+        stack,
+      );
     }
   }
 
@@ -92,17 +101,21 @@ class StyledThumbnailCache {
   Future<void> clearAll() async {
     _memoryCache.clear();
     await _ensureInitialized();
-    if (_cacheDir != null && await _cacheDir!.exists()) {
+    if (_cacheDir != null) {
       try {
         await _cacheDir!.delete(recursive: true);
         await _cacheDir!.create(recursive: true);
-      } catch (e, stack) {
-        AppLogger.e('StyledThumbnailCache', 'Failed clearing disk cache directory', e, stack);
+      } on FileSystemException catch (e, stack) {
+        AppLogger.e(
+          'StyledThumbnailCache',
+          'Failed clearing disk cache directory',
+          e,
+          stack,
+        );
       }
     }
   }
 
-  String _sanitizeKey(String key) {
-    return key.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_');
-  }
+  String _sanitizeKey(String key) =>
+      key.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_');
 }

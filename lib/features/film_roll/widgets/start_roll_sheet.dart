@@ -119,7 +119,8 @@ class _StartRollSheetState extends State<StartRollSheet> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Your current recipe stays locked until this roll is finished.',
+                  'Your current recipe stays locked until this roll is '
+                  'finished.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white60,

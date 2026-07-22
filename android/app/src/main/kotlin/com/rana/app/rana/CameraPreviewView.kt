@@ -52,7 +52,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 private const val MAX_PENDING_CAPTURE_PIPELINES = 3
-@OptIn(ExperimentalCamera2Interop::class)
+@androidx.annotation.OptIn(markerClass = [ExperimentalCamera2Interop::class])
 class CameraPreviewView(
     private val context: Context,
     private val activity: MainActivity,
@@ -255,9 +255,11 @@ class CameraPreviewView(
                 val previewBuilder = Preview.Builder()
                     .setTargetRotation(displayRotation)
                     .setResolutionSelector(resolutionSelector)
-                decision.physicalCameraId?.let { physicalCameraId ->
-                    Camera2Interop.Extender(previewBuilder)
-                        .setPhysicalCameraId(physicalCameraId)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    decision.physicalCameraId?.let { physicalCameraId ->
+                        Camera2Interop.Extender(previewBuilder)
+                            .setPhysicalCameraId(physicalCameraId)
+                    }
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     Camera2Interop.Extender(previewBuilder)
@@ -323,9 +325,11 @@ class CameraPreviewView(
                     .setResolutionSelector(resolutionSelector)
                     .setFlashMode(currentFlashMode)
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
-                decision.physicalCameraId?.let { physicalCameraId ->
-                    Camera2Interop.Extender(imageCaptureBuilder)
-                        .setPhysicalCameraId(physicalCameraId)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    decision.physicalCameraId?.let { physicalCameraId ->
+                        Camera2Interop.Extender(imageCaptureBuilder)
+                            .setPhysicalCameraId(physicalCameraId)
+                    }
                 }
                 val imageCaptureUseCase = imageCaptureBuilder.build()
                 imageCapture = imageCaptureUseCase

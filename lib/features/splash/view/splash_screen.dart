@@ -29,28 +29,24 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) => const Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.camera_alt,
-                color: Colors.white,
-                size: 56,
-              ),
-              SizedBox(height: 16),
-              Text(
-                'Rana',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 36,
-                  fontWeight: FontWeight.w300,
-                  letterSpacing: 8,
-                ),
-              ),
-            ],
+    backgroundColor: Colors.black,
+    body: Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.camera_alt, color: Colors.white, size: 56),
+          SizedBox(height: 16),
+          Text(
+            'Rana',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 36,
+              fontWeight: FontWeight.w300,
+              letterSpacing: 8,
+            ),
           ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 }

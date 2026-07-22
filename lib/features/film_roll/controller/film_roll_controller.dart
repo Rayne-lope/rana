@@ -75,7 +75,8 @@ class FilmRollController extends _$FilmRollController {
       if (state.restorationStatus == FilmRollRestorationStatus.failed) {
         return _failure(
           FilmRollActionFailure.restorationFailed,
-          'Film Roll restoration failed. Restart the camera before starting a roll.',
+          'Film Roll restoration failed. Restart the camera before '
+          'starting a roll.',
         );
       }
       if (state.hasActiveRoll) {
@@ -158,7 +159,8 @@ class FilmRollController extends _$FilmRollController {
       return _failure(
         FilmRollActionFailure.recipeUnavailable,
         state.lastActionError ??
-            'The locked Film Roll recipe is unavailable. Recover it before shooting.',
+            'The locked Film Roll recipe is unavailable. Recover it '
+                'before shooting.',
         roll: current,
       );
     }
@@ -174,7 +176,8 @@ class FilmRollController extends _$FilmRollController {
       return _failure(
         FilmRollActionFailure.recoveryRequired,
         state.lastActionError ??
-            'A saved exposure needs recovery before another frame can be taken.',
+            'A saved exposure needs recovery before another frame can '
+                'be taken.',
         roll: current,
       );
     }
@@ -298,7 +301,8 @@ class FilmRollController extends _$FilmRollController {
       return _markPendingRecovery(
         reservation.id,
         pending,
-        'The camera did not return a saved photo URI. Retry recovery before shooting.',
+        'The camera did not return a saved photo URI. Retry recovery '
+        'before shooting.',
       );
     }
 
@@ -317,46 +321,46 @@ class FilmRollController extends _$FilmRollController {
   /// Retries the durable save for an exposure in [recoveryRequired] state.
   ///
   /// If [reservationId] is omitted there must be exactly one failed exposure.
-  Future<FilmRollActionResult> retryPendingSave({
-    String? reservationId,
-  }) => _enqueueLifecycle(() async {
-    final failed = state.pendingExposures.values
-        .where((pending) => pending.needsRecovery)
-        .toList(growable: false);
-    if (failed.isEmpty) {
-      return _failure(
-        FilmRollActionFailure.recoveryRequired,
-        'There is no Film Roll exposure waiting to be retried.',
-        roll: state.activeRoll,
-      );
-    }
+  Future<FilmRollActionResult> retryPendingSave({String? reservationId}) =>
+      _enqueueLifecycle(() async {
+        final failed = state.pendingExposures.values
+            .where((pending) => pending.needsRecovery)
+            .toList(growable: false);
+        if (failed.isEmpty) {
+          return _failure(
+            FilmRollActionFailure.recoveryRequired,
+            'There is no Film Roll exposure waiting to be retried.',
+            roll: state.activeRoll,
+          );
+        }
 
-    final pending = reservationId == null
-        ? (failed.length == 1 ? failed.single : null)
-        : state.pendingExposures[reservationId];
-    if (pending == null || !pending.needsRecovery) {
-      return _failure(
-        FilmRollActionFailure.invalidReservation,
-        'That Film Roll exposure is not available for retry.',
-        roll: state.activeRoll,
-      );
-    }
-    if (pending.captureId == null || pending.mediaUri == null) {
-      return _failure(
-        FilmRollActionFailure.invalidCapture,
-        'The saved capture details are missing. Reopen the camera to reconcile the roll.',
-        roll: state.activeRoll,
-      );
-    }
+        final pending = reservationId == null
+            ? (failed.length == 1 ? failed.single : null)
+            : state.pendingExposures[reservationId];
+        if (pending == null || !pending.needsRecovery) {
+          return _failure(
+            FilmRollActionFailure.invalidReservation,
+            'That Film Roll exposure is not available for retry.',
+            roll: state.activeRoll,
+          );
+        }
+        if (pending.captureId == null || pending.mediaUri == null) {
+          return _failure(
+            FilmRollActionFailure.invalidCapture,
+            'The saved capture details are missing. Reopen the camera to '
+            'reconcile the roll.',
+            roll: state.activeRoll,
+          );
+        }
 
-    _replacePending(
-      pending.copyWith(
-        status: FilmRollPendingExposureStatus.saving,
-        errorMessage: null,
-      ),
-    );
-    return _persistPendingExposure(pending.reservation.id);
-  });
+        _replacePending(
+          pending.copyWith(
+            status: FilmRollPendingExposureStatus.saving,
+            errorMessage: null,
+          ),
+        );
+        return _persistPendingExposure(pending.reservation.id);
+      });
 
   /// Ends the active roll and archives it, even if it is incomplete.
   Future<FilmRollActionResult> endRoll({String? expectedRollId}) async {
@@ -367,7 +371,8 @@ class FilmRollController extends _$FilmRollController {
         _hasPendingFor(current.id)) {
       return _failure(
         FilmRollActionFailure.lifecycleBusy,
-        'Wait for pending Film Roll captures to finish before ending the roll.',
+        'Wait for pending Film Roll captures to finish before ending '
+        'the roll.',
         roll: current,
       );
     }
@@ -388,7 +393,8 @@ class FilmRollController extends _$FilmRollController {
         _hasPendingFor(current.id)) {
       return _failure(
         FilmRollActionFailure.lifecycleBusy,
-        'Wait for the pending Film Roll frame to finish before abandoning the roll.',
+        'Wait for the pending Film Roll frame to finish before '
+        'abandoning the roll.',
         roll: current,
       );
     }
@@ -399,7 +405,8 @@ class FilmRollController extends _$FilmRollController {
       if (_hasPendingFor(roll.id)) {
         return _failure(
           FilmRollActionFailure.lifecycleBusy,
-          'Wait for the pending Film Roll frame to finish before abandoning the roll.',
+          'Wait for the pending Film Roll frame to finish before '
+          'abandoning the roll.',
           roll: roll,
         );
       }
@@ -515,7 +522,8 @@ class FilmRollController extends _$FilmRollController {
       } on Object catch (error, stackTrace) {
         _logError('Failed to reconcile Film Roll metadata', error, stackTrace);
         return _requireReconciliation(
-          'Could not save recovered Film Roll frames. Retry recovery before shooting.',
+          'Could not save recovered Film Roll frames. Retry recovery '
+          'before shooting.',
           roll: roll,
         );
       }
@@ -550,7 +558,8 @@ class FilmRollController extends _$FilmRollController {
       recipeStatus: status,
       lastActionError: status == FilmRollRecipeStatus.unavailable
           ? (message ??
-                'The locked Film Roll recipe is unavailable. Recover it before shooting.')
+                'The locked Film Roll recipe is unavailable. Recover it '
+                    'before shooting.')
           : null,
     );
     if (status == FilmRollRecipeStatus.unavailable) {
@@ -669,7 +678,8 @@ class FilmRollController extends _$FilmRollController {
       return _markPendingRecovery(
         reservationId,
         pending,
-        'This capture would exceed the Film Roll capacity. Recover the roll before shooting.',
+        'This capture would exceed the Film Roll capacity. Recover the '
+        'roll before shooting.',
       );
     }
 
@@ -724,7 +734,8 @@ class FilmRollController extends _$FilmRollController {
       return _markPendingRecovery(
         reservationId,
         pending,
-        'The photo was saved but its Film Roll frame could not be recorded. Retry before shooting again.',
+        'The photo was saved but its Film Roll frame could not be '
+        'recorded. Retry before shooting again.',
       );
     }
   }

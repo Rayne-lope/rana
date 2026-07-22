@@ -1,5 +1,6 @@
 package com.rana.app.rana
 
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.Rect
 import android.content.Context
@@ -8,6 +9,7 @@ import android.hardware.camera2.CameraCharacteristics
 import android.os.Build
 import android.util.Size
 import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
@@ -67,6 +69,8 @@ internal fun estimateZoomQuality(
     )
 }
 
+@SuppressLint("RestrictedApi")
+@androidx.annotation.OptIn(markerClass = [ExperimentalCamera2Interop::class])
 object CameraQualityAudit {
     fun logBackCameraInventory(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return

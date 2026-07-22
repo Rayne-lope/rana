@@ -100,7 +100,7 @@ class _StyleMoodChip extends StatelessWidget {
                         color: const Color(0xFFF39C12).withValues(alpha: 0.28),
                         blurRadius: 4,
                         offset: const Offset(0, 1.5),
-                      )
+                      ),
                     ]
                   : null,
             ),
@@ -124,7 +124,7 @@ class _StyleMoodChip extends StatelessWidget {
                         color: Color(mood.swatchColor).withValues(alpha: 0.4),
                         blurRadius: 2,
                         spreadRadius: 0.5,
-                      )
+                      ),
                     ],
                   ),
                 ),

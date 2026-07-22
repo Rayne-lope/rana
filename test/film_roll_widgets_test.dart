@@ -449,7 +449,7 @@ void main() {
     });
 
     testWidgets(
-      'permits terminal actions when a missing recipe also needs reconciliation',
+      'permits terminal actions for missing recipe and reconciliation',
       (tester) async {
         await tester.pumpWidget(
           host(

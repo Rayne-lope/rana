@@ -71,12 +71,8 @@ class PermissionAccessState {
       other.isChecking == isChecking;
 
   @override
-  int get hashCode => Object.hash(
-    isGranted,
-    isLimited,
-    isPermanentlyDenied,
-    isChecking,
-  );
+  int get hashCode =>
+      Object.hash(isGranted, isLimited, isPermanentlyDenied, isChecking);
 }
 
 PermissionAccessState _stateFromStatus(PermissionStatus status) =>

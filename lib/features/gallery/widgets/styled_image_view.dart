@@ -66,7 +66,9 @@ class _StyledImageViewState extends State<StyledImageView> {
 
     // 1. Check if styled thumbnail is cached
     if (meta != null && !meta.mediaIsRendered) {
-      final cachedBytes = await StyledThumbnailCache.instance.get(meta.cacheKey);
+      final cachedBytes = await StyledThumbnailCache.instance.get(
+        meta.cacheKey,
+      );
       if (cachedBytes != null && mounted) {
         setState(() {
           _imageBytes = cachedBytes;
@@ -111,8 +113,13 @@ class _StyledImageViewState extends State<StyledImageView> {
           _isLoading = false;
         });
       }
-    } catch (e, stack) {
-      AppLogger.e('StyledImageView', 'Failed loading image: ${widget.mediaUri}', e, stack);
+    } on Object catch (e, stack) {
+      AppLogger.e(
+        'StyledImageView',
+        'Failed loading image: ${widget.mediaUri}',
+        e,
+        stack,
+      );
       if (mounted) {
         setState(() {
           _hasError = true;
@@ -161,13 +168,16 @@ class _StyledImageViewState extends State<StyledImageView> {
       canvas.drawRect(Rect.fromLTWH(0, 0, width, height), paint);
 
       final picture = recorder.endRecording();
-      final renderedImage = await picture.toImage(baseImage.width, baseImage.height);
+      final renderedImage = await picture.toImage(
+        baseImage.width,
+        baseImage.height,
+      );
       final byteData = await renderedImage.toByteData(
         format: ui.ImageByteFormat.png,
       );
 
       return byteData?.buffer.asUint8List();
-    } catch (e, stack) {
+    } on Object catch (e, stack) {
       AppLogger.e('StyledImageView', 'Fallback shader render error', e, stack);
       return baseBytes;
     }
@@ -177,9 +187,9 @@ class _StyledImageViewState extends State<StyledImageView> {
   Widget build(BuildContext context) {
     if (_hasError) {
       return widget.errorWidget ??
-          Container(
-            color: const Color(0xFF1E2025),
-            child: const Center(
+          const ColoredBox(
+            color: Color(0xFF1E2025),
+            child: Center(
               child: Icon(Icons.broken_image_rounded, color: Colors.white38),
             ),
           );
@@ -187,9 +197,9 @@ class _StyledImageViewState extends State<StyledImageView> {
 
     if (_isLoading || _imageBytes == null) {
       return widget.placeholder ??
-          Container(
-            color: const Color(0xFF1E2025),
-            child: const Center(
+          const ColoredBox(
+            color: Color(0xFF1E2025),
+            child: Center(
               child: SizedBox(
                 width: 20,
                 height: 20,

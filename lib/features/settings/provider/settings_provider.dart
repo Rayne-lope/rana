@@ -118,7 +118,7 @@ class SoundEffectsController extends AsyncNotifier<bool> {
     return prefs.getBool(_soundEffectsStorageKey) ?? true;
   }
 
-  Future<void> setEnabled(bool enabled) async {
+  Future<void> setEnabled({required bool enabled}) async {
     state = AsyncData(enabled);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_soundEffectsStorageKey, enabled);
@@ -127,8 +127,8 @@ class SoundEffectsController extends AsyncNotifier<bool> {
 
 final soundEffectsEnabledProvider =
     AsyncNotifierProvider<SoundEffectsController, bool>(
-  SoundEffectsController.new,
-);
+      SoundEffectsController.new,
+    );
 
 class HapticFeedbackController extends AsyncNotifier<bool> {
   @override
@@ -137,7 +137,7 @@ class HapticFeedbackController extends AsyncNotifier<bool> {
     return prefs.getBool(_hapticFeedbackStorageKey) ?? true;
   }
 
-  Future<void> setEnabled(bool enabled) async {
+  Future<void> setEnabled({required bool enabled}) async {
     state = AsyncData(enabled);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_hapticFeedbackStorageKey, enabled);
@@ -146,7 +146,5 @@ class HapticFeedbackController extends AsyncNotifier<bool> {
 
 final hapticFeedbackEnabledProvider =
     AsyncNotifierProvider<HapticFeedbackController, bool>(
-  HapticFeedbackController.new,
-);
-
-
+      HapticFeedbackController.new,
+    );

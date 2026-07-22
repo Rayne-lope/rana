@@ -7,10 +7,7 @@ class ColorPreviewCalculator {
   static PresetPreviewColors calculate(PresetModel preset) {
     final shadowColor = _calculateForLightness(preset, 0.25);
     final highlightColor = _calculateForLightness(preset, 0.75);
-    return PresetPreviewColors(
-      shadow: shadowColor,
-      highlight: highlightColor,
-    );
+    return PresetPreviewColors(shadow: shadowColor, highlight: highlightColor);
   }
 
   static Color _calculateForLightness(
@@ -55,10 +52,7 @@ class ColorPreviewCalculator {
 /// Data class to hold calculated preview colors.
 class PresetPreviewColors {
   /// Constructor.
-  const PresetPreviewColors({
-    required this.shadow,
-    required this.highlight,
-  });
+  const PresetPreviewColors({required this.shadow, required this.highlight});
 
   /// Shadow color.
   final Color shadow;

@@ -260,6 +260,9 @@ class _RollInfoSheetState extends State<RollInfoSheet> {
   @override
   Widget build(BuildContext context) {
     final combinedError = _errorMessage ?? widget.actionError;
+    final pendingExposureLabel = widget.pendingExposures == 1
+        ? 'FRAME'
+        : 'FRAMES';
     return SafeArea(
       top: false,
       child: PopScope(
@@ -335,14 +338,15 @@ class _RollInfoSheetState extends State<RollInfoSheet> {
                       key: const ValueKey<String>('roll-processing-notice'),
                       color: const Color(0xFFF4C44F),
                       message:
-                          'PROCESSING ${widget.pendingExposures} ${widget.pendingExposures == 1 ? 'FRAME' : 'FRAMES'}',
+                          'PROCESSING ${widget.pendingExposures} '
+                          '$pendingExposureLabel',
                     ),
                   ],
                   if (_hasSaveRecovery) ...[
                     const SizedBox(height: 14),
-                    _StatusNotice(
-                      key: const ValueKey<String>('roll-save-recovery-notice'),
-                      color: const Color(0xFFE57373),
+                    const _StatusNotice(
+                      key: ValueKey<String>('roll-save-recovery-notice'),
+                      color: Color(0xFFE57373),
                       message: 'A SAVED FRAME NEEDS RECOVERY BEFORE SHOOTING.',
                     ),
                     const SizedBox(height: 8),
@@ -356,13 +360,12 @@ class _RollInfoSheetState extends State<RollInfoSheet> {
                   ],
                   if (_recipeUnavailable) ...[
                     const SizedBox(height: 14),
-                    _StatusNotice(
-                      key: const ValueKey<String>(
-                        'roll-recipe-recovery-notice',
-                      ),
-                      color: const Color(0xFFE57373),
+                    const _StatusNotice(
+                      key: ValueKey<String>('roll-recipe-recovery-notice'),
+                      color: Color(0xFFE57373),
                       message:
-                          'THE LOCKED RECIPE IS UNAVAILABLE. SHOOTING IS PAUSED.',
+                          'THE LOCKED RECIPE IS UNAVAILABLE. '
+                          'SHOOTING IS PAUSED.',
                     ),
                     const SizedBox(height: 8),
                     OutlinedButton(
@@ -379,7 +382,8 @@ class _RollInfoSheetState extends State<RollInfoSheet> {
                       key: ValueKey<String>('roll-reconciliation-notice'),
                       color: Color(0xFFF4C44F),
                       message:
-                          'SAVED FILM ROLL FRAMES ARE BEING RECOVERED BEFORE SHOOTING.',
+                          'SAVED FILM ROLL FRAMES ARE BEING RECOVERED '
+                          'BEFORE SHOOTING.',
                     ),
                     const SizedBox(height: 8),
                     OutlinedButton(

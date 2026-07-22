@@ -301,19 +301,21 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
                                 : Colors.black.withValues(alpha: 0.36),
                             border: Border.all(
                               color: isSelected
-                                  ? const Color(0xFFF4C44F)
-                                      .withValues(alpha: 0.5)
+                                  ? const Color(
+                                      0xFFF4C44F,
+                                    ).withValues(alpha: 0.5)
                                   : Colors.white.withValues(alpha: 0.08),
                               width: 0.8,
                             ),
                             boxShadow: isSelected
                                 ? [
                                     BoxShadow(
-                                      color: const Color(0xFFF39C12)
-                                          .withValues(alpha: 0.28),
+                                      color: const Color(
+                                        0xFFF39C12,
+                                      ).withValues(alpha: 0.28),
                                       blurRadius: 4,
                                       offset: const Offset(0, 1.5),
-                                    )
+                                    ),
                                   ]
                                 : null,
                           ),
@@ -321,7 +323,9 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
                             child: Text(
                               group.name,
                               style: TextStyle(
-                                color: isSelected ? Colors.black : Colors.white70,
+                                color: isSelected
+                                    ? Colors.black
+                                    : Colors.white70,
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 1.2,
@@ -453,7 +457,7 @@ class _PresetSelectorPanelState extends State<PresetSelectorPanel> {
                                           : Colors.white60,
                                       fontSize: 8.5,
                                       fontWeight: FontWeight.w900,
-                                      letterSpacing: 1.0,
+                                      letterSpacing: 1,
                                       fontFamily: 'monospace',
                                       height: 1.1,
                                     ),

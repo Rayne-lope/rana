@@ -22,6 +22,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import androidx.camera.core.CameraSelector
+import androidx.annotation.RequiresApi
 import androidx.core.content.FileProvider
 import android.provider.MediaStore
 import java.io.ByteArrayOutputStream
@@ -1174,15 +1175,13 @@ class MainActivity : FlutterActivity() {
                         result.error("DELETE_MEDIA_FAILED", "MediaStore item was not deleted", null)
                     }
                 }
-            } catch (e: RecoverableSecurityException) {
-                handler.post {
-                    requestDeleteWithIntentSender(
-                        e.userAction.actionIntent.intentSender,
-                        uri,
-                        result
-                    )
-                }
             } catch (e: SecurityException) {
+                if (
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                    requestRecoverableDelete(e, uri, result)
+                ) {
+                    return@execute
+                }
                 handler.post { result.error("PERMISSION_DENIED", e.message, null) }
             } catch (e: Exception) {
                 handler.post { result.error("DELETE_MEDIA_FAILED", e.message, null) }
@@ -1194,6 +1193,24 @@ class MainActivity : FlutterActivity() {
         return contentResolver.delete(uri, null, null) > 0
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun requestRecoverableDelete(
+        error: SecurityException,
+        uri: Uri,
+        result: MethodChannel.Result
+    ): Boolean {
+        if (error !is RecoverableSecurityException) return false
+        handler.post {
+            requestDeleteWithIntentSender(
+                error.userAction.actionIntent.intentSender,
+                uri,
+                result
+            )
+        }
+        return true
+    }
+
+    @RequiresApi(Build.VERSION_CODES.R)
     private fun requestScopedDelete(
         uri: Uri,
         result: MethodChannel.Result

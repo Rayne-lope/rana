@@ -23,14 +23,12 @@ void main() {
     });
 
     test('placeholderPreset path points to a non-empty asset', () async {
-      final bytes =
-          await rootBundle.load(AssetConstants.placeholderPreset);
+      final bytes = await rootBundle.load(AssetConstants.placeholderPreset);
       expect(bytes.lengthInBytes, greaterThan(0));
     });
 
     test('placeholderPreset is valid JSON', () async {
-      final raw =
-          await rootBundle.loadString(AssetConstants.placeholderPreset);
+      final raw = await rootBundle.loadString(AssetConstants.placeholderPreset);
       final dynamic decoded = jsonDecode(raw);
       expect(decoded, isA<Map<String, dynamic>>());
       final map = decoded as Map<String, dynamic>;
@@ -39,20 +37,17 @@ void main() {
     });
 
     test('placeholderOverlay path points to a non-empty asset', () async {
-      final bytes =
-          await rootBundle.load(AssetConstants.placeholderOverlay);
+      final bytes = await rootBundle.load(AssetConstants.placeholderOverlay);
       expect(bytes.lengthInBytes, greaterThan(0));
     });
 
     test('placeholderStamp path points to a non-empty asset', () async {
-      final bytes =
-          await rootBundle.load(AssetConstants.placeholderStamp);
+      final bytes = await rootBundle.load(AssetConstants.placeholderStamp);
       expect(bytes.lengthInBytes, greaterThan(0));
     });
 
     test('placeholderIcon path points to a non-empty asset', () async {
-      final bytes =
-          await rootBundle.load(AssetConstants.placeholderIcon);
+      final bytes = await rootBundle.load(AssetConstants.placeholderIcon);
       expect(bytes.lengthInBytes, greaterThan(0));
     });
   });

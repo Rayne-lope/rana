@@ -394,10 +394,11 @@ class CameraPlatformService {
   ) async {
     if (uris.isEmpty) return const <String, CaptureStyleMetadata>{};
     try {
-      final result = await _methodChannel.invokeListMethod<Map<dynamic, dynamic>>(
-        'getCaptureStyleMetadataBatch',
-        {'uris': uris},
-      );
+      final result = await _methodChannel
+          .invokeListMethod<Map<dynamic, dynamic>>(
+            'getCaptureStyleMetadataBatch',
+            {'uris': uris},
+          );
       final map = <String, CaptureStyleMetadata>{};
       if (result != null) {
         for (final item in result) {

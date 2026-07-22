@@ -33,18 +33,15 @@ Future<void> main() async {
 
   // Setup layout build error boundary
   ErrorWidget.builder = (details) => GlobalErrorScreen(
-        error: details.exception,
-        stackTrace: details.stack ?? StackTrace.empty,
-        onReset: () {
-          container.read(globalErrorControllerProvider.notifier).clearError();
-        },
-      );
+    error: details.exception,
+    stackTrace: details.stack ?? StackTrace.empty,
+    onReset: () {
+      container.read(globalErrorControllerProvider.notifier).clearError();
+    },
+  );
 
   runApp(
-    UncontrolledProviderScope(
-      container: container,
-      child: const RanaApp(),
-    ),
+    UncontrolledProviderScope(container: container, child: const RanaApp()),
   );
 }
 

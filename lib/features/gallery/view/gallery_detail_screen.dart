@@ -182,17 +182,17 @@ class _ZoomableGalleryImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => InteractiveViewer(
-        minScale: 1,
-        maxScale: 5,
-        child: Center(
-          child: StyledImageView(
-            mediaUri: item.contentUri,
-            metadata: item.styleMetadata,
-            targetSize: 1080,
-            fit: BoxFit.contain,
-          ),
-        ),
-      );
+    minScale: 1,
+    maxScale: 5,
+    child: Center(
+      child: StyledImageView(
+        mediaUri: item.contentUri,
+        metadata: item.styleMetadata,
+        targetSize: 1080,
+        fit: BoxFit.contain,
+      ),
+    ),
+  );
 }
 
 class _GalleryMetadataPanel extends StatelessWidget {

@@ -10,24 +10,20 @@ void main() {
         id: 'normal',
         name: 'Normal',
         category: 'Classic',
-        color: PresetColor(
-          temperature: 0,
-          contrast: 0,
-          saturation: 0,
-        ),
+        color: PresetColor(temperature: 0, contrast: 0, saturation: 0),
         grain: PresetGrain(intensity: 0),
         vignette: PresetVignette(intensity: 0),
       );
 
       final result = ColorPreviewCalculator.calculate(normalPreset);
-      
+
       // Normal preset should have completely desaturated grey colors
       expect(result.shadow.r, equals(result.shadow.g));
       expect(result.shadow.r, equals(result.shadow.b));
 
       expect(result.highlight.r, equals(result.highlight.g));
       expect(result.highlight.r, equals(result.highlight.b));
-      
+
       // Highlight should be lighter than shadow
       final shadowHSL = HSLColor.fromColor(result.shadow);
       final highlightHSL = HSLColor.fromColor(result.highlight);
@@ -39,11 +35,7 @@ void main() {
         id: 'rana_warm',
         name: 'Rana Warm',
         category: 'Classic',
-        color: PresetColor(
-          temperature: 0.3,
-          contrast: 0,
-          saturation: 0.1,
-        ),
+        color: PresetColor(temperature: 0.3, contrast: 0, saturation: 0.1),
         grain: PresetGrain(intensity: 0.1),
         vignette: PresetVignette(intensity: 0.05),
       );
@@ -66,11 +58,7 @@ void main() {
         id: 'rana_cool',
         name: 'Rana Cool',
         category: 'Classic',
-        color: PresetColor(
-          temperature: -0.3,
-          contrast: 0,
-          saturation: 0.05,
-        ),
+        color: PresetColor(temperature: -0.3, contrast: 0, saturation: 0.05),
         grain: PresetGrain(intensity: 0),
         vignette: PresetVignette(intensity: 0),
       );
@@ -92,17 +80,13 @@ void main() {
         id: 'rana_mono',
         name: 'Rana Mono',
         category: 'Classic',
-        color: PresetColor(
-          temperature: 0,
-          contrast: 0.1,
-          saturation: -1,
-        ),
+        color: PresetColor(temperature: 0, contrast: 0.1, saturation: -1),
         grain: PresetGrain(intensity: 0),
         vignette: PresetVignette(intensity: 0),
       );
 
       final result = ColorPreviewCalculator.calculate(monoPreset);
-      
+
       // Mono should have completely desaturated grey colors
       expect(result.shadow.r, equals(result.shadow.g));
       expect(result.shadow.r, equals(result.shadow.b));

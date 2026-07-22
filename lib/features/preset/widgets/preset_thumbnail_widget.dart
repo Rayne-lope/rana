@@ -58,7 +58,8 @@ class PresetThumbnailWidget extends StatelessWidget {
           paddingVal * 0.8,
         ),
         decoration: BoxDecoration(
-          color: preset.effects.filmBorder.style == FilmBorderStyle.kodak ||
+          color:
+              preset.effects.filmBorder.style == FilmBorderStyle.kodak ||
                   preset.effects.filmBorder.style ==
                       FilmBorderStyle.thirtyFiveMm
               ? const Color(0xFF16161A) // Black film border color
@@ -68,10 +69,10 @@ class PresetThumbnailWidget extends StatelessWidget {
             color: isSelected
                 ? const Color(0xFFF39C12)
                 : (preset.effects.filmBorder.style == FilmBorderStyle.kodak ||
-                        preset.effects.filmBorder.style ==
-                            FilmBorderStyle.thirtyFiveMm
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.black.withValues(alpha: 0.06)),
+                          preset.effects.filmBorder.style ==
+                              FilmBorderStyle.thirtyFiveMm
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.black.withValues(alpha: 0.06)),
             width: isSelected ? 1.5 : 0.5,
           ),
           boxShadow: [

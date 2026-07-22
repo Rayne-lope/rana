@@ -9,11 +9,7 @@ void main() {
     id: 'test_preset',
     name: 'Test Preset',
     category: 'Test Category',
-    color: PresetColor(
-      temperature: 0.1,
-      contrast: 0.2,
-      saturation: 0.3,
-    ),
+    color: PresetColor(temperature: 0.1, contrast: 0.2, saturation: 0.3),
     grain: PresetGrain(intensity: 0.4),
     vignette: PresetVignette(intensity: 0.5),
   );
@@ -25,10 +21,7 @@ void main() {
           home: Scaffold(
             body: Align(
               alignment: Alignment.topLeft,
-              child: PresetThumbnailWidget(
-                preset: testPreset,
-                size: 24,
-              ),
+              child: PresetThumbnailWidget(preset: testPreset, size: 24),
             ),
           ),
         ),
@@ -48,10 +41,9 @@ void main() {
       expect(customPaint.painter, isA<PresetIllustrationPainter>());
 
       // Find the card container inside
-      final containerFinder = find.descendant(
-        of: widgetFinder,
-        matching: find.byType(Container),
-      ).first;
+      final containerFinder = find
+          .descendant(of: widgetFinder, matching: find.byType(Container))
+          .first;
       final size = tester.getSize(containerFinder);
       expect(size.width, equals(24));
       expect(size.height, equals(24 * 1.35));

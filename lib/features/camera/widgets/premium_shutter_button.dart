@@ -158,8 +158,8 @@ class _PremiumShutterButtonState extends State<PremiumShutterButton>
 
   @override
   Widget build(BuildContext context) {
-    final double scale = _isPressing ? 0.965 : 1;
-    final double translate = _isPressing ? 3 : 0;
+    final scale = _isPressing ? 0.965 : 1.0;
+    final translate = _isPressing ? 3.0 : 0.0;
     final wrapSize = widget.size * 1.38;
 
     return Semantics(
@@ -189,7 +189,7 @@ class _PremiumShutterButtonState extends State<PremiumShutterButton>
             final diffX = event.position.dx - _pressPointer!.x;
             final diffY = event.position.dy - _pressPointer!.y;
             final dist = math.sqrt(diffX * diffX + diffY * diffY);
-            // If the finger moves too far away from the button, cancel the press
+            // Cancel the press if the finger moves too far from the button.
             if (dist > widget.size * 1.2) {
               _pressPointer = null;
               _handlePressCancel();

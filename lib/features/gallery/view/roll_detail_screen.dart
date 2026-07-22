@@ -795,8 +795,6 @@ class _RollFrameTileState extends State<_RollFrameTile> {
               StyledImageView(
                 mediaUri: widget.item.contentUri,
                 metadata: widget.item.styleMetadata,
-                targetSize: 360,
-                fit: BoxFit.cover,
               ),
               const DecoratedBox(
                 decoration: BoxDecoration(

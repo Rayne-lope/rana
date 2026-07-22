@@ -50,22 +50,19 @@ class GalleryMediaItem {
   final String? relativePath;
   final CaptureStyleMetadata? styleMetadata;
 
-  GalleryMediaItem copyWith({
-    CaptureStyleMetadata? styleMetadata,
-  }) {
-    return GalleryMediaItem(
-      id: id,
-      contentUri: contentUri,
-      displayName: displayName,
-      dateTaken: dateTaken,
-      width: width,
-      height: height,
-      mimeType: mimeType,
-      sizeBytes: sizeBytes,
-      relativePath: relativePath,
-      styleMetadata: styleMetadata ?? this.styleMetadata,
-    );
-  }
+  GalleryMediaItem copyWith({CaptureStyleMetadata? styleMetadata}) =>
+      GalleryMediaItem(
+        id: id,
+        contentUri: contentUri,
+        displayName: displayName,
+        dateTaken: dateTaken,
+        width: width,
+        height: height,
+        mimeType: mimeType,
+        sizeBytes: sizeBytes,
+        relativePath: relativePath,
+        styleMetadata: styleMetadata ?? this.styleMetadata,
+      );
 
   String get captureStamp {
     final day = dateTaken.day.toString().padLeft(2, '0');
