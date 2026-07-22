@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:rana/features/preset/model/capture_style_metadata.dart';
 
 /// Metadata for a photo entry loaded from Android MediaStore.
 @immutable
@@ -13,6 +14,7 @@ class GalleryMediaItem {
     required this.mimeType,
     required this.sizeBytes,
     required this.relativePath,
+    this.styleMetadata,
   });
 
   factory GalleryMediaItem.fromMap(Map<String, dynamic> json) {
@@ -46,6 +48,24 @@ class GalleryMediaItem {
   final String? mimeType;
   final int? sizeBytes;
   final String? relativePath;
+  final CaptureStyleMetadata? styleMetadata;
+
+  GalleryMediaItem copyWith({
+    CaptureStyleMetadata? styleMetadata,
+  }) {
+    return GalleryMediaItem(
+      id: id,
+      contentUri: contentUri,
+      displayName: displayName,
+      dateTaken: dateTaken,
+      width: width,
+      height: height,
+      mimeType: mimeType,
+      sizeBytes: sizeBytes,
+      relativePath: relativePath,
+      styleMetadata: styleMetadata ?? this.styleMetadata,
+    );
+  }
 
   String get captureStamp {
     final day = dateTaken.day.toString().padLeft(2, '0');

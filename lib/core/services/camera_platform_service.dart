@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:rana/core/utils/app_logger.dart';
+import 'package:rana/features/preset/model/capture_style_metadata.dart';
 
 /// A successful native capture durably associated with a Film Roll.
 class FilmRollCaptureRecord {
@@ -364,6 +365,57 @@ class CameraPlatformService {
         stack,
       );
       rethrow;
+    }
+  }
+
+  /// Loads saved capture style metadata for a single media URI.
+  Future<CaptureStyleMetadata?> getCaptureStyleMetadata(String uri) async {
+    try {
+      final result = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>(
+        'getCaptureStyleMetadata',
+        {'uri': uri},
+      );
+      if (result == null) return null;
+      return CaptureStyleMetadata.fromMap(result);
+    } on PlatformException catch (e, stack) {
+      AppLogger.e(
+        'CameraPlatformService',
+        'Failed to load capture style metadata for: $uri',
+        e,
+        stack,
+      );
+      return null;
+    }
+  }
+
+  /// Loads saved capture style metadata in batch for multiple media URIs.
+  Future<Map<String, CaptureStyleMetadata>> getCaptureStyleMetadataBatch(
+    List<String> uris,
+  ) async {
+    if (uris.isEmpty) return const <String, CaptureStyleMetadata>{};
+    try {
+      final result = await _methodChannel.invokeListMethod<Map<dynamic, dynamic>>(
+        'getCaptureStyleMetadataBatch',
+        {'uris': uris},
+      );
+      final map = <String, CaptureStyleMetadata>{};
+      if (result != null) {
+        for (final item in result) {
+          final metadata = CaptureStyleMetadata.fromMap(item);
+          if (metadata.mediaUri.isNotEmpty) {
+            map[metadata.mediaUri] = metadata;
+          }
+        }
+      }
+      return map;
+    } on PlatformException catch (e, stack) {
+      AppLogger.e(
+        'CameraPlatformService',
+        'Failed to load capture style metadata batch',
+        e,
+        stack,
+      );
+      return const <String, CaptureStyleMetadata>{};
     }
   }
 }

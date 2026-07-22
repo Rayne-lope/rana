@@ -14,6 +14,7 @@ import 'package:rana/features/gallery/model/gallery_film_roll.dart';
 import 'package:rana/features/gallery/model/gallery_media_item.dart';
 import 'package:rana/features/gallery/state/gallery_state.dart';
 import 'package:rana/features/gallery/view/gallery_detail_screen.dart';
+import 'package:rana/features/gallery/widgets/styled_image_view.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 
 /// Gallery screen that reads Rana photos from Android MediaStore.
@@ -1537,15 +1538,6 @@ class _GalleryTile extends StatefulWidget {
 }
 
 class _GalleryTileState extends State<_GalleryTile> {
-  late final Future<Uint8List> _thumbnailFuture;
-  final MediaStoreService _service = MediaStoreService();
-
-  @override
-  void initState() {
-    super.initState();
-    _thumbnailFuture = _service.loadThumbnailBytes(widget.item.contentUri);
-  }
-
   @override
   Widget build(BuildContext context) => GestureDetector(
     onTap: widget.onTap,
@@ -1564,31 +1556,11 @@ class _GalleryTileState extends State<_GalleryTile> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            FutureBuilder<Uint8List>(
-              future: _thumbnailFuture,
-              builder: (context, snapshot) {
-                final bytes = snapshot.data;
-                if (snapshot.connectionState != ConnectionState.done ||
-                    bytes == null ||
-                    bytes.isEmpty) {
-                  return const ColoredBox(
-                    color: Color(0xFF1B1B20),
-                    child: Center(
-                      child: Icon(
-                        Icons.image_outlined,
-                        color: Colors.white24,
-                        size: 28,
-                      ),
-                    ),
-                  );
-                }
-
-                return Image.memory(
-                  bytes,
-                  fit: BoxFit.cover,
-                  gaplessPlayback: true,
-                );
-              },
+            StyledImageView(
+              mediaUri: widget.item.contentUri,
+              metadata: widget.item.styleMetadata,
+              targetSize: 360,
+              fit: BoxFit.cover,
             ),
             const DecoratedBox(
               decoration: BoxDecoration(

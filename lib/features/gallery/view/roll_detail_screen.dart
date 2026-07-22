@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rana/core/providers/preset_provider.dart';
 import 'package:rana/core/router/app_router.dart';
-import 'package:rana/core/services/media_store_service.dart';
 import 'package:rana/features/film_roll/model/film_roll.dart';
 import 'package:rana/features/film_roll/widgets/contact_sheet_export.dart';
 import 'package:rana/features/gallery/controller/gallery_controller.dart';
@@ -14,6 +12,7 @@ import 'package:rana/features/gallery/model/gallery_film_roll.dart';
 import 'package:rana/features/gallery/model/gallery_media_item.dart';
 import 'package:rana/features/gallery/state/gallery_state.dart';
 import 'package:rana/features/gallery/view/gallery_detail_screen.dart';
+import 'package:rana/features/gallery/widgets/styled_image_view.dart';
 import 'package:rana/features/preset/model/preset_model.dart';
 
 /// Chronological Gallery view for the captures belonging to one Film Roll.
@@ -775,17 +774,6 @@ class _RollFrameTile extends StatefulWidget {
 }
 
 class _RollFrameTileState extends State<_RollFrameTile> {
-  final MediaStoreService _mediaStoreService = MediaStoreService();
-  late final Future<Uint8List> _thumbnailFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _thumbnailFuture = _mediaStoreService.loadThumbnailBytes(
-      widget.item.contentUri,
-    );
-  }
-
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
@@ -804,31 +792,11 @@ class _RollFrameTileState extends State<_RollFrameTile> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              FutureBuilder<Uint8List>(
-                future: _thumbnailFuture,
-                builder: (context, snapshot) {
-                  final bytes = snapshot.data;
-                  if (snapshot.connectionState != ConnectionState.done ||
-                      bytes == null ||
-                      bytes.isEmpty) {
-                    return const ColoredBox(
-                      color: Color(0xFF1B1B20),
-                      child: Center(
-                        child: Icon(
-                          Icons.image_outlined,
-                          color: Colors.white24,
-                          size: 28,
-                        ),
-                      ),
-                    );
-                  }
-
-                  return Image.memory(
-                    bytes,
-                    fit: BoxFit.cover,
-                    gaplessPlayback: true,
-                  );
-                },
+              StyledImageView(
+                mediaUri: widget.item.contentUri,
+                metadata: widget.item.styleMetadata,
+                targetSize: 360,
+                fit: BoxFit.cover,
               ),
               const DecoratedBox(
                 decoration: BoxDecoration(

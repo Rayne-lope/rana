@@ -107,7 +107,18 @@ class GalleryController extends _$GalleryController {
         _galleryReloadRequested = true;
         return;
       }
-      final sortedItems = List<GalleryMediaItem>.from(items)
+      final uris = items
+          .map((i) => i.contentUri)
+          .where((u) => u.isNotEmpty)
+          .toList(growable: false);
+      final styleMetaMap =
+          await _cameraPlatformService.getCaptureStyleMetadataBatch(uris);
+      final sortedItems = items
+          .map((item) {
+            final meta = styleMetaMap[item.contentUri];
+            return meta != null ? item.copyWith(styleMetadata: meta) : item;
+          })
+          .toList()
         ..sort((a, b) => b.dateTaken.compareTo(a.dateTaken));
       final rebuiltRolls = state.rollsStatus == GalleryRollLoadStatus.initial
           ? state.rolls

@@ -16,7 +16,22 @@ internal data class CaptureStyleMetadata(
     val createdAtEpochMs: Long,
     val updatedAtEpochMs: Long = createdAtEpochMs,
     val filmRollId: String? = null
-)
+) {
+    fun toChannelMap(): Map<String, Any?> {
+        return mapOf(
+            "mediaUri" to mediaUri,
+            "sourceImagePath" to sourceImagePath,
+            "mediaIsRendered" to mediaIsRendered,
+            "presetId" to presetId,
+            "undertoneX" to undertoneX,
+            "undertoneY" to undertoneY,
+            "params" to params,
+            "createdAtEpochMs" to createdAtEpochMs,
+            "updatedAtEpochMs" to updatedAtEpochMs,
+            "filmRollId" to filmRollId
+        )
+    }
+}
 
 /**
  * The minimal, read-only capture metadata needed to reconcile an active Film
@@ -342,6 +357,11 @@ internal class CaptureStyleMetadataStore(context: Context) : SQLiteOpenHelper(
         }
 
         return core.copy(params = params)
+    }
+
+    fun findBatch(mediaUris: List<String>): List<CaptureStyleMetadata> {
+        if (mediaUris.isEmpty()) return emptyList()
+        return mediaUris.mapNotNull { find(it) }
     }
 
     fun listAll(): List<CaptureStyleMetadata> {

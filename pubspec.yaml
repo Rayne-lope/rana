@@ -39,3 +39,6 @@ flutter:
     - assets/icons/
     - assets/luts/
     - assets/textures/
+
+  shaders:
+    - assets/shaders/rana_preset_filter.frag

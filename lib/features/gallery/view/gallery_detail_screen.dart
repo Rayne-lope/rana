@@ -1,11 +1,10 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rana/core/services/camera_platform_service.dart';
 import 'package:rana/features/gallery/controller/gallery_controller.dart';
 import 'package:rana/features/gallery/model/gallery_media_item.dart';
+import 'package:rana/features/gallery/widgets/styled_image_view.dart';
 
 class GalleryDetailScreen extends ConsumerStatefulWidget {
   const GalleryDetailScreen({
@@ -23,9 +22,6 @@ class GalleryDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _GalleryDetailScreenState extends ConsumerState<GalleryDetailScreen> {
-  final CameraPlatformService _cameraService = CameraPlatformService();
-  final Map<String, Future<Uint8List>> _imageFutures = {};
-
   late final PageController _pageController;
   late List<GalleryMediaItem> _items;
   late int _currentIndex;
@@ -94,9 +90,7 @@ class _GalleryDetailScreenState extends ConsumerState<GalleryDetailScreen> {
             onPageChanged: (index) => setState(() => _currentIndex = index),
             itemBuilder: (context, index) {
               final pageItem = _items[index];
-              return _ZoomableGalleryImage(
-                future: _imageFutureFor(pageItem.contentUri),
-              );
+              return _ZoomableGalleryImage(item: pageItem);
             },
           ),
           Positioned(
@@ -109,11 +103,6 @@ class _GalleryDetailScreenState extends ConsumerState<GalleryDetailScreen> {
       ),
     );
   }
-
-  Future<Uint8List> _imageFutureFor(String uri) => _imageFutures.putIfAbsent(
-    uri,
-    () => _cameraService.loadCapturedImageBytes(uri),
-  );
 
   Future<void> _share(GalleryMediaItem item) async {
     try {
@@ -166,10 +155,6 @@ class _GalleryDetailScreenState extends ConsumerState<GalleryDetailScreen> {
       _items.removeWhere(
         (candidate) => candidate.contentUri == item.contentUri,
       );
-      final removedFuture = _imageFutures.remove(item.contentUri);
-      if (removedFuture != null) {
-        unawaited(removedFuture);
-      }
 
       if (!mounted) return;
       if (_items.isEmpty) {
@@ -191,38 +176,23 @@ class _GalleryDetailScreenState extends ConsumerState<GalleryDetailScreen> {
 }
 
 class _ZoomableGalleryImage extends StatelessWidget {
-  const _ZoomableGalleryImage({required this.future});
+  const _ZoomableGalleryImage({required this.item});
 
-  final Future<Uint8List> future;
+  final GalleryMediaItem item;
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<Uint8List>(
-    future: future,
-    builder: (context, snapshot) {
-      final bytes = snapshot.data;
-      if (snapshot.connectionState != ConnectionState.done ||
-          bytes == null ||
-          bytes.isEmpty) {
-        return const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF39C12)),
-          ),
-        );
-      }
-
-      return InteractiveViewer(
+  Widget build(BuildContext context) => InteractiveViewer(
         minScale: 1,
         maxScale: 5,
         child: Center(
-          child: Image.memory(
-            bytes,
+          child: StyledImageView(
+            mediaUri: item.contentUri,
+            metadata: item.styleMetadata,
+            targetSize: 1080,
             fit: BoxFit.contain,
-            gaplessPlayback: true,
           ),
         ),
       );
-    },
-  );
 }
 
 class _GalleryMetadataPanel extends StatelessWidget {

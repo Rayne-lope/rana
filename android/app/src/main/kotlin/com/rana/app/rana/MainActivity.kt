@@ -293,6 +293,45 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                 }
+                "getCaptureStyleMetadata" -> {
+                    val uriArg = call.argument<String>("uri")
+                    if (uriArg.isNullOrBlank()) {
+                        result.error("INVALID_URI", "Image URI is required", null)
+                    } else {
+                        mediaStoreExecutor.execute {
+                            try {
+                                val metadata = captureStyleMetadataStore.find(uriArg)
+                                handler.post { result.success(metadata?.toChannelMap()) }
+                            } catch (e: Exception) {
+                                handler.post {
+                                    result.error(
+                                        "GET_METADATA_FAILED",
+                                        e.message,
+                                        null
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                "getCaptureStyleMetadataBatch" -> {
+                    val urisArg = call.argument<List<String>>("uris") ?: emptyList()
+                    mediaStoreExecutor.execute {
+                        try {
+                            val list = captureStyleMetadataStore.findBatch(urisArg)
+                                .map { it.toChannelMap() }
+                            handler.post { result.success(list) }
+                        } catch (e: Exception) {
+                            handler.post {
+                                result.error(
+                                    "GET_METADATA_BATCH_FAILED",
+                                    e.message,
+                                    null
+                                )
+                            }
+                        }
+                    }
+                }
                 "loadGalleryThumbnailBytes" -> {
                     val uriArg = call.argument<String>("uri")
                     val targetSize = (call.argument<Number>("targetSize"))
