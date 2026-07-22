@@ -22,6 +22,8 @@ android/captures/
 **/GeneratedPluginRegistrant.java
 **/GeneratedPluginRegistrant.kt
 android/key.properties
+android/keystore.properties
+keystore.properties
 **/*.keystore
 **/*.jks
 

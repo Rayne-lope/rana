@@ -6,7 +6,7 @@ part of 'camera_controller.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$cameraControllerHash() => r'3b933757169a1a59c9eb7ce452e262334c911115';
+String _$cameraControllerHash() => r'02773f5d8eded16712614d3da145f50ced99f8b6';
 
 /// UI-facing camera facade. Stateful workflows live in composed helpers.
 ///

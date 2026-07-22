@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -5,9 +7,39 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val keystoreProperties = Properties().apply {
+    val propertiesFile = rootProject.file("keystore.properties")
+    if (propertiesFile.exists()) propertiesFile.inputStream().use(::load)
+}
+fun signingValue(property: String, environment: String): String? =
+    keystoreProperties.getProperty(property)?.takeIf(String::isNotBlank)
+        ?: System.getenv(environment)?.takeIf(String::isNotBlank)
+
+val releaseStoreFile = signingValue("storeFile", "RANA_KEYSTORE_PATH")
+val releaseStorePassword = signingValue("storePassword", "RANA_KEYSTORE_PASSWORD")
+val releaseKeyAlias = signingValue("keyAlias", "RANA_KEY_ALIAS")
+val releaseKeyPassword = signingValue("keyPassword", "RANA_KEY_PASSWORD")
+val releaseSigningComplete = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { it != null }
+val releaseTaskRequested = gradle.startParameter.taskNames.any {
+    it.contains("release", ignoreCase = true)
+}
+
+if (releaseTaskRequested && !releaseSigningComplete) {
+    throw GradleException(
+        "Rana release signing is not configured. Provide android/keystore.properties " +
+            "or RANA_KEYSTORE_PATH, RANA_KEYSTORE_PASSWORD, RANA_KEY_ALIAS, " +
+            "and RANA_KEY_PASSWORD. See docs/release-checklist.md."
+    )
+}
+
 android {
     namespace = "com.rana.app.rana"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -20,21 +52,27 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.rana.app.rana"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 24
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            if (releaseSigningComplete) {
+                storeFile = rootProject.file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

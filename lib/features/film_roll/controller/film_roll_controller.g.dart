@@ -7,16 +7,13 @@ part of 'film_roll_controller.dart';
 // **************************************************************************
 
 String _$filmRollControllerHash() =>
-    r'919204dc7baaa12bf98b2453005575a0b60f1b36';
+    r'e2678e5905338d62980d4ceaddf0e0e414f5efc3';
 
 /// Controller for the Film Roll feature.
 ///
-/// Key rules enforced here:
-///  - Only one active roll at a time ([startRoll] is a no-op if one exists).
-///  - [recordExposure] must only be called from the camera controller's
-///    `_handleCaptureCompleted` — never on shutter press.
-///  - [abandonRoll] removes the roll record; already-saved photos stay in
-///    Gallery.
+/// All durable lifecycle actions use one queue. A native capture reservation is
+/// added synchronously to make capacity atomic on the Flutter isolate, then it
+/// remains capacity-consuming until its saved exposure is durably persisted.
 ///
 /// Copied from [FilmRollController].
 @ProviderFor(FilmRollController)
